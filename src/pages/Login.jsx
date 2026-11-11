@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, Navigate, useLocation, useNavigate } from "react-router";
+import { useAuth } from "../auth/useAuth.js";
 import AuthLayout from "../components/auth/AuthLayout.jsx";
 import InfoPanel from "../components/auth/InfoPanel.jsx";
 import TextInput from "../components/auth/TextInput.jsx";
@@ -19,12 +20,16 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user, isReady, login } = useAuth();
 
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
     setErrors((err) => ({ ...err, [name]: undefined }));
+    setFormError("");
   }
 
   async function handleSubmit(e) {
@@ -34,14 +39,27 @@ export default function Login() {
     if (Object.keys(found).length > 0) return;
 
     setSubmitting(true);
+    setFormError("");
     try {
-      // TODO: call the Spring Boot login endpoint here and check the credentials.
-      // For now, any email and password that pass the form checks go straight in.
-      navigate("/dashboard", { replace: true, state: { fromLogin: true } });
+      await login(form.email, form.password);
+      // Go back to the page the user tried to open, or to the dashboard
+      const to = location.state?.from || "/dashboard";
+      navigate(to, { replace: true, state: { fromLogin: true } });
+    } catch (err) {
+      if (err.status === 401) setFormError("Incorrect email or password.");
+      else if (err.status === 0)
+        setFormError(
+          "Can't reach the server. Check that the backend is running.",
+        );
+      else
+        setFormError(err.message || "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
+
+  // Already logged in (e.g. opened /login in a new tab): skip the form
+  if (isReady && user) return <Navigate to="/dashboard" replace />;
 
   return (
     <AuthLayout
@@ -54,6 +72,15 @@ export default function Login() {
       }
     >
       <h1 className="text-center text-3xl font-bold text-gray-900">Sign In</h1>
+
+      {formError && (
+        <p
+          role="alert"
+          className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-center text-sm text-red-700 ring-1 ring-red-200"
+        >
+          {formError}
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} noValidate className="mt-8 space-y-3">
         <TextInput

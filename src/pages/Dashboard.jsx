@@ -3,6 +3,7 @@ import { useLocation } from "react-router";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import WelcomeIntro from "../components/layout/WelcomeIntro.jsx";
 import RecentLeads from "../components/dashboard/RecentLeads.jsx";
+import { useAuth } from "../auth/useAuth.js";
 
 // Sample numbers so the page has something to show.
 // Replace these with data from the Spring Boot API later.
@@ -17,6 +18,8 @@ export default function Dashboard() {
   // The intro plays only when coming from the login page, not when clicking
   // "Dashboard" in the sidebar.
   const location = useLocation();
+  const { user } = useAuth();
+  const firstName = user?.name?.split(" ")[0];
   const [showIntro, setShowIntro] = useState(
     Boolean(location.state?.fromLogin),
   );
@@ -26,7 +29,10 @@ export default function Dashboard() {
     <>
       {showIntro && <WelcomeIntro onDone={hideIntro} />}
       <DashboardLayout title="Dashboard">
-        <p className="text-sm text-gray-600">Here's what's happening today.</p>
+        <p className="text-sm text-gray-600">
+          {firstName ? `Welcome back, ${firstName}. ` : ""}Here's what's
+          happening today.
+        </p>
 
         {/* Stat cards */}
         <section className="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">

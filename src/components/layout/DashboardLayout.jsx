@@ -10,15 +10,19 @@ import {
   Settings,
   ShoppingCart,
   Target,
+  UserCog,
   Users,
 } from "lucide-react";
+import { useAuth } from "../../auth/useAuth.js";
 
 // Shared frame for every page after login: collapsible sidebar, top bar, page content.
+// adminOnly items are hidden for vendor accounts (the backend allows those endpoints to admins only)
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/customers", label: "Customers", icon: Users },
-  { to: "/leads", label: "Leads", icon: Target },
+  { to: "/leads", label: "Leads", icon: Target, adminOnly: true },
   { to: "/orders", label: "Orders", icon: ShoppingCart },
+  { to: "/users", label: "Team", icon: UserCog, adminOnly: true },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -34,6 +38,8 @@ const STORAGE_KEY = "crm-sidebar-collapsed";
 
 export default function DashboardLayout({ title, children }) {
   const navigate = useNavigate();
+  const { user, isAdmin, logout } = useAuth();
+  const visibleNav = navItems.filter((item) => !item.adminOnly || isAdmin);
 
   // Remember whether the sidebar was collapsed, so it stays that way between pages and visits.
   const [collapsed, setCollapsed] = useState(() => {
@@ -52,8 +58,8 @@ export default function DashboardLayout({ title, children }) {
     }
   }, [collapsed]);
 
-  function handleLogout() {
-    // TODO: clear the login token here once real authentication is added.
+  async function handleLogout() {
+    await logout();
     navigate("/login", { replace: true });
   }
 
@@ -90,7 +96,7 @@ export default function DashboardLayout({ title, children }) {
 
         {/* Menu */}
         <nav className="flex-1 space-y-1 px-3">
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {visibleNav.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -112,8 +118,17 @@ export default function DashboardLayout({ title, children }) {
           ))}
         </nav>
 
-        {/* Log out */}
+        {/* Signed-in user + log out */}
         <div className="p-3">
+          {user && !collapsed && (
+            <div className="mb-2 rounded-xl bg-white/10 px-4 py-3">
+              <p className="truncate text-sm font-semibold">{user.name}</p>
+              <p className="truncate text-xs text-white/70">{user.email}</p>
+              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-white/60">
+                {user.role}
+              </p>
+            </div>
+          )}
           <button
             type="button"
             onClick={handleLogout}
