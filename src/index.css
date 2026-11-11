@@ -1,1 +1,55 @@
+@import url("https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-script: "Dancing Script", cursive;
+
+  --color-brand-50: #eef6f4;
+  --color-brand-100: #d5e8e4;
+  --color-brand-200: #b4d6cf;
+  --color-brand-600: #24675f;
+  --color-brand-700: #1d554e;
+  --color-brand-800: #17443f;
+
+  /* Handwriting effect: the heading is revealed left to right, like a pen writing it */
+  --animate-write: write 2.4s cubic-bezier(0.65, 0, 0.35, 1) 0.3s both;
+  /* The text and button fade in once the writing has finished */
+  --animate-fade-up: fade-up 0.6s ease-out 2.6s both;
+
+  /* The intro tagline starts big and blurred, then settles to its normal size */
+  --animate-zoom-settle: zoom-settle 0.9s cubic-bezier(0.16, 1, 0.3, 1) 2.6s both;
+
+  @keyframes zoom-settle {
+    from {
+      opacity: 0;
+      transform: scale(1.8);
+      filter: blur(6px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes write {
+    from {
+      clip-path: inset(-20% 100% -20% 0);
+    }
+    to {
+      clip-path: inset(-20% -5% -20% 0);
+    }
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
