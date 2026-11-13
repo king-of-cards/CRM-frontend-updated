@@ -95,6 +95,60 @@ export function refreshAccessToken() {
   return refreshPromise;
 }
 
+// ── Response cache (makes pages open instantly) ─────────────────────────
+// Every successful GET is remembered for this browser tab (memory + sessionStorage).
+// Pages call peek() to show the last answer immediately, then fetch a fresh one.
+// sessionStorage is cleared when the tab closes, and clearCache() runs on logout.
+const CACHE_STORAGE_KEY = "crm-api-cache";
+const CACHE_MAX_AGE_MS = 30 * 60 * 1000; // older answers are not shown
+const CACHE_MAX_ENTRIES = 80;
+let cache = null; // url -> { at, data }
+let persistTimer = null;
+
+function loadCache() {
+  if (cache) return cache;
+  cache = new Map();
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(CACHE_STORAGE_KEY) || "[]");
+    for (const [url, entry] of saved) cache.set(url, entry);
+  } catch {
+    // unreadable storage: start empty
+  }
+  return cache;
+}
+
+function persistCache() {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    try {
+      const entries = [...loadCache().entries()].sort((a, b) => b[1].at - a[1].at).slice(0, CACHE_MAX_ENTRIES);
+      sessionStorage.setItem(CACHE_STORAGE_KEY, JSON.stringify(entries));
+    } catch {
+      // storage full or unavailable: memory cache still works
+    }
+  }, 300);
+}
+
+function remember(url, data) {
+  loadCache().set(url, { at: Date.now(), data });
+  persistCache();
+}
+
+// Last answer for this GET (or undefined). Same path + query as the request.
+export function peek(path, query) {
+  const hit = loadCache().get(buildUrl(path, query));
+  return hit && Date.now() - hit.at < CACHE_MAX_AGE_MS ? hit.data : undefined;
+}
+
+export function clearCache() {
+  loadCache().clear();
+  try {
+    sessionStorage.removeItem(CACHE_STORAGE_KEY);
+  } catch {
+    // nothing to clear
+  }
+}
+
 /**
  * apiRequest("/users", { method: "POST", body: {...} })
  *   body  -> sent as JSON
@@ -102,7 +156,8 @@ export function refreshAccessToken() {
  *   query -> URL query parameters; empty values are skipped
  *   auth  -> attach the access token and retry once after a refresh on 401 (default true)
  */
-export async function apiRequest(path, { method = "GET", body, form, query, auth = true, retry = true } = {}) {
+export async function apiRequest(path, { method = "GET", body, form, query, auth = true, retry: allowRetry = true } = {}) {
+  let retry = allowRetry;
   const headers = { Accept: "application/json" };
   let payload;
 
@@ -114,6 +169,12 @@ export async function apiRequest(path, { method = "GET", body, form, query, auth
     payload = JSON.stringify(body);
   }
 
+  // No token yet (page just loaded): get one first instead of failing with 401 and retrying
+  if (auth && !accessToken && retry) {
+    const token = await refreshAccessToken();
+    if (!token) retry = false; // no session: one request, no second refresh
+  }
+
   if (auth && accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
   let res;
@@ -123,13 +184,16 @@ export async function apiRequest(path, { method = "GET", body, form, query, auth
     throw new ApiError(0, null);
   }
 
-  if (res.status === 401 && auth && retry) {
-    const token = await refreshAccessToken();
-    if (token) return apiRequest(path, { method, body, form, query, auth, retry: false });
-    onSessionExpired?.();
+  if (res.status === 401 && auth) {
+    if (retry) {
+      const token = await refreshAccessToken();
+      if (token) return apiRequest(path, { method, body, form, query, auth, retry: false });
+    }
+    if (!accessToken) onSessionExpired?.();
   }
 
   const data = await readBody(res);
   if (!res.ok) throw new ApiError(res.status, data && typeof data === "object" ? data.detail : data);
+  if (method === "GET" && auth) remember(buildUrl(path, query), data);
   return data;
 }

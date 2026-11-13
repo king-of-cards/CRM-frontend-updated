@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 // 1. "CRM" writes itself in black cursive.
 // 2. The tagline zooms in from large to its normal size.
 // 3. The white screen fades away to reveal the dashboard underneath.
-const SHOW_TIME = 4200; // ms: writing (2.7s) + tagline zoom (ends at 3.5s) + a short pause
+const SHOW_TIME = 3600; // ms: writing + tagline zoom + a short pause (click or any key skips it)
 const FADE_TIME = 600; // ms: how long the fade-out takes
 
 export default function WelcomeIntro({ onDone }) {
@@ -17,10 +17,23 @@ export default function WelcomeIntro({ onDone }) {
     const showTime = reduceMotion ? 800 : SHOW_TIME;
 
     const fadeTimer = setTimeout(() => setLeaving(true), showTime);
-    const doneTimer = setTimeout(() => onDone(), showTime + FADE_TIME);
+    let doneTimer = setTimeout(() => onDone(), showTime + FADE_TIME);
+
+    // Click, tap or any key: skip straight to the dashboard
+    function skip() {
+      clearTimeout(fadeTimer);
+      clearTimeout(doneTimer);
+      setLeaving(true);
+      doneTimer = setTimeout(() => onDone(), 250);
+    }
+    window.addEventListener("pointerdown", skip, { once: true });
+    window.addEventListener("keydown", skip, { once: true });
+
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(doneTimer);
+      window.removeEventListener("pointerdown", skip);
+      window.removeEventListener("keydown", skip);
     };
   }, [onDone]);
 
