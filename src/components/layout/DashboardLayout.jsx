@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router";
 import {
+  ArrowLeftRight,
   Camera,
   ClipboardList,
   Globe,
@@ -28,33 +29,26 @@ const navItems = [
 const topTabs = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/leads/spin", label: "Spin leads", icon: Target, adminOnly: true },
-  {
-    to: "/leads/international",
-    label: "International",
-    icon: Globe,
-    adminOnly: true,
-  },
+  { to: "/leads/international", label: "International", icon: Globe, adminOnly: true },
   { to: "/leads/wedding", label: "Wedding", icon: Camera, adminOnly: true },
-  {
-    to: "/leads/wedding-planner",
-    label: "Wedding planner",
-    icon: ClipboardList,
-    adminOnly: true,
-  },
+  { to: "/leads/wedding-planner", label: "Wedding planner", icon: ClipboardList, adminOnly: true },
+];
+
+// Lead flow: which way leads travel between KOC and partner vendors.
+// Shown as one gold capsule at the end of the bar, so it stands apart from the source tabs.
+const flowTabs = [
+  { to: "/flow/koc-to-vendors", from: "KOC", to_: "Vendors", hint: "Leads KOC passes on to vendors", adminOnly: true },
+  { to: "/flow/vendors-to-koc", from: "Vendors", to_: "KOC", hint: "Customers vendors send to KOC", adminOnly: true },
 ];
 
 const STORAGE_KEY = "crm-sidebar-collapsed";
 
-export default function DashboardLayout({
-  title,
-  description,
-  actions,
-  children,
-}) {
+export default function DashboardLayout({ title, description, actions, children }) {
   const navigate = useNavigate();
   const { user, isAdmin, logout } = useAuth();
   const visibleNav = navItems.filter((item) => !item.adminOnly || isAdmin);
   const visibleTabs = topTabs.filter((tab) => !tab.adminOnly || isAdmin);
+  const visibleFlows = flowTabs.filter((tab) => !tab.adminOnly || isAdmin);
 
   // Remember whether the sidebar was collapsed, so it stays that way between pages and visits.
   const [collapsed, setCollapsed] = useState(() => {
@@ -89,14 +83,8 @@ export default function DashboardLayout({
         }`}
       >
         {/* Logo + collapse button */}
-        <div
-          className={`flex items-center py-5 ${
-            collapsed ? "flex-col gap-3 px-2" : "justify-between px-5"
-          }`}
-        >
-          <p className="font-script text-3xl font-bold text-white">
-            {collapsed ? "C" : "CRM"}
-          </p>
+        <div className={`flex items-center py-5 ${collapsed ? "flex-col gap-3 px-2" : "justify-between px-5"}`}>
+          <p className="font-script text-3xl font-bold text-white">{collapsed ? "C" : "CRM"}</p>
           <button
             type="button"
             onClick={() => setCollapsed((c) => !c)}
@@ -120,11 +108,7 @@ export default function DashboardLayout({
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-colors ${
                   collapsed ? "justify-center px-0" : "px-4"
-                } ${
-                  isActive
-                    ? "bg-white text-brand-800 shadow-sm"
-                    : "text-white/75 hover:bg-white/10 hover:text-white"
-                }`
+                } ${isActive ? "bg-white text-brand-800 shadow-sm" : "text-white/75 hover:bg-white/10 hover:text-white"}`
               }
             >
               <Icon size={20} className="shrink-0" />
@@ -139,9 +123,7 @@ export default function DashboardLayout({
             <div className="mb-2 rounded-xl bg-white/10 px-4 py-3">
               <p className="truncate text-sm font-semibold">{user.name}</p>
               <p className="truncate text-xs text-white/70">{user.email}</p>
-              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-white/60">
-                {user.role}
-              </p>
+              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-white/60">{user.role}</p>
             </div>
           )}
           <button
@@ -161,8 +143,10 @@ export default function DashboardLayout({
 
       {/* Main area */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Floating pill top bar: tabs for the overview and each lead source */}
-        <header className="sticky top-0 z-30 flex justify-center px-4 pt-4">
+        {/* Top: the green tab bar in the middle, and the lead-flow capsule as its own section on the right.
+            On narrower screens the capsule moves under the bar. */}
+        <header className="sticky top-0 z-30 flex flex-col items-center gap-3 px-4 pt-4 xl:grid xl:grid-cols-[1fr_auto_1fr] xl:items-center xl:gap-4">
+          <span className="hidden xl:block" aria-hidden="true" />
           <div className="relative flex w-full max-w-4xl items-center gap-2 overflow-hidden rounded-full bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 p-1.5 shadow-xl shadow-brand-800/25 ring-1 ring-white/10">
             {/* Soft light sweep across the bar */}
             <span
@@ -216,6 +200,39 @@ export default function DashboardLayout({
               </div>
             )}
           </div>
+
+          {/* Lead flow: separate gold capsule, two directions */}
+          {visibleFlows.length > 0 && (
+            <div
+              role="group"
+              aria-label="Lead flow"
+              className="flex shrink-0 items-center gap-0.5 rounded-full bg-linear-to-r from-amber-200 via-amber-300 to-orange-300 p-1.5 shadow-xl shadow-amber-700/20 ring-1 ring-amber-400/40 xl:justify-self-end"
+            >
+              <span className="flex items-center gap-1.5 px-2.5 text-xs font-semibold text-amber-900/80">
+                <ArrowLeftRight size={14} aria-hidden="true" />
+                Lead flow
+              </span>
+              {visibleFlows.map(({ to, from, to_, hint }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  title={hint}
+                  className={({ isActive }) =>
+                    `flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-semibold transition-all ${
+                      isActive
+                        ? "bg-white text-brand-800 shadow-sm"
+                        : "text-amber-950/80 hover:bg-white/45 hover:text-amber-950"
+                    }`
+                  }
+                >
+                  {from}
+                  <span aria-hidden="true">→</span>
+                  <span className="sr-only">to</span>
+                  {to_}
+                </NavLink>
+              ))}
+            </div>
+          )}
         </header>
 
         <main className="flex-1 px-6 pb-10 pt-8">
@@ -223,12 +240,8 @@ export default function DashboardLayout({
           {(title || actions) && (
             <div className="mb-2 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-                  {title}
-                </h1>
-                {description && (
-                  <p className="mt-1 text-sm text-gray-500">{description}</p>
-                )}
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900">{title}</h1>
+                {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
               </div>
               {actions}
             </div>
