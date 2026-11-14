@@ -25,6 +25,8 @@ import {
   useDebounced,
   useSheetSync,
 } from "../leads/LeadKit.jsx";
+import CrmLeadActions from "../crmLeads/CrmLeadActions.jsx";
+import CrmRowBadge from "../crmLeads/CrmRowBadge.jsx";
 
 // Wedding plans from the Wedding planner Google Sheet (latest save per Plan ID).
 
@@ -167,7 +169,22 @@ export default function WeddingPlans() {
           ? ` · ${shortMoney(stats.total_budget)} in budgets`
           : ""
       }${lastSync?.latest_sync?.status === "failed" ? " · last attempt failed" : ""}`}
-      action={<SyncButton syncing={syncing} onClick={sync} />}
+      action={
+        <div className="flex items-center gap-2">
+          <SyncButton syncing={syncing} onClick={sync} />
+          <CrmLeadActions
+            source="wedding_planner"
+            exportParams={{
+              search,
+              fitsBudget,
+              sharedWith: sharedWith || undefined,
+              lastStep: lastStep || undefined,
+              ...parseSort(sortValue),
+            }}
+            onChanged={reload}
+          />
+        </div>
+      }
       message={message ?? error}
       stats={[
         { label: "Wedding plans", value: fmt(stats?.total) },
@@ -259,6 +276,7 @@ export default function WeddingPlans() {
         identity={(p) => ({
           name: p.name ?? p.plan_id,
           subtitle: [p.role, p.email].filter(Boolean).join(" · ") || p.plan_id,
+          badge: <CrmRowBadge source="wedding_planner" lead={p} leadKey={p.plan_id} />,
         })}
         contact={(p) => ({ phone: p.phone, email: p.email })}
         columns={[

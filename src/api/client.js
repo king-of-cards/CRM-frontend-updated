@@ -22,6 +22,10 @@ export function hasAccessToken() {
   return Boolean(accessToken);
 }
 
+export function getAccessToken() {
+  return accessToken;
+}
+
 // Called when the session can't be renewed (refresh cookie missing or expired)
 export function setSessionExpiredHandler(handler) {
   onSessionExpired = handler;

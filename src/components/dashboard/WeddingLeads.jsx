@@ -24,6 +24,8 @@ import {
   useDebounced,
   useSheetSync,
 } from "../leads/LeadKit.jsx";
+import CrmLeadActions from "../crmLeads/CrmLeadActions.jsx";
+import CrmRowBadge from "../crmLeads/CrmRowBadge.jsx";
 
 // Wedding & event photography leads from the Wedding Google Sheet.
 
@@ -124,7 +126,22 @@ export default function WeddingLeads() {
       icon={Camera}
       title="Wedding & event photography leads"
       subtitle={`Wedding sheet · last synced ${timeAgo(lastSync?.last_success?.finished_at)}${lastSync?.latest_sync?.status === "failed" ? " · last attempt failed" : ""}`}
-      action={<SyncButton syncing={syncing} onClick={sync} />}
+      action={
+        <div className="flex items-center gap-2">
+          <SyncButton syncing={syncing} onClick={sync} />
+          <CrmLeadActions
+            source="wedding"
+            exportParams={{
+              search,
+              occasion: occasion || undefined,
+              sharedWith: sharedWith || undefined,
+              hideRepeats,
+              ...parseSort(sortValue),
+            }}
+            onChanged={reload}
+          />
+        </div>
+      }
       message={message ?? error}
       stats={[
         { label: "Total leads", value: fmt(stats?.total) },
@@ -211,14 +228,19 @@ export default function WeddingLeads() {
         identity={(l) => ({
           name: l.name ?? l.phone_display ?? "Unnamed",
           subtitle: l.email ?? l.city,
-          badge: l.is_repeat ? (
-            <span
-              title="This contact submitted the form earlier too"
-              className="rounded bg-gray-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-gray-500"
-            >
-              Repeat
-            </span>
-          ) : null,
+          badge: (
+            <>
+              {l.is_repeat ? (
+                <span
+                  title="This contact submitted the form earlier too"
+                  className="rounded bg-gray-100 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-gray-500"
+                >
+                  Repeat
+                </span>
+              ) : null}
+              <CrmRowBadge source="wedding" lead={l} />
+            </>
+          ),
         })}
         contact={(l) => ({ phone: l.phone, email: l.email })}
         columns={[

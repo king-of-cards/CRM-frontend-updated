@@ -22,6 +22,8 @@ import {
   useDebounced,
   useSheetSync,
 } from "../leads/LeadKit.jsx";
+import CrmLeadActions from "../crmLeads/CrmLeadActions.jsx";
+import CrmRowBadge from "../crmLeads/CrmRowBadge.jsx";
 
 // International leads (WhatsApp numbers) from the International Google Sheet.
 
@@ -98,7 +100,16 @@ export default function WhatsAppLeads() {
       icon={Globe}
       title="International leads"
       subtitle={`International sheet · last synced ${timeAgo(lastSync?.last_success?.finished_at)}${lastSync?.latest_sync?.status === "failed" ? " · last attempt failed" : ""}`}
-      action={<SyncButton syncing={syncing} onClick={sync} />}
+      action={
+        <div className="flex items-center gap-2">
+          <SyncButton syncing={syncing} onClick={sync} />
+          <CrmLeadActions
+            source="whatsapp"
+            exportParams={{ search, country: country || undefined, ...parseSort(sortValue) }}
+            onChanged={reload}
+          />
+        </div>
+      }
       message={message ?? error}
       stats={[
         { label: "Total leads", value: fmt(stats?.total) },
@@ -154,7 +165,11 @@ export default function WhatsAppLeads() {
         rowKey={(l) => l.id}
         loading={loading && !data}
         dimmed={loading && Boolean(data)}
-        identity={(l) => ({ name: l.phone_display, subtitle: l.country })}
+        identity={(l) => ({
+          name: l.phone_display,
+          subtitle: l.country,
+          badge: <CrmRowBadge source="whatsapp" lead={l} />,
+        })}
         contact={(l) => ({ phone: l.phone })}
         columns={[
           {

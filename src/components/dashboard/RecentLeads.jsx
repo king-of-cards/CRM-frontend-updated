@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   ArrowUpRight,
@@ -30,6 +30,8 @@ import {
   SectionShell,
   useDebounced,
 } from "../leads/LeadKit.jsx";
+import CrmLeadActions from "../crmLeads/CrmLeadActions.jsx";
+import CrmRowBadge from "../crmLeads/CrmRowBadge.jsx";
 
 // Spin leads: read live from the workflow database (read-only). The CRM columns come from
 // our own database next to each lead (sidecar), matched by the lead's id.
@@ -197,6 +199,9 @@ export default function RecentLeads() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+  const lastParams = useRef({}); // the list's current params, for Export
 
   const columns = useMemo(() => data?.columns ?? [], [data]);
   const f = useMemo(() => pick(columns), [columns]);
@@ -278,6 +283,7 @@ export default function RecentLeads() {
       quotedValue:
         quoteReady && quotedValue !== "" ? Number(quotedValue) : undefined,
     };
+    lastParams.current = params;
 
     const cached =
       createdCol !== undefined ? listSpinLeads.peek(params) : undefined;
@@ -335,6 +341,7 @@ export default function RecentLeads() {
     converted,
     quotedOp,
     quotedValue,
+    reloadKey,
   ]);
 
   if (!isAdmin) return null;
@@ -405,12 +412,19 @@ export default function RecentLeads() {
       title="Spin leads"
       subtitle={`Live from the workflow database (read-only) · ${columns.length || "—"} fields per lead`}
       action={
-        <Link
-          to="/leads"
-          className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
-        >
-          Explore all fields <ArrowUpRight size={15} />
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/leads"
+            className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
+          >
+            Explore all fields <ArrowUpRight size={15} />
+          </Link>
+          <CrmLeadActions
+            source="spin"
+            exportParams={() => lastParams.current}
+            onChanged={reload}
+          />
+        </div>
       }
       message={error}
       stats={[
@@ -639,6 +653,7 @@ export default function RecentLeads() {
         loading={loading && !data}
         dimmed={loading && Boolean(data)}
         identity={(l) => ({
+          badge: <CrmRowBadge source="spin" lead={l} leadKey={l[pkName]} />,
           name: (f.name && l[f.name]) || "Unnamed lead",
           subtitle:
             (f.email && l[f.email]) ||
