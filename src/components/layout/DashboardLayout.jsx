@@ -1,12 +1,10 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router";
 import {
   LayoutDashboard,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
-  Search,
   Settings,
   ShoppingCart,
   Target,
@@ -17,6 +15,7 @@ import { useAuth } from "../../auth/useAuth.js";
 
 // Shared frame for every page after login: collapsible sidebar, top bar, page content.
 // adminOnly items are hidden for vendor accounts (the backend allows those endpoints to admins only)
+// Shared frame for every page after login: collapsible sidebar and page content.
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/customers", label: "Customers", icon: Users },
@@ -24,14 +23,6 @@ const navItems = [
   { to: "/orders", label: "Orders", icon: ShoppingCart },
   { to: "/users", label: "Team", icon: UserCog, adminOnly: true },
   { to: "/settings", label: "Settings", icon: Settings },
-];
-
-// Links in the floating top bar
-const topLinks = [
-  { to: "/reports", label: "Reports" },
-  { to: "/activity", label: "Activity" },
-  { to: "/calendar", label: "Calendar" },
-  { to: "/help", label: "Help" },
 ];
 
 const STORAGE_KEY = "crm-sidebar-collapsed";
@@ -146,65 +137,24 @@ export default function DashboardLayout({ title, children }) {
 
       {/* Main area */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Floating pill top bar */}
-        <header className="sticky top-0 z-30 flex justify-center px-4 pt-4">
-          <div className="flex w-full max-w-3xl items-center gap-1 rounded-full border border-gray-200 bg-white/80 py-1.5 pl-5 pr-1.5 shadow-sm backdrop-blur-md">
-            {/* Page title */}
-            <div className="flex items-center gap-2 pr-3">
-              <span
-                aria-hidden="true"
-                className="h-2.5 w-2.5 rounded-full bg-brand-600"
-              />
-              <h1 className="text-sm font-semibold text-gray-900">{title}</h1>
-            </div>
-
-            {/* Links */}
-            <nav className="hidden flex-1 items-center justify-center gap-1 md:flex">
-              {topLinks.map((link) => (
-                <NavLink
-                  key={link.to}
-                  to={link.to}
-                  className={({ isActive }) =>
-                    `rounded-full px-3 py-1.5 text-sm transition-colors ${
-                      isActive
-                        ? "text-gray-900"
-                        : "text-gray-500 hover:text-gray-900"
-                    }`
-                  }
-                >
-                  {link.label}
-                </NavLink>
-              ))}
-            </nav>
-
-            {/* Actions */}
-            <div className="ml-auto flex items-center gap-1">
-              <button
-                type="button"
-                aria-label="Search"
-                className="rounded-full p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
-              >
-                <Search size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-full px-3 py-1.5 text-sm text-gray-600 transition-colors hover:text-gray-900 md:hidden"
-              >
-                Log out
-              </button>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 rounded-full bg-gray-900 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
-              >
-                <Plus size={16} />
-                New lead
-              </button>
-            </div>
-          </div>
+        {/* Phones only: the sidebar is hidden there, so keep the logo and a way to log out */}
+        <header className="flex items-center justify-between bg-linear-to-r from-brand-600 to-brand-800 px-4 py-3 text-white md:hidden">
+          <p className="font-script text-2xl font-bold">CRM</p>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-white/85 hover:bg-white/10 hover:text-white"
+          >
+            <LogOut size={16} />
+            Log out
+          </button>
         </header>
 
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6">
+          {/* Page title for screen readers; the page itself shows its own heading area */}
+          <h1 className="sr-only">{title}</h1>
+          {children}
+        </main>
       </div>
     </div>
   );
