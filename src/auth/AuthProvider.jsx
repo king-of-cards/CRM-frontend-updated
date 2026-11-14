@@ -1,14 +1,41 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as authApi from "../api/auth.js";
-import { setSessionExpiredHandler } from "../api/client.js";
+import { clearCache, setSessionExpiredHandler } from "../api/client.js";
 import { AuthContext } from "./context.js";
 
 // Holds the logged-in user for the whole app.
-// On first load it tries to restore the session from the refresh cookie,
-// so a page reload doesn't log you out.
+//
+// Fast start: the user from the last visit in this tab is shown straight away
+// (from sessionStorage), so pages render immediately while the session is checked
+// in the background. If the session turns out to be gone, the user is logged out.
+const USER_KEY = "crm-user";
+
+function savedUser() {
+  try {
+    return JSON.parse(sessionStorage.getItem(USER_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function saveUser(user) {
+  try {
+    if (user) sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+    else sessionStorage.removeItem(USER_KEY);
+  } catch {
+    // storage unavailable: just no fast start next time
+  }
+}
+
 export default function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [isReady, setIsReady] = useState(false);
+  const [user, setUserState] = useState(savedUser);
+  const [isReady, setIsReady] = useState(() => Boolean(savedUser()));
+
+  const setUser = useCallback((next) => {
+    setUserState(next);
+    saveUser(next);
+    if (!next) clearCache();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -16,12 +43,15 @@ export default function AuthProvider({ children }) {
 
     (async () => {
       const token = await authApi.restoreSession();
-      if (token) {
+      if (cancelled) return;
+      if (!token) {
+        setUser(null);
+      } else {
         try {
           const me = await authApi.getMe();
           if (!cancelled) setUser(me);
         } catch {
-          // Session could not be loaded: stay logged out
+          // keep the saved user; the next request will retry the session
         }
       }
       if (!cancelled) setIsReady(true);
@@ -30,14 +60,17 @@ export default function AuthProvider({ children }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setUser]);
 
-  const login = useCallback(async (email, password) => {
-    await authApi.login(email, password);
-    const me = await authApi.getMe();
-    setUser(me);
-    return me;
-  }, []);
+  const login = useCallback(
+    async (email, password) => {
+      await authApi.login(email, password);
+      const me = await authApi.getMe();
+      setUser(me);
+      return me;
+    },
+    [setUser],
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -47,7 +80,7 @@ export default function AuthProvider({ children }) {
     } finally {
       setUser(null);
     }
-  }, []);
+  }, [setUser]);
 
   const value = useMemo(
     () => ({ user, isAdmin: user?.role === "admin", isReady, login, logout }),

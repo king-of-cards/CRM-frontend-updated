@@ -33,6 +33,20 @@
     }
   }
 
+  /* The wedding photo on the login page drops in and settles into its tilt */
+  --animate-photo-in: photo-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes photo-in {
+    from {
+      opacity: 0;
+      transform: translateY(24px) rotate(6deg) scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) rotate(0) scale(1);
+    }
+  }
+
   @keyframes write {
     from {
       clip-path: inset(-20% 100% -20% 0);
