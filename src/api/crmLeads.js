@@ -1,5 +1,6 @@
 import { ApiError, apiRequest, getAccessToken, refreshAccessToken } from "./client.js";
 import { exportQuery, filenameFromDisposition, parseCsvHeader } from "../components/crmLeads/crmLeadUtils.js";
+import { toQueryString } from "../components/leads/leadFilters.js";
 
 // Leads added or imported in the CRM, for all four sources. Admin only, except export
 // (vendor logins export their own leads).
@@ -11,12 +12,9 @@ import { exportQuery, filenameFromDisposition, parseCsvHeader } from "../compone
 const API_BASE = import.meta.env?.VITE_API_URL ?? "/api/v1";
 const base = (source) => `/crm-leads/${encodeURIComponent(source)}`;
 
+// Arrays repeat the key (interest=a&interest=b), as the list filters expect
 function url(path, query) {
-  const params = new URLSearchParams();
-  for (const [k, v] of Object.entries(query ?? {})) {
-    if (v !== undefined && v !== null && v !== "") params.append(k, String(v));
-  }
-  const qs = params.toString();
+  const qs = toQueryString(query);
   return `${API_BASE}${path}${qs ? `?${qs}` : ""}`;
 }
 

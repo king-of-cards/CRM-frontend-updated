@@ -4,10 +4,11 @@ import { apiRequest, peek } from "./client.js";
 // Admins and vendor logins (vendors only get their own leads). The list pages keep their own
 // wrappers in src/api/*Leads.js, which don't send a period.
 
-// GET /api/v1/analytics/overview?date_from&date_to[&refresh=true]
+// GET /api/v1/analytics/overview?date_from&date_to (or period=all)[&refresh=true]
 // -> { period, totals, new_in_period, previous_period, change_pct, source_mix, trend,
 //      needs_attention, not_filtered, upcoming_30_days, upcoming_by_month, … }
-const overviewQuery = ({ dateFrom, dateTo, refresh = false } = {}) => ({
+const overviewQuery = ({ period, dateFrom, dateTo, refresh = false } = {}) => ({
+  period,
   date_from: dateFrom,
   date_to: dateTo,
   refresh: refresh || undefined,

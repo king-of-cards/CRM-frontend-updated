@@ -3,21 +3,17 @@ import { Link } from "react-router";
 import {
   ArrowUpRight,
   Building2,
-  Filter,
   MapPin,
   Target,
-  X,
 } from "lucide-react";
-import { getSpinFilterOptions, listSpinLeads } from "../../api/spinLeads.js";
-import { INTEREST_OPTIONS } from "../../api/leadCrm.js";
+import { listSpinLeads } from "../../api/spinLeads.js";
+import { getFilterOptions, listLeads, listQuery } from "../../api/leadLists.js";
 import { listBranches } from "../../api/branches.js";
 import { pincodeArea } from "../leads/pincode.js";
-import { STORES, storeFor } from "../leads/stores.js";
+import { storeFor } from "../leads/stores.js";
 import { useVendors } from "../leads/InlineCrm.jsx";
-import PincodePicker from "../leads/PincodePicker.jsx";
 import LeadSearch from "../leads/LeadSearch.jsx";
 import { useAuth } from "../../auth/useAuth.js";
-import FilterSelect from "./FilterSelect.jsx";
 import { withCrm } from "../leads/CrmColumns.jsx";
 import {
   countdown,
@@ -28,34 +24,17 @@ import {
   LeadTable,
   Pagination,
   SectionShell,
-  useDebounced,
 } from "../leads/LeadKit.jsx";
 import CrmLeadActions from "../crmLeads/CrmLeadActions.jsx";
 import CrmRowBadge from "../crmLeads/CrmRowBadge.jsx";
+import LeadFilterBar from "../leads/LeadFilterBar.jsx";
+import { useLeadFilters } from "../leads/useLeadFilters.js";
 
 // Spin leads: read live from the workflow database (read-only). The CRM columns come from
 // our own database next to each lead (sidecar), matched by the lead's id.
 
 const PAGE_SIZE = 10;
 
-const QUOTE_OPS = [
-  { value: "", label: "Any quote" },
-  { value: "eq", label: "Equal to (=)" },
-  { value: "ne", label: "Not equal (≠)" },
-  { value: "gt", label: "More than (>)" },
-  { value: "gte", label: "At least (≥)" },
-  { value: "lt", label: "Less than (<)" },
-  { value: "lte", label: "At most (≤)" },
-  { value: "set", label: "Has a quote" },
-  { value: "unset", label: "No quote yet" },
-];
-const labelCls =
-  "mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500";
-// Quote operator dropdown: fixed width so the amount box beside it keeps its room
-const opCls =
-  "w-44 flex-none rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20";
-const inputCls =
-  "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20";
 const CREATED_KEY = "crm-spin-created-column"; // remembered so later loads need one request
 
 // Which spin field is which. Matching ignores case, "_" and the "additional_details." prefix.
@@ -176,22 +155,11 @@ export default function RecentLeads() {
   const { isAdmin, canSeeLeads } = useAuth();
   const [createdCol, setCreatedCol] = useState(storedCreated);
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-  const search = useDebounced(searchInput.trim());
-  const [sortValue, setSortValue] = useState("created:desc");
-  const [branch, setBranch] = useState("");
-  const [pincode, setPincode] = useState("");
+  // Filters, kept in the URL; the same for the list and the export
+  const { filters, query, queryKey, update, clear, count } = useLeadFilters("spin");
+  const sortValue = filters.sort || "created:desc";
   const [openKey, setOpenKey] = useState(null); // lead to open (picked from the search suggestions)
-  const [budget, setBudget] = useState("");
-  const [vendorId, setVendorId] = useState("");
-  const [interest, setInterest] = useState("");
-  const [converted, setConverted] = useState("");
-  const [quotedOp, setQuotedOp] = useState("");
-  const [quotedInput, setQuotedInput] = useState("");
-  const quotedValue = useDebounced(quotedInput.replace(/\D/g, ""));
-  const [options, setOptions] = useState(
-    () => getSpinFilterOptions.peek() ?? null,
-  );
+  const [options, setOptions] = useState(() => getFilterOptions.peek("spin") ?? null);
   const [branches, setBranches] = useState(
     () => listBranches.peek()?.branches ?? [],
   );
@@ -220,29 +188,16 @@ export default function RecentLeads() {
     return list.length ? list : [{ value: "none:asc", label: "Default" }];
   }, [createdCol, f]);
 
-  useEffect(
-    () => setPage(1),
-    [
-      search,
-      sortValue,
-      branch,
-      pincode,
-      budget,
-      vendorId,
-      interest,
-      converted,
-      quotedOp,
-      quotedValue,
-    ],
-  );
+  // Any filter or sort change goes back to page 1
+  useEffect(() => setPage(1), [queryKey, sortValue]);
 
-  // Budget values for the dropdown
+  // Dropdown values: branches, pincodes, budgets, origins, interests, vendors (admins)
   useEffect(() => {
     if (!canSeeLeads) return;
-    getSpinFilterOptions()
+    getFilterOptions("spin")
       .then(setOptions)
       .catch(() => {});
-  }, [canSeeLeads]);
+  }, [canSeeLeads, reloadKey]);
 
   // Branch names for the filter
   useEffect(() => {
@@ -263,30 +218,17 @@ export default function RecentLeads() {
         : key === "none"
           ? undefined
           : key;
-    const quoteReady =
-      quotedOp === "set" ||
-      quotedOp === "unset" ||
-      (quotedOp && quotedValue !== "");
-    const params = {
+    const params = listQuery({
       page,
       pageSize: PAGE_SIZE,
-      search,
+      filters: query,
       sort,
-      order,
-      branch: branch || undefined,
-      pincode: pincode || undefined,
-      budget: budget || undefined,
-      vendorId: vendorId || undefined,
-      interest: interest || undefined,
-      converted: converted || undefined,
-      quotedOp: quoteReady ? quotedOp : undefined,
-      quotedValue:
-        quoteReady && quotedValue !== "" ? Number(quotedValue) : undefined,
-    };
-    lastParams.current = params;
+      order: sort ? order : undefined,
+    });
+    lastParams.current = { ...query, sort, order: sort ? order : undefined };
 
     const cached =
-      createdCol !== undefined ? listSpinLeads.peek(params) : undefined;
+      createdCol !== undefined ? listLeads.peek("spin", params) : undefined;
     if (cached) setData(cached);
     setLoading(!cached);
 
@@ -305,7 +247,7 @@ export default function RecentLeads() {
           if (!cancelled) setCreatedCol(found ?? null);
           return; // the effect runs again with the column known
         }
-        res = await listSpinLeads(params);
+        res = await listLeads("spin", params);
         if (!cancelled) {
           setData(res);
           setError(null);
@@ -327,22 +269,8 @@ export default function RecentLeads() {
     return () => {
       cancelled = true;
     };
-  }, [
-    canSeeLeads,
-    page,
-    search,
-    sortValue,
-    createdCol,
-    branch,
-    pincode,
-    budget,
-    vendorId,
-    interest,
-    converted,
-    quotedOp,
-    quotedValue,
-    reloadKey,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSeeLeads, page, queryKey, sortValue, createdCol, reloadKey]);
 
   if (!canSeeLeads) return null;
   const items = data?.items ?? [];
@@ -380,29 +308,6 @@ export default function RecentLeads() {
     });
   }
 
-  const branchChoices = branches.length
-    ? branches.filter((b) => b.is_active)
-    : Object.values(STORES);
-  const activeCount = [
-    branch,
-    pincode,
-    budget,
-    vendorId,
-    interest,
-    converted,
-    quotedOp,
-  ].filter(Boolean).length;
-  function clearFilters() {
-    setBranch("");
-    setPincode("");
-    setBudget("");
-    setVendorId("");
-    setInterest("");
-    setConverted("");
-    setQuotedOp("");
-    setQuotedInput("");
-    setSearchInput("");
-  }
   const pkName = "id";
 
   return (
@@ -439,207 +344,29 @@ export default function RecentLeads() {
         },
       ]}
       toolbar={
-        <div className="w-full space-y-4">
-          {/* Branches on top */}
-          <div>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
-              Branch
-            </p>
-            <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
-              {[
-                { id: "", name: "All branches", spin_leads: null },
-                ...branchChoices,
-              ].map((b) => {
-                const active = String(branch) === String(b.id);
-                return (
-                  <button
-                    key={b.id || "all"}
-                    type="button"
-                    onClick={() => setBranch(String(b.id))}
-                    className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium ring-1 transition ${
-                      active
-                        ? "bg-sky-600 text-white ring-sky-600 shadow-md shadow-sky-600/20"
-                        : "bg-white text-gray-600 ring-gray-200 hover:bg-sky-50 hover:text-sky-800"
-                    }`}
-                  >
-                    {b.id !== "" && <Building2 size={13} aria-hidden="true" />}
-                    {b.name}
-                    {b.spin_leads != null && (
-                      <span
-                        className={`text-xs ${active ? "text-white/80" : "text-gray-400"}`}
-                      >
-                        {b.spin_leads}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="rounded-2xl bg-gray-50/80 p-4 ring-1 ring-gray-100">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                <Filter
-                  size={15}
-                  className="text-brand-600"
-                  aria-hidden="true"
-                />{" "}
-                Filters
-                {activeCount > 0 && (
-                  <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-semibold text-white">
-                    {activeCount}
-                  </span>
-                )}
-              </p>
-              <div className="flex items-center gap-3">
-                <LeadSearch
-                  value={searchInput}
-                  onChange={setSearchInput}
-                  placeholder="Search name, phone, email…"
-                  fetchSuggestions={suggestLeads}
-                  onPick={(sug) => {
-                    setSearchInput(sug.searchText);
-                    setOpenKey(sug.key);
-                  }}
-                />
-                {activeCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm text-gray-500 hover:bg-white hover:text-gray-900"
-                  >
-                    <X size={14} /> Clear
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-              <div className="block">
-                <span className={labelCls}>Pincode</span>
-                <PincodePicker
-                  value={pincode}
-                  onChange={setPincode}
-                  options={options?.pincodes ?? []}
-                />
-              </div>
-              <label className="block">
-                <span className={labelCls}>Budget</span>
-                <select
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  className={inputCls}
-                >
-                  <option value="">Any budget</option>
-                  {(options?.budgets ?? []).map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {/^\d/.test(o.value)
-                        ? `₹${String(o.value).replace(/[-_]/g, "–")}`
-                        : o.value}{" "}
-                      ({o.count})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {/* Vendor logins see only their own leads (the backend ignores this filter for them) */}
-              {isAdmin && (
-                <label className="block">
-                  <span className={labelCls}>Assigned to</span>
-                  <select
-                    value={vendorId}
-                    onChange={(e) => setVendorId(e.target.value)}
-                    className={inputCls}
-                  >
-                    <option value="">Any vendor</option>
-                    {vendors.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              <label className="block">
-                <span className={labelCls}>Interest</span>
-                <select
-                  value={interest}
-                  onChange={(e) => setInterest(e.target.value)}
-                  className={inputCls}
-                >
-                  <option value="">Any</option>
-                  {INTEREST_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                  <option value="none">Not set yet</option>
-                </select>
-              </label>
-              <div className="block sm:col-span-2 lg:col-span-2 xl:col-span-2">
-                <span className={labelCls}>Quoted amount</span>
-                <div className="flex gap-2">
-                  <select
-                    value={quotedOp}
-                    onChange={(e) => setQuotedOp(e.target.value)}
-                    className={opCls}
-                    aria-label="Quoted amount operator"
-                  >
-                    {QUOTE_OPS.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="relative block min-w-0 flex-1">
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                      ₹
-                    </span>
-                    <input
-                      inputMode="numeric"
-                      value={quotedInput}
-                      onChange={(e) =>
-                        setQuotedInput(e.target.value.replace(/[^\d]/g, ""))
-                      }
-                      disabled={
-                        !quotedOp || quotedOp === "set" || quotedOp === "unset"
-                      }
-                      placeholder={
-                        quotedOp && quotedOp !== "set" && quotedOp !== "unset"
-                          ? "Amount"
-                          : "Pick an operator"
-                      }
-                      aria-label="Quoted amount value"
-                      className={`${inputCls} pl-7 disabled:bg-gray-50 disabled:text-gray-400`}
-                    />
-                  </span>
-                </div>
-              </div>
-              <label className="block">
-                <span className={labelCls}>Converted</span>
-                <select
-                  value={converted}
-                  onChange={(e) => setConverted(e.target.value)}
-                  className={inputCls}
-                >
-                  <option value="">Any</option>
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="mt-3 flex justify-end">
-              <FilterSelect
-                label="Sort"
-                value={sortValue}
-                onChange={setSortValue}
-                options={sorts}
-              />
-            </div>
-          </div>
-        </div>
+        <LeadFilterBar
+          source="spin"
+          filters={filters}
+          update={update}
+          clear={clear}
+          count={count}
+          options={options}
+          isAdmin={isAdmin}
+          sorts={sorts}
+          sortValue={sortValue}
+          renderSearch={({ value, onChange }) => (
+            <LeadSearch
+              value={value}
+              onChange={onChange}
+              placeholder="Search name, phone, email…"
+              fetchSuggestions={suggestLeads}
+              onPick={(sug) => {
+                onChange(sug.searchText);
+                setOpenKey(sug.key);
+              }}
+            />
+          )}
+        />
       }
       footer={
         <Pagination
@@ -859,7 +586,7 @@ export default function RecentLeads() {
           ],
         })}
         empty={
-          search || activeCount
+          count || filters.search
             ? "No spin leads match these filters."
             : "No spin leads yet."
         }

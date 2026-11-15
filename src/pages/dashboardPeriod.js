@@ -1,12 +1,19 @@
 // The Dashboard's date filter (docs/API_REFERENCE.md, "9. Dashboard: date filter").
 // Pure helpers, no React. Dates are "YYYY-MM-DD" India calendar days, as the API expects.
+// A period is { from, to } or { all: true } (All time: ?period=all on the Dashboard; for the
+// lead lists, no date at all).
 
 export const PRESETS = [
   { value: "7", label: "Last 7 days", days: 7 },
   { value: "15", label: "Last 15 days", days: 15 },
   { value: "30", label: "Last 30 days", days: 30 },
 ];
-export const MODES = [...PRESETS, { value: "single", label: "Single date" }, { value: "range", label: "Date range" }];
+export const MODES = [
+  { value: "all", label: "All time" },
+  ...PRESETS,
+  { value: "single", label: "Single date" },
+  { value: "range", label: "Date range" },
+];
 export const DEFAULT_PRESET = "30";
 export const MAX_DAYS = 366; // the API's limit, both ends counted ("max range 1 year")
 
@@ -34,9 +41,10 @@ export function presetPeriod(value, today) {
   return { from: addDays(today, -(p.days - 1)), to: today };
 }
 
-// ?from=&to= -> { from, to }. Neither: Last 30 days. Only one: that single day.
-// Values are passed on as written; the API rejects bad ones with a 400 that the page shows.
+// ?period=all -> All time; ?from=&to= -> { from, to } (only one: that single day);
+// nothing: Last 30 days. Values are passed on as written; the API rejects bad ones (400).
 export function periodFromSearch(params, today) {
+  if (params.get("period") === "all") return { all: true };
   const from = params.get("from") || "";
   const to = params.get("to") || "";
   if (!from && !to) return presetPeriod(DEFAULT_PRESET, today);
@@ -44,7 +52,8 @@ export function periodFromSearch(params, today) {
 }
 
 // What the dropdown shows: a preset ending today, else "single" (from = to) or "range"
-export function modeOf({ from, to }, today) {
+export function modeOf({ all, from, to }, today) {
+  if (all) return "all";
   if (to === today) {
     const p = PRESETS.find((x) => presetPeriod(x.value, today).from === from);
     if (p) return p.value;
@@ -53,7 +62,8 @@ export function modeOf({ from, to }, today) {
 }
 
 // A reason the period can't be sent, or null (the same rules as the API)
-export function periodError({ from, to }, today) {
+export function periodError({ all, from, to }, today) {
+  if (all) return null;
   if (!ISO_DATE.test(from) || !ISO_DATE.test(to) || Number.isNaN(toUtc(from).getTime()) || Number.isNaN(toUtc(to).getTime()))
     return "Pick a valid date.";
   if (from > today || to > today) return "Dates can't be in the future.";
@@ -77,3 +87,6 @@ export function periodLabel(from, to) {
   if (a.m !== b.m) return `${a.d} ${a.m} – ${b.d} ${b.m} ${b.y}`;
   return `${a.d} – ${b.d} ${b.m} ${b.y}`;
 }
+
+// "All time", or the dates as in periodLabel
+export const periodText = (period) => (period.all ? "All time" : periodLabel(period.from, period.to));

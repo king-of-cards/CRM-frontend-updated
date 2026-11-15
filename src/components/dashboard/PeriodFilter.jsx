@@ -1,23 +1,24 @@
 import { useEffect, useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, X } from "lucide-react";
 import { MODES, modeOf, periodError, presetPeriod } from "../../pages/dashboardPeriod.js";
 
-// The Dashboard's date filter: Last 7 / 15 / 30 days, Single date, or Date range (from–to).
+// A date filter: All time, Last 7 / 15 / 30 days, Single date, or Date range (from–to), and a ×
+// that clears it back to All time. Used by the Dashboard and the lead lists' "Arrived" filter.
 // No future dates, at most 1 year. A period is only sent (onChange) once it's valid.
 const inputCls =
   "rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-800 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20";
 
-export default function PeriodFilter({ period, today, onChange, disabled }) {
+export default function PeriodFilter({ period, today, onChange, disabled, alignStart = false }) {
   const [mode, setMode] = useState(() => modeOf(period, today));
-  const [draft, setDraft] = useState(period);
+  const [draft, setDraft] = useState(period.all ? { from: today, to: today } : period);
   const [error, setError] = useState("");
 
   // Follow the period when it changes from outside (URL, back/forward)
   useEffect(() => {
     setMode(modeOf(period, today));
-    setDraft(period);
+    setDraft(period.all ? { from: today, to: today } : period);
     setError("");
-  }, [period.from, period.to, today]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [period.all, period.from, period.to, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function send(next) {
     setDraft(next);
@@ -29,13 +30,14 @@ export default function PeriodFilter({ period, today, onChange, disabled }) {
   function pickMode(value) {
     setMode(value);
     setError("");
-    if (value === "single") send({ from: period.to, to: period.to });
-    else if (value === "range") setDraft(period);
+    if (value === "all") onChange({ all: true });
+    else if (value === "single") send({ from: draft.to, to: draft.to });
+    else if (value === "range") setDraft(draft);
     else send(presetPeriod(value, today));
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className={`flex flex-col gap-1 ${alignStart ? "items-start" : "items-end"}`}>
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2 text-sm text-gray-500">
           <CalendarDays size={15} aria-hidden="true" />
@@ -53,6 +55,18 @@ export default function PeriodFilter({ period, today, onChange, disabled }) {
             ))}
           </select>
         </label>
+        {!period.all && (
+          <button
+            type="button"
+            onClick={() => onChange({ all: true })}
+            disabled={disabled}
+            aria-label="Clear the date (All time)"
+            title="Clear the date (All time)"
+            className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          >
+            <X size={14} />
+          </button>
+        )}
         {mode === "single" && (
           <input
             type="date"

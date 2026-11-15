@@ -36,29 +36,28 @@ describe("filenameFromDisposition", () => {
 });
 
 describe("exportQuery", () => {
-  test("maps each page's params and drops empty ones", () => {
+  test("passes the list's filter query through; drops paging and empty values", () => {
     expect(
-      exportQuery("wedding", { search: "ravi", occasion: undefined, sharedWith: "Studio", hideRepeats: true, sort: "name", order: "asc", page: 3 }, "csv"),
-    ).toEqual({ format: "csv", search: "ravi", shared_with: "Studio", hide_repeats: true, sort: "name", order: "asc" });
-    expect(exportQuery("wedding_planner", { fitsBudget: false, lastStep: "budget", sort: "updated", order: "desc" })).toEqual({
-      format: "xlsx",
-      fits_budget: false,
-      last_step: "budget",
-      sort: "updated",
-      order: "desc",
-    });
-    expect(exportQuery("whatsapp", { search: "", country: "UAE", sort: "submitted_at", order: "desc" })).toEqual({
-      format: "xlsx",
-      country: "UAE",
-      sort: "submitted_at",
-      order: "desc",
-    });
+      exportQuery(
+        "wedding",
+        { page: 3, page_size: 8, search: "ravi", occasion: "", city: "Hyd", hide_repeats: "true", sort: "name", order: "asc" },
+        "csv",
+      ),
+    ).toEqual({ format: "csv", search: "ravi", city: "Hyd", hide_repeats: "true", sort: "name", order: "asc" });
   });
 
-  test("spin: same filters as the list; no order without a sort", () => {
+  test("repeated filters stay arrays; empty arrays are dropped", () => {
     expect(
-      exportQuery("spin", { page: 2, pageSize: 10, search: "a", sort: undefined, order: "desc", vendorId: 5, quotedOp: "gt", quotedValue: 0, branch: 4 }),
-    ).toEqual({ format: "xlsx", search: "a", vendor_id: 5, quoted_op: "gt", quoted_value: 0, branch: 4 });
+      exportQuery("whatsapp", { interest: ["interested", "not_set"], origin: [], vendor_id: ["2"], quote: "gt:50000" }),
+    ).toEqual({ format: "xlsx", interest: ["interested", "not_set"], vendor_id: ["2"], quote: "gt:50000" });
+  });
+
+  test("spin: no order without a sort", () => {
+    expect(exportQuery("spin", { search: "a", branch: "4", sort: undefined, order: "desc" })).toEqual({
+      format: "xlsx",
+      search: "a",
+      branch: "4",
+    });
   });
 });
 

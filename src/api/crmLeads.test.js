@@ -84,7 +84,7 @@ describe("crm-leads API", () => {
     expect(calls[2].headers.Authorization).toBe("Bearer token-2");
   });
 
-  test("export: query from the page params, file name from Content-Disposition", async () => {
+  test("export: the list's filters (repeated values too), file name from Content-Disposition", async () => {
     const clicked = [];
     globalThis.document = {
       createElement: () => ({ click() { clicked.push(this.download); }, remove() {} }),
@@ -99,12 +99,27 @@ describe("crm-leads API", () => {
         headers: { "content-disposition": 'attachment; filename="wedding-leads-2026-11-14.csv"' },
       }),
     );
-    const name = await exportCrmLeads("wedding", "csv", { search: "ravi", hideRepeats: true, sort: "name", order: "asc", page: 2 });
+    const name = await exportCrmLeads("wedding", "csv", {
+      search: "ravi",
+      hide_repeats: "true",
+      interest: ["interested", "not_set"],
+      sort: "name",
+      order: "asc",
+      page: 2,
+    });
     expect(name).toBe("wedding-leads-2026-11-14.csv");
     expect(clicked).toEqual(["wedding-leads-2026-11-14.csv"]);
     const u = new URL(calls[0].url, "http://x");
     expect(u.pathname).toBe("/api/v1/crm-leads/wedding/export");
-    expect(Object.fromEntries(u.searchParams)).toEqual({ format: "csv", search: "ravi", hide_repeats: "true", sort: "name", order: "asc" });
+    expect([...u.searchParams]).toEqual([
+      ["format", "csv"],
+      ["search", "ravi"],
+      ["hide_repeats", "true"],
+      ["interest", "interested"],
+      ["interest", "not_set"],
+      ["sort", "name"],
+      ["order", "asc"],
+    ]);
     URL.createObjectURL = origCreate;
     delete globalThis.document;
   });

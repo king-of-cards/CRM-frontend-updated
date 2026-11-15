@@ -39,7 +39,7 @@ import { listSheetSources } from "../api/sheets.js";
 import { prefetchTabs } from "../api/prefetch.js";
 import NotLinkedVendor from "../components/leads/NotLinkedVendor.jsx";
 import PeriodFilter from "../components/dashboard/PeriodFilter.jsx";
-import { periodFromSearch, periodLabel, todayIst } from "./dashboardPeriod.js";
+import { periodFromSearch, periodLabel, periodText, todayIst } from "./dashboardPeriod.js";
 
 // Overview of every lead source, built from GET /analytics/overview, for a period
 // (?from=YYYY-MM-DD&to=YYYY-MM-DD; default the last 30 days). See dashboardPeriod.js.
@@ -126,12 +126,14 @@ const valueOf = (r) => (r.status === "fulfilled" ? r.value : null);
 
 // The dashboard's requests for a period: load(refresh) and peek() (the browser cache).
 // The overview and the "Latest leads" lists take the period; the sheet sync status doesn't.
-function requestsFor({ from, to }) {
-  const p = { dateFrom: from, dateTo: to };
+function requestsFor({ all, from, to }) {
+  // All time: period=all for the overview; the lists need no dates for it
+  const p = all ? {} : { dateFrom: from, dateTo: to };
+  const o = all ? { period: "all" } : p;
   return {
     overview: {
-      load: (refresh) => getDashboardOverview({ ...p, refresh }),
-      peek: () => getDashboardOverview.peek(p),
+      load: (refresh) => getDashboardOverview({ ...o, refresh }),
+      peek: () => getDashboardOverview.peek(o),
     },
     sources: { load: () => listSheetSources(), peek: () => listSheetSources.peek() },
     waList: { load: () => listLatest("whatsapp", p), peek: () => listLatest.peek("whatsapp", p) },
@@ -314,6 +316,12 @@ const dayLabel = (d) =>
     day: "numeric",
     month: "short",
   });
+// "2026-11-01" -> "Nov 2026" (monthly Lead inflow tooltip)
+const monthName = (d) =>
+  new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString("en-IN", {
+    month: "short",
+    year: "numeric",
+  });
 const monthLabel = (m) =>
   new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", {
     month: "short",
@@ -333,18 +341,20 @@ export default function Dashboard() {
   // The period, kept in the URL (?from=&to=) so a reload or a shared link keeps it
   const [searchParams, setSearchParams] = useSearchParams();
   const todayDate = todayIst();
+  const periodParam = searchParams.get("period") ?? "";
   const fromParam = searchParams.get("from") ?? "";
   const toParam = searchParams.get("to") ?? "";
   const period = useMemo(
     () =>
       periodFromSearch(
-        new URLSearchParams({ from: fromParam, to: toParam }),
+        new URLSearchParams({ period: periodParam, from: fromParam, to: toParam }),
         todayDate,
       ),
-    [fromParam, toParam, todayDate],
+    [periodParam, fromParam, toParam, todayDate],
   );
   const setPeriod = useCallback(
-    (next) => setSearchParams({ from: next.from, to: next.to }),
+    (next) =>
+      setSearchParams(next.all ? { period: "all" } : { from: next.from, to: next.to }),
     [setSearchParams],
   );
 
@@ -434,6 +444,7 @@ export default function Dashboard() {
         }))
         .filter((x) => x.value > 0),
       weekly: o.period?.granularity === "week",
+      monthly: o.period?.granularity === "month",
     };
   }, [o, data]);
 
@@ -468,7 +479,7 @@ export default function Dashboard() {
   }, [data]);
 
   const kpiLoading = loading && !o;
-  const label = periodLabel(period.from, period.to);
+  const label = periodText(period);
   const prev = o?.period?.previous;
 
   return (
@@ -543,7 +554,11 @@ export default function Dashboard() {
                 icon={TrendingUp}
                 label="Average per day"
                 value={`${perDay(o?.average_per_day?.period?.all)} / day`}
-                caption={`${perDay(o?.average_per_day?.previous?.all)} before`}
+                caption={
+                  o?.average_per_day?.previous?.all != null
+                    ? `${perDay(o.average_per_day.previous.all)} before`
+                    : ""
+                }
                 gradient="from-violet-500 to-violet-700"
                 loading={kpiLoading}
               />
@@ -661,7 +676,7 @@ export default function Dashboard() {
             <div className="mt-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
               <Panel
                 title="Lead inflow"
-                subtitle={`New leads per ${view?.weekly ? "week (7-day buckets)" : "day"} · ${label}`}
+                subtitle={`New leads per ${view?.monthly ? "month" : view?.weekly ? "week (7-day buckets)" : "day"} · ${label}`}
                 icon={TrendingUp}
                 right={view && <Legend keys={view.trendKeys} />}
               >
@@ -702,7 +717,9 @@ export default function Dashboard() {
                         />
                         <XAxis
                           dataKey="date"
-                          tickFormatter={dayLabel}
+                          tickFormatter={(d) =>
+                            view.monthly ? monthLabel(String(d).slice(0, 7)) : dayLabel(d)
+                          }
                           tick={{ fontSize: 11, fill: "#9ca3af" }}
                           axisLine={false}
                           tickLine={false}
@@ -718,9 +735,11 @@ export default function Dashboard() {
                           content={
                             <ChartTooltip
                               labelFormat={(d, point) =>
-                                view.weekly
-                                  ? periodLabel(d, point?.end ?? d)
-                                  : dayLabel(d)
+                                view.monthly
+                                  ? monthName(d)
+                                  : view.weekly
+                                    ? periodLabel(d, point?.end ?? d)
+                                    : dayLabel(d)
                               }
                             />
                           }

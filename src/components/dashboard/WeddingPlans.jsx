@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ClipboardList } from "lucide-react";
-import {
-  getWeddingPlanStats,
-  listWeddingPlans,
-} from "../../api/weddingPlans.js";
-import { TAB_DEFAULTS } from "../../api/prefetch.js";
+import { getFilterOptions, getLeadStats, listLeads, listQuery } from "../../api/leadLists.js";
 import { useAuth } from "../../auth/useAuth.js";
-import FilterSelect, { parseSort } from "./FilterSelect.jsx";
+import { parseSort } from "./FilterSelect.jsx";
 import { withCrm } from "../leads/CrmColumns.jsx";
 import {
   countdown,
@@ -16,23 +12,21 @@ import {
   inr,
   LeadTable,
   Pagination,
-  SearchBox,
   SectionShell,
   shortMoney,
   SyncButton,
-  Tabs,
   timeAgo,
-  useDebounced,
   useSheetSync,
 } from "../leads/LeadKit.jsx";
 import CrmLeadActions from "../crmLeads/CrmLeadActions.jsx";
 import CrmRowBadge from "../crmLeads/CrmRowBadge.jsx";
+import LeadFilterBar from "../leads/LeadFilterBar.jsx";
+import { useLeadFilters } from "../leads/useLeadFilters.js";
 
 // Wedding plans from the Wedding planner Google Sheet (latest save per Plan ID).
 
 const SOURCE = "wedding_planner";
 const PAGE_SIZE = 8; // same as TAB_DEFAULTS.planner
-const NOT_SHARED = "__none__";
 
 const SORTS = [
   { value: "updated:desc", label: "Recently updated" },
@@ -89,18 +83,18 @@ function PlanEvents({ plan }) {
 export default function WeddingPlans() {
   const { isAdmin, canSeeLeads } = useAuth();
   const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-  const search = useDebounced(searchInput.trim());
-  const [fitsBudget, setFitsBudget] = useState(undefined);
-  const [sharedWith, setSharedWith] = useState("");
-  const [lastStep, setLastStep] = useState("");
-  const [sortValue, setSortValue] = useState(SORTS[0].value);
+  // Filters, kept in the URL; the same for the list, its stats and the export
+  const { filters, query, queryKey, update, clear, count } = useLeadFilters(SOURCE);
+  const sortValue = filters.sort || SORTS[0].value;
+  const listParams = (p) =>
+    listQuery({ page: p, pageSize: PAGE_SIZE, filters: query, ...parseSort(sortValue) });
   const [data, setData] = useState(
-    () => listWeddingPlans.peek(TAB_DEFAULTS.planner) ?? null,
+    () => listLeads.peek(SOURCE, listParams(1)) ?? null,
   );
-  const [stats, setStats] = useState(() => getWeddingPlanStats.peek() ?? null);
+  const [stats, setStats] = useState(() => getLeadStats.peek(SOURCE, query) ?? null);
+  const [options, setOptions] = useState(() => getFilterOptions.peek(SOURCE) ?? null);
   const [loading, setLoading] = useState(
-    () => !listWeddingPlans.peek(TAB_DEFAULTS.planner),
+    () => !listLeads.peek(SOURCE, listParams(1)),
   );
   const [error, setError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -108,27 +102,23 @@ export default function WeddingPlans() {
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
   const { lastSync, syncing, message, sync } = useSheetSync(isAdmin ? SOURCE : null, reload); // sheet sync: admins only
 
-  useEffect(
-    () => setPage(1),
-    [search, fitsBudget, sharedWith, lastStep, sortValue],
-  );
+  // Any filter or sort change goes back to page 1
+  useEffect(() => setPage(1), [queryKey, sortValue]);
+
+  // Dropdown values (vendor logins: counted over their own leads)
+  useEffect(() => {
+    if (!canSeeLeads) return;
+    getFilterOptions(SOURCE).then(setOptions).catch(() => {});
+  }, [canSeeLeads, reloadKey]);
 
   useEffect(() => {
     if (!canSeeLeads) return;
     let cancelled = false;
-    const params = {
-      page,
-      pageSize: PAGE_SIZE,
-      search,
-      fitsBudget,
-      sharedWith: sharedWith || undefined,
-      lastStep: lastStep || undefined,
-      ...parseSort(sortValue),
-    };
-    const cached = listWeddingPlans.peek(params);
+    const params = listParams(page);
+    const cached = listLeads.peek(SOURCE, params);
     if (cached) setData(cached);
     setLoading(!cached);
-    listWeddingPlans(params)
+    listLeads(SOURCE, params)
       .then((res) => {
         if (!cancelled) {
           setData(res);
@@ -139,22 +129,14 @@ export default function WeddingPlans() {
         (err) => !cancelled && setError({ kind: "error", text: err.message }),
       )
       .finally(() => !cancelled && setLoading(false));
-    getWeddingPlanStats()
+    getLeadStats(SOURCE, query)
       .then((s) => !cancelled && setStats(s))
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [
-    canSeeLeads,
-    page,
-    search,
-    fitsBudget,
-    sharedWith,
-    lastStep,
-    sortValue,
-    reloadKey,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSeeLeads, page, queryKey, sortValue, reloadKey]);
 
   if (!canSeeLeads) return null;
   const items = data?.items ?? [];
@@ -174,13 +156,7 @@ export default function WeddingPlans() {
           {isAdmin && <SyncButton syncing={syncing} onClick={sync} />}
           <CrmLeadActions
             source="wedding_planner"
-            exportParams={{
-              search,
-              fitsBudget,
-              sharedWith: sharedWith || undefined,
-              lastStep: lastStep || undefined,
-              ...parseSort(sortValue),
-            }}
+            exportParams={{ ...query, ...parseSort(sortValue) }}
             onChanged={reload}
           />
         </div>
@@ -206,56 +182,18 @@ export default function WeddingPlans() {
         },
       ]}
       toolbar={
-        <>
-          <SearchBox
-            value={searchInput}
-            onChange={setSearchInput}
-            placeholder="Search name, phone, city, plan ID…"
-          />
-          <Tabs
-            label="Budget"
-            value={fitsBudget}
-            onChange={setFitsBudget}
-            options={[
-              { value: undefined, label: "All" },
-              { value: true, label: "Fits budget" },
-              { value: false, label: "Over budget" },
-            ]}
-          />
-          <div className="ml-auto flex flex-wrap items-center gap-3">
-            <FilterSelect
-              label="Step"
-              value={lastStep}
-              onChange={setLastStep}
-              options={[
-                { value: "", label: "Any" },
-                ...(stats?.last_steps ?? []).map((s) => ({
-                  value: s.value,
-                  label: `${s.value} (${s.count})`,
-                })),
-              ]}
-            />
-            <FilterSelect
-              label="Sheet partner"
-              value={sharedWith}
-              onChange={setSharedWith}
-              options={[
-                { value: "", label: "Anyone" },
-                { value: NOT_SHARED, label: "Not shared yet" },
-                ...(stats?.shared_with ?? []).map((s) => ({
-                  value: s.value,
-                  label: `${s.value} (${s.count})`,
-                })),
-              ]}
-            />
-            <FilterSelect
-              label="Sort"
-              value={sortValue}
-              onChange={setSortValue}
-              options={SORTS}
-            />
-          </div>
-        </>
+        <LeadFilterBar
+          source={SOURCE}
+          filters={filters}
+          update={update}
+          clear={clear}
+          count={count}
+          options={options}
+          isAdmin={isAdmin}
+          sorts={SORTS}
+          sortValue={sortValue}
+          placeholder="Search name, phone, city, plan ID…"
+        />
       }
       footer={
         <Pagination
@@ -473,7 +411,7 @@ export default function WeddingPlans() {
           ],
         })}
         empty={
-          search || fitsBudget !== undefined || sharedWith || lastStep
+          count || filters.search
             ? "No plans match these filters."
             : "No plans yet. Click “Sync now” to copy them from the sheet."
         }

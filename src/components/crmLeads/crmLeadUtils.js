@@ -28,47 +28,16 @@ export function filenameFromDisposition(header, fallback) {
   return plain ? plain[1].trim() : fallback;
 }
 
-// ── Export: the list page's params -> the export's query ─────────────────
-// Each page passes the same params it sends to its list endpoint (camelCase, as in src/api/*).
-const EXPORT_PARAMS = {
-  spin: {
-    search: "search",
-    sort: "sort",
-    order: "order",
-    branch: "branch",
-    pincode: "pincode",
-    budget: "budget",
-    vendorId: "vendor_id",
-    interest: "interest",
-    converted: "converted",
-    quotedOp: "quoted_op",
-    quotedValue: "quoted_value",
-  },
-  whatsapp: { search: "search", country: "country", sort: "sort", order: "order" },
-  wedding: {
-    search: "search",
-    occasion: "occasion",
-    sharedWith: "shared_with",
-    hideRepeats: "hide_repeats",
-    sort: "sort",
-    order: "order",
-  },
-  wedding_planner: {
-    search: "search",
-    sharedWith: "shared_with",
-    fitsBudget: "fits_budget",
-    lastStep: "last_step",
-    sort: "sort",
-    order: "order",
-  },
-};
-
+// ── Export: the list's filter query -> the export's query ──────────────────
+// Pages pass the same API query they send to their list (docs section 10: search, dates,
+// interest=…&interest=…, quote, origin, the source's own filters…) plus sort / order.
+// Paging is dropped; arrays stay arrays (repeated parameters).
 export function exportQuery(source, params = {}, format = "xlsx") {
   const query = { format };
-  for (const [from, to] of Object.entries(EXPORT_PARAMS[source] ?? {})) {
-    const value = params[from];
-    if (value === undefined || value === null || value === "") continue;
-    query[to] = value;
+  for (const [k, v] of Object.entries(params ?? {})) {
+    if (k === "page" || k === "page_size" || k === "format") continue;
+    if (Array.isArray(v) ? v.length === 0 : v === undefined || v === null || v === "") continue;
+    query[k] = v;
   }
   // The spin list only sends an order together with a sort
   if (source === "spin" && !query.sort) delete query.order;

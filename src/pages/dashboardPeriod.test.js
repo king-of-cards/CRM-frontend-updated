@@ -6,6 +6,7 @@ import {
   periodError,
   periodFromSearch,
   periodLabel,
+  periodText,
   presetPeriod,
   todayIst,
 } from "./dashboardPeriod.js";
@@ -87,5 +88,19 @@ describe("labels", () => {
     expect(periodLabel("2026-11-02", "2026-11-08")).toBe("2 – 8 Nov 2026");
     expect(periodLabel("2026-10-18", TODAY)).toBe("18 Oct – 16 Nov 2026");
     expect(periodLabel("2025-12-18", "2026-01-16")).toBe("18 Dec 2025 – 16 Jan 2026");
+  });
+});
+
+describe("All time", () => {
+  test("?period=all, its dropdown name, label and validation", () => {
+    const all = periodFromSearch(new URLSearchParams("period=all"), TODAY);
+    expect(all).toEqual({ all: true });
+    expect(modeOf(all, TODAY)).toBe("all");
+    expect(periodText(all)).toBe("All time");
+    expect(periodError(all, TODAY)).toBe(null);
+  });
+  test("the Dashboard default stays Last 30 days", () => {
+    expect(periodFromSearch(new URLSearchParams(""), TODAY)).toEqual({ from: "2026-10-18", to: TODAY });
+    expect(periodText({ from: "2026-10-18", to: TODAY })).toBe("18 Oct – 16 Nov 2026");
   });
 });
