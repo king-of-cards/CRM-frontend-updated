@@ -1,0 +1,59 @@
+// CRM outcomes under each Dashboard source tile (docs/API_REFERENCE.md section 9, `outcomes`).
+// Pure helpers, no React.
+//   INTERESTED  12      CONVERTED  5 · 8.3%      QUOTATION AMOUNT  ₹2.4 L · 6 quotes
+// Each value links to the source's list with the matching filter and the Dashboard's period.
+// A value that is 0, or a source with no outcomes (spin when the workflow DB can't be read),
+// shows "—" and isn't a link.
+
+const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+
+// ₹45,000 · ₹1.5 L · ₹1.2 Cr
+export function shortRupees(amount) {
+  if (amount == null) return "—";
+  if (amount >= 1e7) return `₹${+(amount / 1e7).toFixed(2)} Cr`;
+  if (amount >= 1e5) return `₹${+(amount / 1e5).toFixed(1)} L`;
+  return inr.format(amount);
+}
+
+const count = (n) => Number(n).toLocaleString("en-IN");
+const quotes = (n) => `${count(n)} ${n === 1 ? "quote" : "quotes"}`;
+
+// [{ key, label, text, filter }] for one source; filter is null when the value isn't a link
+export function outcomeCells(outcome) {
+  const o = outcome ?? null;
+  const interested = o?.interested ?? 0;
+  const converted = o?.converted ?? 0;
+  const quoted = o?.quoted_count ?? 0;
+  return [
+    {
+      key: "interested",
+      label: "INTERESTED",
+      text: interested ? count(interested) : "—",
+      filter: interested ? { interest: "interested" } : null,
+    },
+    {
+      key: "converted",
+      label: "CONVERTED",
+      text: converted
+        ? `${count(converted)}${o.converted_pct != null ? ` · ${o.converted_pct}%` : ""}`
+        : "—",
+      filter: converted ? { converted: "yes" } : null,
+    },
+    {
+      key: "quoted",
+      label: "QUOTATION AMOUNT",
+      text: quoted ? `${shortRupees(o.quoted_total ?? 0)} · ${quotes(quoted)}` : "—",
+      filter: quoted ? { quote: "has" } : null,
+    },
+  ];
+}
+
+// The list page URL: the filter, then the Dashboard's period (no dates for All time)
+export function outcomeLink(path, filter, period) {
+  const params = new URLSearchParams(filter);
+  if (!period.all) {
+    params.set("date_from", period.from);
+    params.set("date_to", period.to);
+  }
+  return `${path}?${params.toString()}`;
+}

@@ -40,6 +40,7 @@ import { prefetchTabs } from "../api/prefetch.js";
 import NotLinkedVendor from "../components/leads/NotLinkedVendor.jsx";
 import PeriodFilter from "../components/dashboard/PeriodFilter.jsx";
 import { periodFromSearch, periodLabel, periodText, todayIst } from "./dashboardPeriod.js";
+import { outcomeCells, outcomeLink } from "./dashboardOutcomes.js";
 
 // Overview of every lead source, built from GET /analytics/overview, for a period
 // (?from=YYYY-MM-DD&to=YYYY-MM-DD; default the last 30 days). See dashboardPeriod.js.
@@ -612,11 +613,13 @@ export default function Dashboard() {
                 const delta = o?.change_pct?.[k];
                 const share = view?.share[k] ?? 0;
                 return (
-                  <Link
+                  // The tile: its top links to the list; the outcomes row below has its own
+                  // links (links can't be nested), so the tile itself is a box
+                  <div
                     key={k}
-                    to={s.to}
-                    className="group flex items-center gap-4 rounded-2xl bg-white p-4 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-gray-200/80"
+                    className="group rounded-2xl bg-white p-4 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-gray-200/80"
                   >
+                  <Link to={s.to} className="flex items-center gap-4">
                     <span
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${s.tint}`}
                     >
@@ -668,6 +671,31 @@ export default function Dashboard() {
                       </p>
                     </div>
                   </Link>
+
+                  {/* CRM outcomes of the period's leads; each value opens the filtered list */}
+                  <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
+                    {outcomeCells(o?.outcomes?.[k]).map((c) => (
+                      <div key={c.key} className="min-w-0">
+                        <dt className="truncate text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                          {c.label}
+                        </dt>
+                        <dd className="mt-0.5 truncate text-sm font-semibold tabular-nums text-gray-900">
+                          {c.filter ? (
+                            <Link
+                              to={outcomeLink(s.to, c.filter, period)}
+                              title={`Open these ${s.label} leads`}
+                              className="hover:text-brand-700 hover:underline"
+                            >
+                              {c.text}
+                            </Link>
+                          ) : (
+                            <span className="text-gray-300">{c.text}</span>
+                          )}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                  </div>
                 );
               })}
             </section>
