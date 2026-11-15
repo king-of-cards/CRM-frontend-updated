@@ -87,7 +87,7 @@ function PlanEvents({ plan }) {
 }
 
 export default function WeddingPlans() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canSeeLeads } = useAuth();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const search = useDebounced(searchInput.trim());
@@ -106,7 +106,7 @@ export default function WeddingPlans() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
-  const { lastSync, syncing, message, sync } = useSheetSync(SOURCE, reload);
+  const { lastSync, syncing, message, sync } = useSheetSync(isAdmin ? SOURCE : null, reload); // sheet sync: admins only
 
   useEffect(
     () => setPage(1),
@@ -114,7 +114,7 @@ export default function WeddingPlans() {
   );
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!canSeeLeads) return;
     let cancelled = false;
     const params = {
       page,
@@ -146,7 +146,7 @@ export default function WeddingPlans() {
       cancelled = true;
     };
   }, [
-    isAdmin,
+    canSeeLeads,
     page,
     search,
     fitsBudget,
@@ -156,7 +156,7 @@ export default function WeddingPlans() {
     reloadKey,
   ]);
 
-  if (!isAdmin) return null;
+  if (!canSeeLeads) return null;
   const items = data?.items ?? [];
 
   return (
@@ -164,14 +164,14 @@ export default function WeddingPlans() {
       theme="wedding_planner"
       icon={ClipboardList}
       title="Wedding planner leads"
-      subtitle={`Wedding planner sheet · last synced ${timeAgo(lastSync?.last_success?.finished_at)}${
+      subtitle={`Wedding planner sheet${isAdmin ? ` · last synced ${timeAgo(lastSync?.last_success?.finished_at)}` : ""}${
         stats?.total_budget
           ? ` · ${shortMoney(stats.total_budget)} in budgets`
           : ""
-      }${lastSync?.latest_sync?.status === "failed" ? " · last attempt failed" : ""}`}
+      }${isAdmin && lastSync?.latest_sync?.status === "failed" ? " · last attempt failed" : ""}`}
       action={
         <div className="flex items-center gap-2">
-          <SyncButton syncing={syncing} onClick={sync} />
+          {isAdmin && <SyncButton syncing={syncing} onClick={sync} />}
           <CrmLeadActions
             source="wedding_planner"
             exportParams={{

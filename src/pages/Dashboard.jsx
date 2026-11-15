@@ -41,6 +41,7 @@ import { listWeddingLeads } from "../api/weddingLeads.js";
 import { listWeddingPlans } from "../api/weddingPlans.js";
 import { listWhatsAppLeads } from "../api/whatsappLeads.js";
 import { prefetchTabs } from "../api/prefetch.js";
+import NotLinkedVendor from "../components/leads/NotLinkedVendor.jsx";
 
 // Overview of every lead source, built from GET /analytics/overview.
 // Each source also has its own tab in the top bar for the full list.
@@ -316,7 +317,7 @@ const monthLabel = (m) =>
 // ── Page ───────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const location = useLocation();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, canSeeLeads } = useAuth();
   const firstName = user?.name?.split(" ")[0];
   const [showIntro, setShowIntro] = useState(
     Boolean(location.state?.fromLogin),
@@ -331,13 +332,14 @@ export default function Dashboard() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (!canSeeLeads) {
       setState({ loading: false, data: null });
       return;
     }
     let cancelled = false;
     setState((s) => ({ ...s, loading: !s.data, refreshing: true }));
-    const keys = Object.keys(REQUESTS);
+    // Vendor logins: no sheet sync status (admin only), so it isn't requested
+    const keys = Object.keys(REQUESTS).filter((k) => isAdmin || k !== "sources");
     Promise.allSettled(
       keys.map((k) => {
         const [fn, params] = REQUESTS[k];
@@ -356,12 +358,12 @@ export default function Dashboard() {
           keys.map((k) => [k, fresh[k] ?? prev.data?.[k] ?? null]),
         ),
       }));
-      prefetchTabs(); // get the other tabs ready while the user looks at the dashboard
+      prefetchTabs({ sheets: isAdmin }); // get the other tabs ready while the user looks at the dashboard
     });
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, refreshKey]);
+  }, [isAdmin, canSeeLeads, refreshKey]);
 
   const { loading, refreshing, data } = state;
   const o = data?.overview;
@@ -456,12 +458,8 @@ export default function Dashboard() {
           )
         }
       >
-        {!isAdmin ? (
-          <div className="mt-6 rounded-2xl bg-white p-8 text-center ring-1 ring-gray-100">
-            <p className="text-sm text-gray-600">
-              Leads are visible to admins. Ask an admin if you need access.
-            </p>
-          </div>
+        {!canSeeLeads ? (
+          <NotLinkedVendor />
         ) : !loading && !o ? (
           <p
             role="alert"
@@ -585,10 +583,9 @@ export default function Dashboard() {
                         />
                       </div>
                       <p className="mt-1 text-[11px] text-gray-400">
-                        {share}% of leads ·{" "}
-                        {k === "spin"
-                          ? "live"
-                          : `synced ${timeAgo(view?.synced[k])}`}
+                        {share}% of leads
+                        {isAdmin &&
+                          ` · ${k === "spin" ? "live" : `synced ${timeAgo(view?.synced[k])}`}`}
                       </p>
                     </div>
                   </Link>

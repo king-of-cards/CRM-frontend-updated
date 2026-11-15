@@ -1,7 +1,8 @@
 import { ApiError, apiRequest, getAccessToken, refreshAccessToken } from "./client.js";
-import { exportQuery, filenameFromDisposition } from "../components/crmLeads/crmLeadUtils.js";
+import { exportQuery, filenameFromDisposition, parseCsvHeader } from "../components/crmLeads/crmLeadUtils.js";
 
-// Leads added or imported in the CRM, for all four sources (admin only).
+// Leads added or imported in the CRM, for all four sources. Admin only, except export
+// (vendor logins export their own leads).
 // source: "spin" | "whatsapp" | "wedding" | "wedding_planner". See docs/API_REFERENCE.md.
 //
 // JSON calls go through apiRequest. File uploads (multipart) and file downloads (blobs) use
@@ -71,6 +72,12 @@ export function getCrmLeadFields(source) {
 export async function downloadCrmLeadTemplate(source, format = "xlsx") {
   const res = await rawFetch(`${base(source)}/template`, { query: { format } });
   return saveFile(res, `${source}-leads-template.${format}`);
+}
+
+// The CSV template's header row = the list screen's columns (used for the upload preview)
+export async function getCrmLeadTemplateHeaders(source) {
+  const res = await rawFetch(`${base(source)}/template`, { query: { format: "csv" } });
+  return parseCsvHeader(await res.text());
 }
 
 // POST import/preview (multipart). Nothing is saved.

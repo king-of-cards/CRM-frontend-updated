@@ -19,8 +19,10 @@ export default function EditLeadDialog({ source, leadKey, onClose, onChanged }) 
   useEffect(() => {
     let cancelled = false;
     Promise.all([getCrmLeadFields(source), getCrmLead(source, leadKey)])
-      .then(([m, l]) => {
+      .then(([all, l]) => {
         if (cancelled) return;
+        // "Assigned to" isn't edited here (PATCH ignores it; it's the "Assigned to" cell)
+        const m = { ...all, fields: all.fields.filter((x) => x.type !== "assigned") };
         const f = valuesToForm(m.fields, l.values);
         setMeta(m);
         setLead(l);

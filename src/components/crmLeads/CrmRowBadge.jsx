@@ -3,11 +3,13 @@ import { createPortal } from "react-dom";
 import { Archive, MoreHorizontal, Pencil } from "lucide-react";
 import { emitCrmLeadEvent } from "./crmLeadEvents.js";
 import { isCrmLead } from "./crmLeadUtils.js";
+import { useAuth } from "../../auth/useAuth.js";
 
 // "Added" / "Imported" badge with Edit and Archive, shown only on leads added or imported in
 // the CRM. Sheet and spin-game leads get nothing (renders null).
 // The page's CrmLeadActions does the work (see crmLeadEvents.js).
 export default function CrmRowBadge({ source, lead, leadKey }) {
+  const { isAdmin } = useAuth(); // vendor logins: badge only, no Edit / Archive
   const [menu, setMenu] = useState(null); // { top, right } when open
   const button = useRef(null);
 
@@ -50,6 +52,7 @@ export default function CrmRowBadge({ source, lead, leadKey }) {
       >
         {lead.origin === "imported" ? "Imported" : "Added"}
       </span>
+      {isAdmin && (
       <button
         ref={button}
         type="button"
@@ -62,6 +65,7 @@ export default function CrmRowBadge({ source, lead, leadKey }) {
       >
         <MoreHorizontal size={14} />
       </button>
+      )}
       {menu &&
         createPortal(
           <div

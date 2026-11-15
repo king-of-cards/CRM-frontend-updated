@@ -27,19 +27,18 @@ const navItems = [
 // Tabs in the floating top bar: the overview and one tab per lead source
 const topTabs = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/leads/spin", label: "Spin leads", icon: Target, adminOnly: true },
+  // Vendor logins see these too (only their own leads)
+  { to: "/leads/spin", label: "Spin leads", icon: Target },
   {
     to: "/leads/international",
     label: "International",
     icon: Globe,
-    adminOnly: true,
   },
-  { to: "/leads/wedding", label: "Wedding", icon: Camera, adminOnly: true },
+  { to: "/leads/wedding", label: "Wedding", icon: Camera },
   {
     to: "/leads/wedding-planner",
     label: "Wedding planner",
     icon: ClipboardList,
-    adminOnly: true,
   },
 ];
 
@@ -141,6 +140,7 @@ export default function DashboardLayout({
               <p className="truncate text-xs text-white/70">{user.email}</p>
               <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-white/60">
                 {user.role}
+                {user.vendor ? ` · ${user.vendor.name}` : ""}
               </p>
             </div>
           )}
@@ -202,6 +202,14 @@ export default function DashboardLayout({
                 >
                   Log out
                 </button>
+                {user.vendor && (
+                  <span
+                    title="Your vendor: you see only its leads"
+                    className="relative rounded-full bg-white/15 px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-white/30"
+                  >
+                    {user.vendor.name}
+                  </span>
+                )}
                 <span
                   title={`${user.name} · ${user.email}`}
                   className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white ring-1 ring-white/30"

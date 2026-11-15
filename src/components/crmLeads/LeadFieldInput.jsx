@@ -1,7 +1,9 @@
 import { fieldCls } from "./Drawer.jsx";
+import { useVendors } from "../leads/InlineCrm.jsx";
 
 // One form input for a field from GET /crm-leads/{source}/fields.
 // value is text ("" = empty); bool is "yes" / "no"; branch is the branch id as text.
+// "Assigned to": Unassigned, each active vendor, or Automatic ("" = not sent = automatic).
 const INPUT_TYPE = {
   email: "email",
   phone: "tel",
@@ -12,6 +14,7 @@ const INPUT_TYPE = {
 };
 
 export default function LeadFieldInput({ field, value, onChange, error, branches = [] }) {
+  const vendors = useVendors(); // active vendors (GET /vendors)
   const id = `crm-field-${field.key}`;
   const invalid = Boolean(error);
   const cls = `mt-1.5 ${fieldCls} ${invalid ? "border-red-300 focus:border-red-500 focus:ring-red-500/20" : ""}`;
@@ -27,6 +30,18 @@ export default function LeadFieldInput({ field, value, onChange, error, branches
             {b.city ? ` · ${b.city}` : ""}
           </option>
         ))}
+      </select>
+    );
+  } else if (field.type === "assigned") {
+    input = (
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={cls} aria-invalid={invalid}>
+        <option value="Unassigned">Unassigned</option>
+        {vendors.map((v) => (
+          <option key={v.id} value={v.name}>
+            {v.name}
+          </option>
+        ))}
+        <option value="">Automatic</option>
       </select>
     );
   } else if (field.type === "bool") {

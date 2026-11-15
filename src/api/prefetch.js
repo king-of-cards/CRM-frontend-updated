@@ -15,7 +15,8 @@ let done = false;
 
 // Load the first page of every lead tab in the background (once per page load),
 // so switching tabs shows data instantly.
-export function prefetchTabs() {
+// sheets: false for vendor logins (the sheet sync status is admin only, so it isn't requested)
+export function prefetchTabs({ sheets = true } = {}) {
   if (done) return;
   done = true;
   const run = () =>
@@ -26,7 +27,7 @@ export function prefetchTabs() {
       getWeddingLeadStats(),
       listWeddingPlans(TAB_DEFAULTS.planner),
       getWeddingPlanStats(),
-      listSheetSources(),
+      sheets ? listSheetSources() : null,
     ]);
   if ("requestIdleCallback" in window) window.requestIdleCallback(run, { timeout: 2000 });
   else setTimeout(run, 300);

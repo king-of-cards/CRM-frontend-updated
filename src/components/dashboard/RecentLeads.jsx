@@ -173,7 +173,7 @@ function storedCreated() {
 }
 
 export default function RecentLeads() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canSeeLeads } = useAuth();
   const [createdCol, setCreatedCol] = useState(storedCreated);
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
@@ -238,22 +238,22 @@ export default function RecentLeads() {
 
   // Budget values for the dropdown
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!canSeeLeads) return;
     getSpinFilterOptions()
       .then(setOptions)
       .catch(() => {});
-  }, [isAdmin]);
+  }, [canSeeLeads]);
 
   // Branch names for the filter
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!canSeeLeads) return;
     listBranches()
       .then((d) => setBranches(d.branches))
       .catch(() => {});
-  }, [isAdmin]);
+  }, [canSeeLeads]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!canSeeLeads) return;
     let cancelled = false;
 
     const [key, order] = sortValue.split(":");
@@ -328,7 +328,7 @@ export default function RecentLeads() {
       cancelled = true;
     };
   }, [
-    isAdmin,
+    canSeeLeads,
     page,
     search,
     sortValue,
@@ -344,7 +344,7 @@ export default function RecentLeads() {
     reloadKey,
   ]);
 
-  if (!isAdmin) return null;
+  if (!canSeeLeads) return null;
   const items = data?.items ?? [];
 
   // Search suggestions: the best matching leads (name, phone, email, branch)
@@ -413,12 +413,14 @@ export default function RecentLeads() {
       subtitle={`Live from the workflow database (read-only) · ${columns.length || "—"} fields per lead`}
       action={
         <div className="flex items-center gap-2">
-          <Link
-            to="/leads"
-            className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
-          >
-            Explore all fields <ArrowUpRight size={15} />
-          </Link>
+          {isAdmin && (
+            <Link
+              to="/leads"
+              className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
+            >
+              Explore all fields <ArrowUpRight size={15} />
+            </Link>
+          )}
           <CrmLeadActions
             source="spin"
             exportParams={() => lastParams.current}
@@ -541,21 +543,24 @@ export default function RecentLeads() {
                   ))}
                 </select>
               </label>
-              <label className="block">
-                <span className={labelCls}>Assigned to</span>
-                <select
-                  value={vendorId}
-                  onChange={(e) => setVendorId(e.target.value)}
-                  className={inputCls}
-                >
-                  <option value="">Any vendor</option>
-                  {vendors.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {/* Vendor logins see only their own leads (the backend ignores this filter for them) */}
+              {isAdmin && (
+                <label className="block">
+                  <span className={labelCls}>Assigned to</span>
+                  <select
+                    value={vendorId}
+                    onChange={(e) => setVendorId(e.target.value)}
+                    className={inputCls}
+                  >
+                    <option value="">Any vendor</option>
+                    {vendors.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <label className="block">
                 <span className={labelCls}>Interest</span>
                 <select

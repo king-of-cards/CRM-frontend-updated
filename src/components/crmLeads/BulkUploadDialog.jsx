@@ -3,12 +3,19 @@ import { Download, FileSpreadsheet, RefreshCw, Trash2, Upload } from "lucide-rea
 import {
   downloadCrmLeadTemplate,
   getCrmLeadFields,
+  getCrmLeadTemplateHeaders,
   importCrmLeads,
   previewCrmLeadImport,
 } from "../../api/crmLeads.js";
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn, Spinner } from "./Drawer.jsx";
 import { defaultSheet, readSheetNames } from "./xlsxSheets.js";
+import { useVendors } from "../leads/InlineCrm.jsx";
 import {
+  assignedChoice,
+  assignedForUpload,
+  AUTOMATIC,
+  previewColumns,
+  screenFieldKeys,
   duplicateLabel,
   duplicateWhere,
   errorText,
@@ -64,11 +71,35 @@ function RowBadges({ row }) {
   );
 }
 
-function CellInput({ field, value, onChange, onBlur, errors, branches }) {
+function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }) {
   const invalid = errors.length > 0;
   const cls = `${fieldCls} min-w-[140px] py-1.5 ${invalid ? "border-red-300" : ""}`;
   let input;
-  if (field.type === "branch") {
+  if (field.type === "assigned") {
+    // Unassigned, each active vendor, Automatic ("<vendor> · auto" in the file shows as Automatic)
+    const choice = assignedChoice(value);
+    const known = choice === "Unassigned" || choice === AUTOMATIC || vendors.some((v) => v.name === choice);
+    input = (
+      <select
+        value={choice}
+        onChange={(e) => onChange(assignedForUpload(e.target.value, vendors))}
+        onBlur={onBlur}
+        className={cls}
+        aria-invalid={invalid}
+      >
+        <option value="Unassigned">Unassigned</option>
+        {!known && <option value={choice}>{choice} (unknown)</option>}
+        {vendors.map((v) => (
+          <option key={v.id} value={v.name}>
+            {v.name}
+          </option>
+        ))}
+        <option value={AUTOMATIC} disabled={!vendors.length}>
+          Automatic
+        </option>
+      </select>
+    );
+  } else if (field.type === "branch") {
     const known = branches.some((b) => String(b.id) === String(value ?? ""));
     input = (
       <select value={value ?? ""} onChange={(e) => onChange(e.target.value)} onBlur={onBlur} className={cls} aria-invalid={invalid}>
@@ -118,6 +149,7 @@ function CellInput({ field, value, onChange, onBlur, errors, branches }) {
 }
 
 function cellText(field, value, branches) {
+  if (field.type === "assigned") return assignedChoice(value);
   if (value === null || value === undefined || value === "") return null;
   if (field.type === "branch") return branches.find((b) => String(b.id) === String(value))?.name ?? String(value);
   if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -148,6 +180,19 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
 
   // Step 3: result
   const [result, setResult] = useState(null);
+
+  // The list screen's columns (the CSV template's header row); null = not known
+  const [templateHeaders, setTemplateHeaders] = useState(null);
+  const vendors = useVendors(); // active vendors, for "Assigned to"
+  useEffect(() => {
+    let cancelled = false;
+    getCrmLeadTemplateHeaders(source)
+      .then((h) => !cancelled && setTemplateHeaders(h))
+      .catch(() => {}); // without it, the preview shows the file's columns
+    return () => {
+      cancelled = true;
+    };
+  }, [source]);
 
   useEffect(() => {
     let cancelled = false;
@@ -206,7 +251,11 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
     setError("");
     try {
       const res = await previewCrmLeadImport(source, file, isXlsx ? sheet.trim() : undefined);
-      setPreview({ columns: res.columns, ignored: res.ignored_columns ?? [] });
+      setPreview({
+        columns: res.columns,
+        ignored: res.ignored_columns ?? [],
+        readOnly: res.read_only_columns ?? [],
+      });
       startRows(res.rows);
       setOnlyProblems(false);
       setStep("preview");
@@ -217,13 +266,15 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
     }
   }
 
-  // Columns: the ones matched in the file, plus any field with an error, in the fields' order
+  // Columns: the list screen's (from the template), plus other fields in the file or with an error
   const columns = useMemo(() => {
     if (!meta || !preview) return [];
-    const keys = new Set(["phone", ...Object.values(preview.columns)]);
-    for (const r of rows) for (const e of r.errors ?? []) keys.add(e.field);
-    return meta.fields.filter((f) => keys.has(f.key));
-  }, [meta, preview, rows]);
+    return previewColumns(meta.fields, {
+      screenKeys: templateHeaders ? screenFieldKeys(meta.fields, templateHeaders) : null,
+      fileKeys: Object.values(preview.columns),
+      errorKeys: rows.flatMap((r) => (r.errors ?? []).map((e) => e.field)),
+    });
+  }, [meta, preview, rows, templateHeaders]);
 
   const counts = useMemo(() => summarize(rows), [rows]);
   const anyDirty = rows.some((r) => r.dirty);
@@ -473,6 +524,11 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
               ))}
             </div>
 
+            {preview.readOnly.length > 0 && (
+              <p className="text-xs text-gray-500">
+                Read-only columns, ignored on upload: {preview.readOnly.join(", ")}
+              </p>
+            )}
             {preview.ignored.length > 0 && (
               <p className="text-xs text-gray-500">Columns not used: {preview.ignored.join(", ")}</p>
             )}
@@ -523,6 +579,7 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
                               value={r.values?.[f.key]}
                               errors={fieldErrors(r, f.key)}
                               branches={branches}
+                              vendors={vendors}
                               onChange={(v) => edit(r.row, f.key, v)}
                               onBlur={() => blur(r.row)}
                             />

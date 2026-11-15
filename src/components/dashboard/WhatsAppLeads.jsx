@@ -38,7 +38,7 @@ const SORTS = [
 ];
 
 export default function WhatsAppLeads() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canSeeLeads } = useAuth();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const search = useDebounced(searchInput.trim());
@@ -55,12 +55,12 @@ export default function WhatsAppLeads() {
   const [reloadKey, setReloadKey] = useState(0);
 
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
-  const { lastSync, syncing, message, sync } = useSheetSync(SOURCE, reload);
+  const { lastSync, syncing, message, sync } = useSheetSync(isAdmin ? SOURCE : null, reload); // sheet sync: admins only
 
   useEffect(() => setPage(1), [search, country, sortValue]);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!canSeeLeads) return;
     let cancelled = false;
     const params = {
       page,
@@ -89,9 +89,9 @@ export default function WhatsAppLeads() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, page, search, country, sortValue, reloadKey]);
+  }, [canSeeLeads, page, search, country, sortValue, reloadKey]);
 
-  if (!isAdmin) return null;
+  if (!canSeeLeads) return null;
   const items = data?.items ?? [];
 
   return (
@@ -99,10 +99,14 @@ export default function WhatsAppLeads() {
       theme="whatsapp"
       icon={Globe}
       title="International leads"
-      subtitle={`International sheet · last synced ${timeAgo(lastSync?.last_success?.finished_at)}${lastSync?.latest_sync?.status === "failed" ? " · last attempt failed" : ""}`}
+      subtitle={
+        isAdmin
+          ? `International sheet · last synced ${timeAgo(lastSync?.last_success?.finished_at)}${lastSync?.latest_sync?.status === "failed" ? " · last attempt failed" : ""}`
+          : "International sheet"
+      }
       action={
         <div className="flex items-center gap-2">
-          <SyncButton syncing={syncing} onClick={sync} />
+          {isAdmin && <SyncButton syncing={syncing} onClick={sync} />}
           <CrmLeadActions
             source="whatsapp"
             exportParams={{ search, country: country || undefined, ...parseSort(sortValue) }}

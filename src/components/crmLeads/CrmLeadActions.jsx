@@ -6,6 +6,7 @@ import BulkUploadDialog from "./BulkUploadDialog.jsx";
 import EditLeadDialog from "./EditLeadDialog.jsx";
 import { onCrmLeadEvent } from "./crmLeadEvents.js";
 import { errorText } from "./crmLeadUtils.js";
+import { useAuth } from "../../auth/useAuth.js";
 
 // "Add lead" and "Export" for a source's list header. Also opens the Edit drawer and runs
 // Archive for the row badges (see crmLeadEvents.js), and shows their messages.
@@ -94,6 +95,7 @@ function Toast({ toast, onClose }) {
 }
 
 export default function CrmLeadActions({ source, exportParams, onChanged }) {
+  const { isAdmin } = useAuth(); // vendor logins: Export only (their own leads)
   const [dialog, setDialog] = useState(null); // "single" | "bulk" | null
   const [editKey, setEditKey] = useState(null);
   const [exporting, setExporting] = useState(false);
@@ -153,15 +155,28 @@ export default function CrmLeadActions({ source, exportParams, onChanged }) {
 
   return (
     <div className="flex items-center gap-2">
-      <Menu
-        label="Add lead"
-        icon={Plus}
-        primary
-        items={[
-          { label: "Single lead", icon: UserPlus, onClick: () => setDialog("single") },
-          { label: "Bulk upload", icon: FileUp, onClick: () => setDialog("bulk") },
-        ]}
-      />
+      {/* Adding leads: admins only. Spin leads can only be added by bulk upload. */}
+      {isAdmin && source === "spin" && (
+        <button
+          type="button"
+          onClick={() => setDialog("bulk")}
+          className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-4 py-2 text-sm font-medium text-white shadow-md shadow-brand-700/25 transition hover:opacity-95"
+        >
+          <FileUp size={15} />
+          Bulk upload
+        </button>
+      )}
+      {isAdmin && source !== "spin" && (
+        <Menu
+          label="Add lead"
+          icon={Plus}
+          primary
+          items={[
+            { label: "Single lead", icon: UserPlus, onClick: () => setDialog("single") },
+            { label: "Bulk upload", icon: FileUp, onClick: () => setDialog("bulk") },
+          ]}
+        />
+      )}
       <Menu
         label={exporting ? "Exporting…" : "Export"}
         icon={Download}

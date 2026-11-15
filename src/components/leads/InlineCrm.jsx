@@ -2,9 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Loader2 } from "lucide-react";
 import { INTEREST_OPTIONS, interestInfo } from "../../api/leadCrm.js";
 import { listVendors } from "../../api/vendors.js";
+import { useAuth } from "../../auth/useAuth.js";
+import { assignedText } from "./crmAccess.js";
 
 // The four editable CRM cells in every lead table: Assigned to, Interest, Quote, Converted.
 // Each change is saved at once (only that field) and the row updates in place.
+// Who edits what: Assigned to = admins; Interest, Quote, Converted = the assigned vendor.
+// The other role sees the value as read-only text. Save errors (403/404…) are shown under the cell.
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -62,6 +66,16 @@ function PillSelect({ value, onChange, className, children, label, busy }) {
   );
 }
 
+// A save error, shown under the cell (not only as a tooltip)
+function SaveError({ error }) {
+  if (!error) return null;
+  return (
+    <span role="alert" className="mt-1 block max-w-[200px] whitespace-normal text-[11px] leading-tight text-red-600">
+      {error}
+    </span>
+  );
+}
+
 function useSaver(save) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -80,6 +94,7 @@ function useSaver(save) {
 }
 
 export function VendorCell({ crm, save }) {
+  const { isAdmin } = useAuth();
   const vendors = useVendors();
   const { busy, error, run } = useSaver(save);
   const manual =
@@ -92,6 +107,16 @@ export function VendorCell({ crm, save }) {
       : crm.vendor
         ? "bg-brand-50 text-brand-800 ring-brand-200"
         : "bg-amber-50 text-amber-700 ring-amber-200";
+  // Vendors: read-only chip
+  if (!isAdmin) {
+    return (
+      <span
+        className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ${cls}`}
+      >
+        {assignedText(crm)}
+      </span>
+    );
+  }
   return (
     <span
       title={
@@ -117,13 +142,25 @@ export function VendorCell({ crm, save }) {
           </option>
         ))}
       </PillSelect>
+      <SaveError error={error} />
     </span>
   );
 }
 
 export function InterestCell({ crm, save }) {
+  const { isAdmin } = useAuth();
   const { busy, error, run } = useSaver(save);
   const info = interestInfo(crm.interest);
+  // Admins: read-only
+  if (isAdmin) {
+    return info ? (
+      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ${info.style}`}>
+        {info.label}
+      </span>
+    ) : (
+      <span className="text-gray-300">—</span>
+    );
+  }
   return (
     <span title={error || undefined}>
       <PillSelect
@@ -143,11 +180,13 @@ export function InterestCell({ crm, save }) {
           <option value={info.value}>{info.label}</option>
         )}
       </PillSelect>
+      <SaveError error={error} />
     </span>
   );
 }
 
 export function QuoteCell({ crm, save }) {
+  const { isAdmin } = useAuth();
   const { busy, error, run } = useSaver(save);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
@@ -174,6 +213,17 @@ export function QuoteCell({ crm, save }) {
     await run(changes);
   };
 
+  // Admins: read-only
+  if (isAdmin) {
+    return crm.quoted_amount != null ? (
+      <span className="text-sm font-semibold tabular-nums text-gray-900">
+        {inr.format(crm.quoted_amount)}
+      </span>
+    ) : (
+      <span className="text-gray-300">—</span>
+    );
+  }
+
   if (editing) {
     return (
       <span className="relative inline-flex items-center" onClick={stop}>
@@ -198,6 +248,7 @@ export function QuoteCell({ crm, save }) {
     );
   }
   return (
+    <>
     <button
       type="button"
       onClick={start}
@@ -213,11 +264,24 @@ export function QuoteCell({ crm, save }) {
         <span className="text-gray-400">+ Add</span>
       )}
     </button>
+    <SaveError error={error} />
+    </>
   );
 }
 
 export function ConvertedCell({ crm, save }) {
+  const { isAdmin } = useAuth();
   const { busy, error, run } = useSaver(save);
+  // Admins: read-only
+  if (isAdmin) {
+    return crm.converted ? (
+      <span className="inline-flex rounded-full bg-emerald-500 px-3 py-1 text-xs font-medium text-white">
+        Yes
+      </span>
+    ) : (
+      <span className="text-xs text-gray-600">No</span>
+    );
+  }
   return (
     <span title={error || undefined}>
       <PillSelect
@@ -230,6 +294,7 @@ export function ConvertedCell({ crm, save }) {
         <option value="no">No</option>
         <option value="yes">Yes</option>
       </PillSelect>
+      <SaveError error={error} />
     </span>
   );
 }

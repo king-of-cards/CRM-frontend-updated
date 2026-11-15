@@ -264,3 +264,70 @@ export function errorsByField(err) {
   for (const e of list) out[e.field] = out[e.field] ? `${out[e.field]} ${e.message}` : e.message;
   return out;
 }
+
+// ── Preview columns: the list screen's columns, from the template's header row ───────────
+// The CSV template has the export's (= the list screen's) columns. Header -> field matching
+// ignores case, spaces and punctuation, like the backend.
+const normHeader = (text) => String(text ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// First line of a CSV file -> its cells (quotes handled; a BOM is dropped)
+export function parseCsvHeader(text) {
+  const line = String(text ?? "").replace(/^﻿/, "").split(/\r?\n/)[0] ?? "";
+  const cells = [];
+  let cur = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') {
+        cur += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
+      else cur += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ",") {
+      cells.push(cur.trim());
+      cur = "";
+    } else cur += ch;
+  }
+  cells.push(cur.trim());
+  return cells.filter((c) => c !== "");
+}
+
+// Field keys whose label is a template column (read-only columns have no field, so they drop out)
+export function screenFieldKeys(fields, headers) {
+  const wanted = new Set(headers.map(normHeader));
+  return new Set(fields.filter((f) => wanted.has(normHeader(f.label))).map((f) => f.key));
+}
+
+// Columns for the upload preview, in the fields' order: the screen's columns, plus any
+// other field that is in the file or has an error. Without the template: file columns only.
+export function previewColumns(fields, { screenKeys = null, fileKeys = [], errorKeys = [] } = {}) {
+  const keys = new Set(["phone", ...fileKeys, ...errorKeys, ...(screenKeys ?? [])]);
+  return fields.filter((f) => keys.has(f.key));
+}
+
+// ── "Assigned to" choices: Unassigned, each active vendor, Automatic ──────────────
+// Uploads: "<vendor> · auto" means automatic (any active vendor's name works), empty or
+// "Unassigned" means unassigned. Single add: empty means automatic.
+export const AUTOMATIC = "Automatic";
+const AUTO_RE = /^(.*?)\s*[·•\-–(]?\s*auto\)?$/i;
+
+export function isAutoAssigned(value) {
+  const m = AUTO_RE.exec(String(value ?? "").trim());
+  return Boolean(m && m[1].trim());
+}
+
+// A preview cell's value -> the dropdown's value ("Unassigned", a vendor name, or "Automatic")
+export function assignedChoice(value) {
+  const text = String(value ?? "").trim();
+  if (!text || normHeader(text) === "unassigned" || normHeader(text) === "none") return "Unassigned";
+  if (isAutoAssigned(text)) return AUTOMATIC;
+  return text;
+}
+
+// The dropdown's value -> what an upload row sends (null when Automatic can't be expressed)
+export function assignedForUpload(choice, vendors) {
+  if (choice === AUTOMATIC) return vendors[0] ? `${vendors[0].name} · auto` : null;
+  return choice;
+}

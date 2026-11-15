@@ -83,7 +83,17 @@ export default function AuthProvider({ children }) {
   }, [setUser]);
 
   const value = useMemo(
-    () => ({ user, isAdmin: user?.role === "admin", isReady, login, logout }),
+    () => ({
+      user,
+      isAdmin: user?.role === "admin",
+      // Vendor logins see only their vendor's leads; one not linked to a vendor sees none
+      isVendor: user?.role === "vendor",
+      vendor: user?.vendor ?? null,
+      canSeeLeads: user?.role === "admin" || (user?.role === "vendor" && Boolean(user?.vendor)),
+      isReady,
+      login,
+      logout,
+    }),
     [user, isReady, login, logout],
   );
 

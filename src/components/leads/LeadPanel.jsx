@@ -15,6 +15,11 @@ import {
 } from "../../api/leadCrm.js";
 import { useVendors } from "./InlineCrm.jsx";
 import { downloadLeadPdf } from "./leadPdf.js";
+import { useAuth } from "../../auth/useAuth.js";
+import { assignedText, panelChanges } from "./crmAccess.js";
+
+// Who edits what: Assigned to = admins; Interest, Quoted amount/date, Converted = the assigned
+// vendor; Notes = both. The other role sees read-only text. Only changed, allowed fields are sent.
 
 // Side panel for one lead: header in the app's green, a soft white gradient body,
 // contact buttons, the editable CRM details, every field, and a PDF download.
@@ -59,6 +64,7 @@ function formFrom(crm) {
 }
 
 export default function LeadPanel({ lead, onClose, onSaved }) {
+  const { isAdmin } = useAuth();
   const vendors = useVendors();
   const [shown, setShown] = useState(false);
   const [crm, setCrm] = useState(lead?.crm ?? null);
@@ -115,21 +121,29 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
   async function save(e) {
     e.preventDefault();
     if (!crm) return;
+    const toValues = (f) => {
+      const digits = f.quoted_amount.replace(/\D/g, "");
+      return {
+        vendor_id: f.vendor_id ? Number(f.vendor_id) : null,
+        interest: f.interest || null,
+        quoted_amount: digits ? Number(digits) : null,
+        quoted_date: f.quoted_date || null,
+        converted: f.converted,
+        notes: f.notes,
+      };
+    };
+    const changes = panelChanges(isAdmin, toValues(formFrom(crm)), toValues(form));
+    if (!Object.keys(changes).length) {
+      setError("Nothing to save: no changes.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
-      const digits = form.quoted_amount.replace(/\D/g, "");
       const next = await saveLeadCrm(
         lead.source,
         crm.lead_key,
-        {
-          vendor_id: form.vendor_id ? Number(form.vendor_id) : null,
-          interest: form.interest || null,
-          quoted_amount: digits ? Number(digits) : null,
-          quoted_date: form.quoted_date || null,
-          converted: form.converted,
-          notes: form.notes,
-        },
+        changes,
         lead.context ?? {},
       );
       setCrm(next);
@@ -348,6 +362,16 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                 Lead status
               </h3>
 
+              {!isAdmin ? (
+                <div className="mt-4">
+                  <span className="text-xs font-medium text-gray-600">
+                    Assigned to
+                  </span>
+                  <p className="mt-1.5 text-sm font-medium text-gray-900">
+                    {assignedText(crm)}
+                  </p>
+                </div>
+              ) : (
               <label className="mt-4 block">
                 <span className="text-xs font-medium text-gray-600">
                   Assigned to
@@ -376,7 +400,28 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                     : "Location unknown, no automatic match."}
                 </span>
               </label>
+              )}
 
+              {isAdmin ? (
+                // Admins: interest, quote and converted are set by the assigned vendor
+                <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  {[
+                    ["Interest", interestInfo(crm.interest)?.label ?? "—"],
+                    [
+                      "Quoted amount",
+                      crm.quoted_amount != null ? inr.format(crm.quoted_amount) : "—",
+                    ],
+                    ["Quoted date", crm.quoted_date || "—"],
+                    ["Converted", crm.converted ? "Yes" : "No"],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="text-xs font-medium text-gray-600">{label}</dt>
+                      <dd className="mt-1 font-medium text-gray-900">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+              <>
               <fieldset className="mt-4">
                 <legend className="text-xs font-medium text-gray-600">
                   Interest
@@ -459,6 +504,8 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   ))}
                 </div>
               </fieldset>
+              </>
+              )}
 
               <label className="mt-4 block">
                 <span className="text-xs font-medium text-gray-600">Notes</span>

@@ -85,7 +85,7 @@ function App() {
             key={p.path}
             path={p.path}
             element={
-              <RequireAuth role="admin">
+              <RequireAuth>
                 <LeadSourcePage title={p.title} description={p.description}>
                   {p.element}
                 </LeadSourcePage>

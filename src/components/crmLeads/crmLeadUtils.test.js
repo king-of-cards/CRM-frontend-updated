@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  assignedChoice,
+  assignedForUpload,
+  AUTOMATIC,
+  parseCsvHeader,
+  previewColumns,
+  screenFieldKeys,
   ddmmyyyy,
   duplicateLabel,
   duplicateWhere,
@@ -174,5 +180,65 @@ describe("errors and origin", () => {
     expect(isCrmLead({ origin: "sheet" })).toBe(false);
     expect(isCrmLead({ origin: "workflow" })).toBe(false);
     expect(isCrmLead({})).toBe(false);
+  });
+});
+
+describe("preview columns from the template", () => {
+  const fields = [
+    { key: "name", label: "Lead" },
+    { key: "email", label: "Email" },
+    { key: "phone", label: "Contact" },
+    { key: "assigned_to", label: "Assigned to" },
+    { key: "created_at", label: "Created" },
+    { key: "pincode", label: "Pincode" },
+    { key: "service", label: "Service" },
+  ];
+  test("parseCsvHeader: BOM, quotes, CRLF", () => {
+    expect(parseCsvHeader('﻿Lead,Email,"Contact",Assigned to,"Quoted, amount",Created\r\nAsha,,,,,\r\n')).toEqual([
+      "Lead",
+      "Email",
+      "Contact",
+      "Assigned to",
+      "Quoted, amount",
+      "Created",
+    ]);
+  });
+  test("screen columns + file/error extras, in field order; read-only headers drop out", () => {
+    const screen = screenFieldKeys(fields, ["Lead", "Email", "Contact", "Interest", "Assigned to", "Created"]);
+    expect([...screen]).toEqual(["name", "email", "phone", "assigned_to", "created_at"]);
+    expect(previewColumns(fields, { screenKeys: screen, fileKeys: ["service"] }).map((f) => f.key)).toEqual([
+      "name",
+      "email",
+      "phone",
+      "assigned_to",
+      "created_at",
+      "service",
+    ]);
+  });
+  test("without the template: file columns, errors and phone", () => {
+    expect(previewColumns(fields, { fileKeys: ["name"], errorKeys: ["pincode"] }).map((f) => f.key)).toEqual([
+      "name",
+      "phone",
+      "pincode",
+    ]);
+  });
+});
+
+describe("Assigned to choices", () => {
+  const vendors = [{ id: 1, name: "Phodeo" }, { id: 2, name: "RJ" }];
+  test("file values -> dropdown", () => {
+    expect(assignedChoice("Phodeo · auto")).toBe(AUTOMATIC);
+    expect(assignedChoice("RJ (auto)")).toBe(AUTOMATIC);
+    expect(assignedChoice("Unassigned")).toBe("Unassigned");
+    expect(assignedChoice("")).toBe("Unassigned");
+    expect(assignedChoice(null)).toBe("Unassigned");
+    expect(assignedChoice("Phodeo")).toBe("Phodeo");
+    expect(assignedChoice("Autograph Studio")).toBe("Autograph Studio");
+  });
+  test("dropdown -> upload value", () => {
+    expect(assignedForUpload(AUTOMATIC, vendors)).toBe("Phodeo · auto");
+    expect(assignedForUpload(AUTOMATIC, [])).toBe(null);
+    expect(assignedForUpload("RJ", vendors)).toBe("RJ");
+    expect(assignedForUpload("Unassigned", vendors)).toBe("Unassigned");
   });
 });
