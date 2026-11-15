@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router";
 import RequireAuth from "./auth/RequireAuth.jsx";
 import Login from "./pages/Login.jsx";
 
+
 // Pages load as separate small files, so the first screen (login or dashboard) opens
 // without downloading the code for every other page. Login preloads the dashboard.
 const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
@@ -10,6 +11,7 @@ const LeadSourcePage = lazy(() => import("./pages/LeadSourcePage.jsx"));
 const Leads = lazy(() => import("./pages/Leads.jsx"));
 const Settings = lazy(() => import("./pages/Settings.jsx"));
 const Users = lazy(() => import("./pages/Users.jsx"));
+const LeadFlow = lazy(() => import("./pages/LeadFlow.jsx"));
 const RecentLeads = lazy(
   () => import("./components/dashboard/RecentLeads.jsx"),
 );
@@ -117,7 +119,23 @@ function App() {
               <Settings />
             </RequireAuth>
           }
-        />
+          <Route
+  path="/flow/koc-to-vendors"
+  element={
+    <RequireAuth role="admin">
+      <LeadFlow flow="koc-to-vendors" />
+    </RequireAuth>
+  }
+/>
+<Route
+  path="/flow/vendors-to-koc"
+  element={
+    <RequireAuth role="admin">
+      <LeadFlow flow="vendors-to-koc" />
+    </RequireAuth>
+  }
+/>
+      
         {/* Anything else: dashboard (RequireAuth sends logged-out users to /login) */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { NavLink, useNavigate } from "react-router";
+import { Link, NavLink, useLocation, useNavigate } from "react-router";
 import {
+  ArrowLeftRight,
   Camera,
   ClipboardList,
   Globe,
@@ -13,6 +14,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { useAuth } from "../../auth/useAuth.js";
+import { FLOW_LABELS, useFlow, withFlow } from "../../hooks/useFlow.js";
 
 // Shared frame for every page after login: collapsible sidebar, top bar, page content.
 // adminOnly items are hidden for vendor accounts (the backend allows those endpoints to admins only)
@@ -24,37 +26,44 @@ const navItems = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
-// Tabs in the floating top bar: the overview and one tab per lead source
+// Tabs in the floating top bar: the overview and one tab per lead source.
+// While a direction (KOC → Vendors / Vendors → KOC) is selected, every tab keeps it.
 const topTabs = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, home: true },
   { to: "/leads/spin", label: "Spin leads", icon: Target, adminOnly: true },
-  {
-    to: "/leads/international",
-    label: "International",
-    icon: Globe,
-    adminOnly: true,
-  },
+  { to: "/leads/international", label: "International", icon: Globe, adminOnly: true },
   { to: "/leads/wedding", label: "Wedding", icon: Camera, adminOnly: true },
-  {
-    to: "/leads/wedding-planner",
-    label: "Wedding planner",
-    icon: ClipboardList,
-    adminOnly: true,
-  },
+  { to: "/leads/wedding-planner", label: "Wedding planner", icon: ClipboardList, adminOnly: true },
+];
+
+// Lead flow: which way leads travel between KOC and partner vendors.
+// Shown as one gold capsule at the end of the bar, so it stands apart from the source tabs.
+const flowTabs = [
+  { key: "koc-to-vendors", from: "KOC", to_: "Vendors", hint: "Leads KOC passes on to vendors", adminOnly: true },
+  { key: "vendors-to-koc", from: "Vendors", to_: "KOC", hint: "Customers vendors send to KOC", adminOnly: true },
 ];
 
 const STORAGE_KEY = "crm-sidebar-collapsed";
 
-export default function DashboardLayout({
-  title,
-  description,
-  actions,
-  children,
-}) {
+export default function DashboardLayout({ title, description, actions, children }) {
   const navigate = useNavigate();
   const { user, isAdmin, logout } = useAuth();
+  const { pathname } = useLocation();
+  const flow = useFlow(); // selected direction, or undefined
+  const onFlowDashboard = pathname.startsWith("/flow/");
+
   const visibleNav = navItems.filter((item) => !item.adminOnly || isAdmin);
-  const visibleTabs = topTabs.filter((tab) => !tab.adminOnly || isAdmin);
+  const visibleFlows = flowTabs.filter((tab) => !tab.adminOnly || isAdmin);
+  const visibleTabs = topTabs
+    .filter((tab) => !tab.adminOnly || isAdmin)
+    .map((tab) =>
+      tab.home
+        ? { ...tab, to: flow ? `/flow/${flow}` : "/dashboard" } // dashboard of the selected direction
+        : { ...tab, to: withFlow(tab.to, flow) }, // same source, same direction
+    );
+
+  // Clicking a direction: on a source page, stay on that source; otherwise open that direction's dashboard
+  const flowTarget = (key) => (pathname.startsWith("/leads/") ? `${pathname}?flow=${key}` : `/flow/${key}`);
 
   // Remember whether the sidebar was collapsed, so it stays that way between pages and visits.
   const [collapsed, setCollapsed] = useState(() => {
@@ -89,14 +98,8 @@ export default function DashboardLayout({
         }`}
       >
         {/* Logo + collapse button */}
-        <div
-          className={`flex items-center py-5 ${
-            collapsed ? "flex-col gap-3 px-2" : "justify-between px-5"
-          }`}
-        >
-          <p className="font-script text-3xl font-bold text-white">
-            {collapsed ? "C" : "CRM"}
-          </p>
+        <div className={`flex items-center py-5 ${collapsed ? "flex-col gap-3 px-2" : "justify-between px-5"}`}>
+          <p className="font-script text-3xl font-bold text-white">{collapsed ? "C" : "CRM"}</p>
           <button
             type="button"
             onClick={() => setCollapsed((c) => !c)}
@@ -120,11 +123,7 @@ export default function DashboardLayout({
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-colors ${
                   collapsed ? "justify-center px-0" : "px-4"
-                } ${
-                  isActive
-                    ? "bg-white text-brand-800 shadow-sm"
-                    : "text-white/75 hover:bg-white/10 hover:text-white"
-                }`
+                } ${isActive ? "bg-white text-brand-800 shadow-sm" : "text-white/75 hover:bg-white/10 hover:text-white"}`
               }
             >
               <Icon size={20} className="shrink-0" />
@@ -139,9 +138,7 @@ export default function DashboardLayout({
             <div className="mb-2 rounded-xl bg-white/10 px-4 py-3">
               <p className="truncate text-sm font-semibold">{user.name}</p>
               <p className="truncate text-xs text-white/70">{user.email}</p>
-              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-white/60">
-                {user.role}
-              </p>
+              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-white/60">{user.role}</p>
             </div>
           )}
           <button
@@ -161,8 +158,10 @@ export default function DashboardLayout({
 
       {/* Main area */}
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Floating pill top bar: tabs for the overview and each lead source */}
-        <header className="sticky top-0 z-30 flex justify-center px-4 pt-4">
+        {/* Top: the green tab bar in the middle, and the lead-flow capsule as its own section on the right.
+            On narrower screens the capsule moves under the bar. */}
+        <header className="sticky top-0 z-30 flex flex-col items-center gap-3 px-4 pt-4 xl:grid xl:grid-cols-[1fr_auto_1fr] xl:items-center xl:gap-4">
+          <span className="hidden xl:block" aria-hidden="true" />
           <div className="relative flex w-full max-w-4xl items-center gap-2 overflow-hidden rounded-full bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 p-1.5 shadow-xl shadow-brand-800/25 ring-1 ring-white/10">
             {/* Soft light sweep across the bar */}
             <span
@@ -173,11 +172,11 @@ export default function DashboardLayout({
               aria-label="Sections"
               className="relative flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-              {visibleTabs.map(({ to, label, icon: Icon }) => (
+              {visibleTabs.map(({ to, label, icon: Icon, home }) => (
                 <NavLink
-                  key={to}
+                  key={label}
                   to={to}
-                  end={to === "/dashboard"}
+                  end={Boolean(home)}
                   className={({ isActive }) =>
                     `relative flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
                       isActive
@@ -216,6 +215,52 @@ export default function DashboardLayout({
               </div>
             )}
           </div>
+
+          {/* Lead flow: separate gold capsule, two directions */}
+          {visibleFlows.length > 0 && (
+            <div
+              role="group"
+              aria-label="Lead flow"
+              className={`flex shrink-0 items-center gap-1 rounded-full bg-linear-to-r from-amber-200 via-amber-300 to-orange-300 p-1.5 transition-all duration-300 xl:justify-self-end ${
+                flow
+                  ? "shadow-xl shadow-amber-500/50 ring-2 ring-amber-500"
+                  : "shadow-xl shadow-amber-700/20 ring-1 ring-amber-400/40"
+              }`}
+            >
+              <span className="flex items-center gap-1.5 px-2.5 text-xs font-semibold text-amber-900/80">
+                <ArrowLeftRight size={14} aria-hidden="true" />
+                Lead flow
+              </span>
+              {visibleFlows.map(({ key, from, to_, hint }) => {
+                const isActive = flow === key;
+                return (
+                  <Link
+                    key={key}
+                    to={flowTarget(key)}
+                    title={hint}
+                    aria-current={isActive ? "page" : undefined}
+                    className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-semibold transition-all duration-300 ${
+                      isActive
+                        ? "scale-105 bg-linear-to-r from-brand-600 to-brand-800 text-white shadow-lg shadow-brand-900/40 ring-2 ring-white"
+                        : "text-amber-950/80 hover:bg-white/50 hover:text-amber-950"
+                    }`}
+                  >
+                    {/* Live dot on the selected direction */}
+                    {isActive && (
+                      <span className="relative flex h-2 w-2" aria-hidden="true">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300 opacity-75 motion-reduce:animate-none" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-300" />
+                      </span>
+                    )}
+                    {from}
+                    <span aria-hidden="true">→</span>
+                    <span className="sr-only">to</span>
+                    {to_}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </header>
 
         <main className="flex-1 px-6 pb-10 pt-8">
@@ -223,11 +268,14 @@ export default function DashboardLayout({
           {(title || actions) && (
             <div className="mb-2 flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-                  {title}
-                </h1>
-                {description && (
-                  <p className="mt-1 text-sm text-gray-500">{description}</p>
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900">{title}</h1>
+                {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
+                {/* On a source page, remind which direction the numbers belong to */}
+                {flow && !onFlowDashboard && (
+                  <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+                    <ArrowLeftRight size={12} aria-hidden="true" />
+                    Showing {FLOW_LABELS[flow]} leads only
+                  </p>
                 )}
               </div>
               {actions}
