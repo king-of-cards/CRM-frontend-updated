@@ -36,7 +36,6 @@ import WelcomeIntro from "../components/layout/WelcomeIntro.jsx";
 import { useAuth } from "../auth/useAuth.js";
 import { getDashboardOverview, listLatest } from "../api/dashboard.js";
 import { listSheetSources } from "../api/sheets.js";
-import { listSpinLeads } from "../api/spinLeads.js";
 import { prefetchTabs } from "../api/prefetch.js";
 import NotLinkedVendor from "../components/leads/NotLinkedVendor.jsx";
 import PeriodFilter from "../components/dashboard/PeriodFilter.jsx";
@@ -95,6 +94,12 @@ function short(amount) {
   return inr.format(amount);
 }
 
+// Leads per day (1 decimal from the API)
+const perDay = (n) => (n == null ? "—" : Number(n).toLocaleString("en-IN", { maximumFractionDigits: 1 }));
+
+// A money figure only when the period has values for it, else "—" (not ₹0)
+const money = (stats, key) => (stats?.count ? short(stats[key]) : "—");
+
 function greeting() {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -120,9 +125,7 @@ function timeAgo(iso) {
 const valueOf = (r) => (r.status === "fulfilled" ? r.value : null);
 
 // The dashboard's requests for a period: load(refresh) and peek() (the browser cache).
-// The overview and the "Latest leads" lists take the period; the sheet sync status and the
-// spin total (a fallback for the analytics) don't.
-const SPIN_TOTAL = { page: 1, pageSize: 1 };
+// The overview and the "Latest leads" lists take the period; the sheet sync status doesn't.
 function requestsFor({ from, to }) {
   const p = { dateFrom: from, dateTo: to };
   return {
@@ -131,7 +134,6 @@ function requestsFor({ from, to }) {
       peek: () => getDashboardOverview.peek(p),
     },
     sources: { load: () => listSheetSources(), peek: () => listSheetSources.peek() },
-    spin: { load: () => listSpinLeads(SPIN_TOTAL), peek: () => listSpinLeads.peek(SPIN_TOTAL) },
     waList: { load: () => listLatest("whatsapp", p), peek: () => listLatest.peek("whatsapp", p) },
     wdList: { load: () => listLatest("wedding", p), peek: () => listLatest.peek("wedding", p) },
     wpList: {
@@ -149,18 +151,12 @@ function cachedDashboard(period) {
   return data.overview ? data : null;
 }
 
-// Small grey note on cards the date filter doesn't change (the API's not_filtered)
-function NotFiltered({ show }) {
-  if (!show) return null;
-  return <p className="mt-1 text-[11px] text-gray-400">Not affected by date filter</p>;
-}
 
 // ── Building blocks ────────────────────────────────────────────────────
 // flush: the body runs edge to edge (for lists with their own row padding)
 function Panel({
   title,
   subtitle,
-  note,
   icon: Icon,
   right,
   flush = false,
@@ -183,7 +179,6 @@ function Panel({
           {subtitle && (
             <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>
           )}
-          {note}
         </div>
         {right}
       </div>
@@ -192,7 +187,7 @@ function Panel({
   );
 }
 
-function Kpi({ icon: Icon, label, value, caption, note, delta, gradient, loading }) {
+function Kpi({ icon: Icon, label, value, caption, delta, gradient, loading }) {
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-white p-5 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 transition-shadow hover:shadow-lg hover:shadow-gray-200/80">
       {/* Corner glow in the card's colour */}
@@ -234,7 +229,6 @@ function Kpi({ icon: Icon, label, value, caption, note, delta, gradient, loading
         </div>
       )}
       <p className="relative mt-1.5 text-xs text-gray-500">{caption}</p>
-      {note}
     </div>
   );
 }
@@ -411,10 +405,9 @@ export default function Dashboard() {
 
   const view = useMemo(() => {
     if (!o) return null;
-    // Spin total: from analytics, or from the spin endpoint if the analytics couldn't read it
-    const spinTotal = o.totals.spin ?? data?.spin?.total ?? 0;
-    const totals = { ...o.totals, spin: spinTotal };
-    const all = SOURCE_KEYS.reduce((sum, k) => sum + (totals[k] ?? 0), 0);
+    // Leads that arrived in the period (spin is null when its dates couldn't be read)
+    const totals = o.totals;
+    const all = o.totals.all;
     const synced = Object.fromEntries(
       (data?.sources?.sources ?? []).map((s) => [
         s.source,
@@ -441,7 +434,6 @@ export default function Dashboard() {
         }))
         .filter((x) => x.value > 0),
       weekly: o.period?.granularity === "week",
-      unfiltered: new Set(o.not_filtered ?? []),
     };
   }, [o, data]);
 
@@ -536,22 +528,22 @@ export default function Dashboard() {
             >
               <Kpi
                 icon={Inbox}
-                label="Total leads"
+                label="Leads in period"
                 value={fmt(view?.all)}
-                caption={`All leads up to ${periodLabel(period.to, period.to)}`}
-                gradient="from-brand-600 to-brand-800"
-                loading={kpiLoading}
-              />
-              <Kpi
-                icon={TrendingUp}
-                label="New in period"
-                value={fmt(o?.new_in_period?.all)}
                 delta={o?.change_pct?.all ?? null}
                 caption={
                   prev
                     ? `${fmt(o?.previous_period?.all)} in ${periodLabel(prev.date_from, prev.date_to)}`
                     : ""
                 }
+                gradient="from-brand-600 to-brand-800"
+                loading={kpiLoading}
+              />
+              <Kpi
+                icon={TrendingUp}
+                label="Average per day"
+                value={`${perDay(o?.average_per_day?.period?.all)} / day`}
+                caption={`${perDay(o?.average_per_day?.previous?.all)} before`}
                 gradient="from-violet-500 to-violet-700"
                 loading={kpiLoading}
               />
@@ -560,15 +552,18 @@ export default function Dashboard() {
                 label="Events in 30 days"
                 value={fmt(o?.upcoming_30_days.all)}
                 caption="Hot leads: their date is close"
-                note={<NotFiltered show={view?.unfiltered.has("upcoming_30_days")} />}
                 gradient="from-rose-500 to-rose-700"
                 loading={kpiLoading}
               />
               <Kpi
                 icon={IndianRupee}
                 label="Wedding budgets"
-                value={short(o?.wedding_budget.total)}
-                caption={`Avg ${short(o?.wedding_budget.average)} per plan`}
+                value={money(o?.wedding_budget, "total")}
+                caption={
+                  o?.wedding_budget?.count
+                    ? `Avg ${short(o.wedding_budget.average)} per plan`
+                    : "No plans in this period"
+                }
                 gradient="from-emerald-500 to-brand-700"
                 loading={kpiLoading}
               />
@@ -585,7 +580,6 @@ export default function Dashboard() {
                 label="Needs attention"
                 value={fmt(o?.needs_attention?.total)}
                 caption={`${fmt(o?.needs_attention?.not_shared)} not shared · ${fmt(o?.needs_attention?.over_budget)} over budget`}
-                note={<NotFiltered show={view?.unfiltered.has("needs_attention")} />}
                 gradient="from-amber-400 to-amber-600"
                 loading={kpiLoading}
               />
@@ -600,7 +594,7 @@ export default function Dashboard() {
                 const s = SOURCES[k];
                 const Icon = s.icon;
                 const total = view?.totals[k];
-                const added = o?.new_in_period?.[k];
+                const delta = o?.change_pct?.[k];
                 const share = view?.share[k] ?? 0;
                 return (
                   <Link
@@ -626,11 +620,20 @@ export default function Dashboard() {
                         <span className="text-xl font-bold tabular-nums text-gray-900">
                           {fmt(total)}
                         </span>
-                        {k !== "spin" || o?.spin_available ? (
+                        {delta != null && (k !== "spin" || o?.spin_available) ? (
                           <span
-                            className={`text-xs ${added ? "font-medium text-emerald-600" : "text-gray-400"}`}
+                            className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                              delta >= 0
+                                ? "bg-emerald-50 text-emerald-700"
+                                : "bg-rose-50 text-rose-700"
+                            }`}
                           >
-                            +{fmt(added)} in period
+                            {delta >= 0 ? (
+                              <ArrowUpRight size={12} />
+                            ) : (
+                              <ArrowDownRight size={12} />
+                            )}
+                            {Math.abs(delta)}%
                           </span>
                         ) : null}
                       </p>
@@ -644,7 +647,7 @@ export default function Dashboard() {
                         />
                       </div>
                       <p className="mt-1 text-[11px] text-gray-400">
-                        {share}% of new leads
+                        {share}% of leads in period
                         {isAdmin &&
                           ` · ${k === "spin" ? "live" : `synced ${timeAgo(view?.synced[k])}`}`}
                       </p>
@@ -741,7 +744,7 @@ export default function Dashboard() {
 
               <Panel
                 title="Source mix"
-                subtitle="Share of new leads in the period"
+                subtitle="Share of the period's leads"
                 icon={Sparkles}
               >
                 <div className="relative h-52">
@@ -767,7 +770,7 @@ export default function Dashboard() {
                   )}
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-2xl font-bold tabular-nums text-gray-900">
-                      {fmt(o?.new_in_period?.all)}
+                      {fmt(view?.all)}
                     </span>
                     <span className="text-xs text-gray-500">in period</span>
                   </div>
@@ -797,7 +800,6 @@ export default function Dashboard() {
               <Panel
                 title="Upcoming events by month"
                 subtitle="When your leads' weddings and events happen"
-                note={<NotFiltered show={view?.unfiltered.has("upcoming_by_month")} />}
                 icon={CalendarHeart}
                 right={
                   o && (
@@ -865,17 +867,17 @@ export default function Dashboard() {
                   {[
                     {
                       label: "Avg photography budget",
-                      value: short(o?.photography_budget.average),
+                      value: money(o?.photography_budget, "average"),
                       sub: `${fmt(o?.photography_budget.count)} leads gave one`,
                     },
                     {
                       label: "Median wedding budget",
-                      value: short(o?.wedding_budget.median),
+                      value: money(o?.wedding_budget, "median"),
                       sub: `${fmt(o?.wedding_budget.count)} plans`,
                     },
                     {
                       label: "Avg guests per wedding",
-                      value: fmt(o?.guests.average),
+                      value: fmt(o?.guests?.average ?? null),
                       sub: `${fmt(o?.guests.total)} guests in all`,
                     },
                     {
