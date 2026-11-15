@@ -308,8 +308,8 @@ export function previewColumns(fields, { screenKeys = null, fileKeys = [], error
 }
 
 // ── "Assigned to" choices: Unassigned, each active vendor, Automatic ──────────────
-// Uploads: "<vendor> · auto" means automatic (any active vendor's name works), empty or
-// "Unassigned" means unassigned. Single add: empty means automatic.
+// Uploads: "Automatic" / "Auto" (or "<vendor> · auto") means automatic, empty or "Unassigned"
+// means unassigned. Single add: empty means automatic.
 export const AUTOMATIC = "Automatic";
 const AUTO_RE = /^(.*?)\s*[·•\-–(]?\s*auto\)?$/i;
 
@@ -322,12 +322,11 @@ export function isAutoAssigned(value) {
 export function assignedChoice(value) {
   const text = String(value ?? "").trim();
   if (!text || normHeader(text) === "unassigned" || normHeader(text) === "none") return "Unassigned";
-  if (isAutoAssigned(text)) return AUTOMATIC;
+  if (normHeader(text) === "automatic" || normHeader(text) === "auto" || isAutoAssigned(text)) return AUTOMATIC;
   return text;
 }
 
-// The dropdown's value -> what an upload row sends (null when Automatic can't be expressed)
-export function assignedForUpload(choice, vendors) {
-  if (choice === AUTOMATIC) return vendors[0] ? `${vendors[0].name} · auto` : null;
+// The dropdown's value -> what an upload row sends ("Automatic", "Unassigned" or a vendor name)
+export function assignedForUpload(choice) {
   return choice;
 }

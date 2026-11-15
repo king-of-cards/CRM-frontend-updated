@@ -82,7 +82,7 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
     input = (
       <select
         value={choice}
-        onChange={(e) => onChange(assignedForUpload(e.target.value, vendors))}
+        onChange={(e) => onChange(assignedForUpload(e.target.value))}
         onBlur={onBlur}
         className={cls}
         aria-invalid={invalid}
@@ -94,9 +94,7 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
             {v.name}
           </option>
         ))}
-        <option value={AUTOMATIC} disabled={!vendors.length}>
-          Automatic
-        </option>
+        <option value={AUTOMATIC}>Automatic</option>
       </select>
     );
   } else if (field.type === "branch") {

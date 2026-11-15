@@ -225,9 +225,11 @@ describe("preview columns from the template", () => {
 });
 
 describe("Assigned to choices", () => {
-  const vendors = [{ id: 1, name: "Phodeo" }, { id: 2, name: "RJ" }];
   test("file values -> dropdown", () => {
     expect(assignedChoice("Phodeo · auto")).toBe(AUTOMATIC);
+    expect(assignedChoice("Automatic")).toBe(AUTOMATIC);
+    expect(assignedChoice("auto")).toBe(AUTOMATIC);
+    expect(assignedChoice("AUTO")).toBe(AUTOMATIC);
     expect(assignedChoice("RJ (auto)")).toBe(AUTOMATIC);
     expect(assignedChoice("Unassigned")).toBe("Unassigned");
     expect(assignedChoice("")).toBe("Unassigned");
@@ -236,9 +238,8 @@ describe("Assigned to choices", () => {
     expect(assignedChoice("Autograph Studio")).toBe("Autograph Studio");
   });
   test("dropdown -> upload value", () => {
-    expect(assignedForUpload(AUTOMATIC, vendors)).toBe("Phodeo · auto");
-    expect(assignedForUpload(AUTOMATIC, [])).toBe(null);
-    expect(assignedForUpload("RJ", vendors)).toBe("RJ");
-    expect(assignedForUpload("Unassigned", vendors)).toBe("Unassigned");
+    expect(assignedForUpload(AUTOMATIC)).toBe("Automatic");
+    expect(assignedForUpload("RJ")).toBe("RJ");
+    expect(assignedForUpload("Unassigned")).toBe("Unassigned");
   });
 });
