@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useSearchParams } from "react-router";
 import {
   Area,
   AreaChart,
@@ -34,16 +34,16 @@ import {
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import WelcomeIntro from "../components/layout/WelcomeIntro.jsx";
 import { useAuth } from "../auth/useAuth.js";
-import { getAnalyticsOverview } from "../api/analytics.js";
+import { getDashboardOverview, listLatest } from "../api/dashboard.js";
 import { listSheetSources } from "../api/sheets.js";
 import { listSpinLeads } from "../api/spinLeads.js";
-import { listWeddingLeads } from "../api/weddingLeads.js";
-import { listWeddingPlans } from "../api/weddingPlans.js";
-import { listWhatsAppLeads } from "../api/whatsappLeads.js";
 import { prefetchTabs } from "../api/prefetch.js";
 import NotLinkedVendor from "../components/leads/NotLinkedVendor.jsx";
+import PeriodFilter from "../components/dashboard/PeriodFilter.jsx";
+import { periodFromSearch, periodLabel, todayIst } from "./dashboardPeriod.js";
 
-// Overview of every lead source, built from GET /analytics/overview.
+// Overview of every lead source, built from GET /analytics/overview, for a period
+// (?from=YYYY-MM-DD&to=YYYY-MM-DD; default the last 30 days). See dashboardPeriod.js.
 // Each source also has its own tab in the top bar for the full list.
 
 const SOURCES = {
@@ -117,33 +117,42 @@ function timeAgo(iso) {
   });
 }
 
-// % change vs last week; null when there's nothing to compare
-function change(now, before) {
-  if (!before) return now ? null : 0;
-  return Math.round(((now - before) / before) * 100);
-}
-
 const valueOf = (r) => (r.status === "fulfilled" ? r.value : null);
 
-// The dashboard's requests (the same params are used to read the browser cache)
-const REQUESTS = {
-  overview: [getAnalyticsOverview, {}],
-  sources: [listSheetSources, undefined],
-  spin: [listSpinLeads, { page: 1, pageSize: 1 }],
-  waList: [listWhatsAppLeads, { pageSize: 6 }],
-  wdList: [listWeddingLeads, { pageSize: 6 }],
-  wpList: [listWeddingPlans, { pageSize: 6 }],
-};
+// The dashboard's requests for a period: load(refresh) and peek() (the browser cache).
+// The overview and the "Latest leads" lists take the period; the sheet sync status and the
+// spin total (a fallback for the analytics) don't.
+const SPIN_TOTAL = { page: 1, pageSize: 1 };
+function requestsFor({ from, to }) {
+  const p = { dateFrom: from, dateTo: to };
+  return {
+    overview: {
+      load: (refresh) => getDashboardOverview({ ...p, refresh }),
+      peek: () => getDashboardOverview.peek(p),
+    },
+    sources: { load: () => listSheetSources(), peek: () => listSheetSources.peek() },
+    spin: { load: () => listSpinLeads(SPIN_TOTAL), peek: () => listSpinLeads.peek(SPIN_TOTAL) },
+    waList: { load: () => listLatest("whatsapp", p), peek: () => listLatest.peek("whatsapp", p) },
+    wdList: { load: () => listLatest("wedding", p), peek: () => listLatest.peek("wedding", p) },
+    wpList: {
+      load: () => listLatest("wedding_planner", p),
+      peek: () => listLatest.peek("wedding_planner", p),
+    },
+  };
+}
 
-// Everything from the last visit in this tab, or null
-function cachedDashboard() {
+// Everything this tab has seen for the period, or null
+function cachedDashboard(period) {
   const data = Object.fromEntries(
-    Object.entries(REQUESTS).map(([k, [fn, params]]) => [
-      k,
-      fn.peek(params) ?? null,
-    ]),
+    Object.entries(requestsFor(period)).map(([k, r]) => [k, r.peek() ?? null]),
   );
   return data.overview ? data : null;
+}
+
+// Small grey note on cards the date filter doesn't change (the API's not_filtered)
+function NotFiltered({ show }) {
+  if (!show) return null;
+  return <p className="mt-1 text-[11px] text-gray-400">Not affected by date filter</p>;
 }
 
 // ── Building blocks ────────────────────────────────────────────────────
@@ -151,6 +160,7 @@ function cachedDashboard() {
 function Panel({
   title,
   subtitle,
+  note,
   icon: Icon,
   right,
   flush = false,
@@ -173,6 +183,7 @@ function Panel({
           {subtitle && (
             <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>
           )}
+          {note}
         </div>
         {right}
       </div>
@@ -181,7 +192,7 @@ function Panel({
   );
 }
 
-function Kpi({ icon: Icon, label, value, caption, delta, gradient, loading }) {
+function Kpi({ icon: Icon, label, value, caption, note, delta, gradient, loading }) {
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-white p-5 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 transition-shadow hover:shadow-lg hover:shadow-gray-200/80">
       {/* Corner glow in the card's colour */}
@@ -223,6 +234,7 @@ function Kpi({ icon: Icon, label, value, caption, delta, gradient, loading }) {
         </div>
       )}
       <p className="relative mt-1.5 text-xs text-gray-500">{caption}</p>
+      {note}
     </div>
   );
 }
@@ -265,7 +277,7 @@ function ChartTooltip({ active, payload, label, labelFormat }) {
   return (
     <div className="rounded-xl bg-white/95 px-3 py-2 text-xs shadow-lg ring-1 ring-gray-100 backdrop-blur">
       <p className="mb-1 font-semibold text-gray-900">
-        {labelFormat ? labelFormat(label) : label}
+        {labelFormat ? labelFormat(label, payload[0]?.payload) : label}
       </p>
       {rows.length === 0 && <p className="text-gray-500">No leads</p>}
       {rows.map((p) => (
@@ -324,10 +336,28 @@ export default function Dashboard() {
   );
   const hideIntro = useCallback(() => setShowIntro(false), []);
 
+  // The period, kept in the URL (?from=&to=) so a reload or a shared link keeps it
+  const [searchParams, setSearchParams] = useSearchParams();
+  const todayDate = todayIst();
+  const fromParam = searchParams.get("from") ?? "";
+  const toParam = searchParams.get("to") ?? "";
+  const period = useMemo(
+    () =>
+      periodFromSearch(
+        new URLSearchParams({ from: fromParam, to: toParam }),
+        todayDate,
+      ),
+    [fromParam, toParam, todayDate],
+  );
+  const setPeriod = useCallback(
+    (next) => setSearchParams({ from: next.from, to: next.to }),
+    [setSearchParams],
+  );
+
   // Show the last numbers instantly (if this tab has seen them), then refresh in the background
   const [state, setState] = useState(() => {
-    const data = cachedDashboard();
-    return { loading: !data, refreshing: Boolean(data), data };
+    const data = cachedDashboard(period);
+    return { loading: !data, refreshing: Boolean(data), data, error: null };
   });
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -337,22 +367,33 @@ export default function Dashboard() {
       return;
     }
     let cancelled = false;
-    setState((s) => ({ ...s, loading: !s.data, refreshing: true }));
+    const requests = requestsFor(period);
+    const cached = cachedDashboard(period);
+    setState((s) => ({
+      ...s,
+      data: cached ?? s.data,
+      loading: !(cached ?? s.data),
+      refreshing: true,
+    }));
     // Vendor logins: no sheet sync status (admin only), so it isn't requested
-    const keys = Object.keys(REQUESTS).filter((k) => isAdmin || k !== "sources");
+    const keys = Object.keys(requests).filter((k) => isAdmin || k !== "sources");
     Promise.allSettled(
-      keys.map((k) => {
-        const [fn, params] = REQUESTS[k];
-        return k === "overview" ? fn({ refresh: refreshKey > 0 }) : fn(params);
-      }),
+      keys.map((k) => requests[k].load(refreshKey > 0)),
     ).then((results) => {
       if (cancelled) return;
       const fresh = Object.fromEntries(
         keys.map((k, i) => [k, valueOf(results[i])]),
       );
+      // A period the API rejects (400): show its reason
+      const failed = results[keys.indexOf("overview")];
+      const error =
+        failed.status === "rejected" && failed.reason?.status === 400
+          ? failed.reason.message
+          : null;
       setState((prev) => ({
         loading: false,
         refreshing: false,
+        error,
         // keep an older value if one request failed this time
         data: Object.fromEntries(
           keys.map((k) => [k, fresh[k] ?? prev.data?.[k] ?? null]),
@@ -363,7 +404,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, canSeeLeads, refreshKey]);
+  }, [isAdmin, canSeeLeads, refreshKey, period]);
 
   const { loading, refreshing, data } = state;
   const o = data?.overview;
@@ -383,18 +424,24 @@ export default function Dashboard() {
     const trendKeys = o.spin_available
       ? SOURCE_KEYS
       : SOURCE_KEYS.filter((k) => k !== "spin");
+    // Source mix and the tiles' % bar: leads that arrived in the period
+    const mixAll = (o.source_mix ?? []).filter((m) => SOURCES[m.source]);
     return {
       totals,
       all,
       synced,
       trendKeys,
-      mix: SOURCE_KEYS.map((k) => ({
-        key: k,
-        name: SOURCES[k].label,
-        value: totals[k] ?? 0,
-      })).filter((x) => x.value > 0),
-      weekDelta: change(o.this_week.all, o.last_week.all),
-      overBudget: o.budget_fit?.over ?? 0,
+      share: Object.fromEntries(mixAll.map((m) => [m.source, m.pct ?? 0])),
+      mix: mixAll
+        .map((m) => ({
+          key: m.source,
+          name: SOURCES[m.source].label,
+          value: m.count ?? 0,
+          pct: m.pct ?? 0,
+        }))
+        .filter((x) => x.value > 0),
+      weekly: o.period?.granularity === "week",
+      unfiltered: new Set(o.not_filtered ?? []),
     };
   }, [o, data]);
 
@@ -428,39 +475,51 @@ export default function Dashboard() {
       .slice(0, 7);
   }, [data]);
 
-  const today = new Date().toLocaleDateString("en-IN", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
   const kpiLoading = loading && !o;
+  const label = periodLabel(period.from, period.to);
+  const prev = o?.period?.previous;
 
   return (
     <>
       {showIntro && <WelcomeIntro onDone={hideIntro} />}
       <DashboardLayout
         title={`${greeting()}${firstName ? `, ${firstName}` : ""}`}
-        description={`${today} · here's how your leads are doing`}
+        description={`${label} · here's how your leads are doing`}
         actions={
-          isAdmin && (
-            <button
-              type="button"
-              onClick={() => setRefreshKey((k) => k + 1)}
-              disabled={refreshing}
-              className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-gray-50 disabled:opacity-60"
-            >
-              <RefreshCw
-                size={14}
-                className={refreshing ? "animate-spin" : ""}
+          canSeeLeads && (
+            <div className="flex flex-wrap items-start gap-2">
+              <PeriodFilter
+                period={period}
+                today={todayDate}
+                onChange={setPeriod}
               />
-              Refresh
-            </button>
+              <button
+                type="button"
+                onClick={() => setRefreshKey((k) => k + 1)}
+                disabled={refreshing}
+                className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-200 transition-colors hover:bg-gray-50 disabled:opacity-60"
+              >
+                <RefreshCw
+                  size={14}
+                  className={refreshing ? "animate-spin" : ""}
+                />
+                Refresh
+              </button>
+            </div>
           )
         }
       >
+        {canSeeLeads && state.error && (
+          <p
+            role="alert"
+            className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200"
+          >
+            {state.error}
+          </p>
+        )}
         {!canSeeLeads ? (
           <NotLinkedVendor />
-        ) : !loading && !o ? (
+        ) : !loading && !o && state.error ? null : !loading && !o ? (
           <p
             role="alert"
             className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200"
@@ -479,16 +538,20 @@ export default function Dashboard() {
                 icon={Inbox}
                 label="Total leads"
                 value={fmt(view?.all)}
-                caption="Across all 4 sources"
+                caption={`All leads up to ${periodLabel(period.to, period.to)}`}
                 gradient="from-brand-600 to-brand-800"
                 loading={kpiLoading}
               />
               <Kpi
                 icon={TrendingUp}
-                label="New this week"
-                value={fmt(o?.this_week.all)}
-                delta={view?.weekDelta}
-                caption={`${fmt(o?.last_week.all)} the week before`}
+                label="New in period"
+                value={fmt(o?.new_in_period?.all)}
+                delta={o?.change_pct?.all ?? null}
+                caption={
+                  prev
+                    ? `${fmt(o?.previous_period?.all)} in ${periodLabel(prev.date_from, prev.date_to)}`
+                    : ""
+                }
                 gradient="from-violet-500 to-violet-700"
                 loading={kpiLoading}
               />
@@ -497,6 +560,7 @@ export default function Dashboard() {
                 label="Events in 30 days"
                 value={fmt(o?.upcoming_30_days.all)}
                 caption="Hot leads: their date is close"
+                note={<NotFiltered show={view?.unfiltered.has("upcoming_30_days")} />}
                 gradient="from-rose-500 to-rose-700"
                 loading={kpiLoading}
               />
@@ -519,10 +583,9 @@ export default function Dashboard() {
               <Kpi
                 icon={AlertCircle}
                 label="Needs attention"
-                value={fmt(
-                  (o?.sharing.not_shared ?? 0) + (view?.overBudget ?? 0),
-                )}
-                caption={`${fmt(o?.sharing.not_shared)} not shared · ${fmt(view?.overBudget)} over budget`}
+                value={fmt(o?.needs_attention?.total)}
+                caption={`${fmt(o?.needs_attention?.not_shared)} not shared · ${fmt(o?.needs_attention?.over_budget)} over budget`}
+                note={<NotFiltered show={view?.unfiltered.has("needs_attention")} />}
                 gradient="from-amber-400 to-amber-600"
                 loading={kpiLoading}
               />
@@ -537,10 +600,8 @@ export default function Dashboard() {
                 const s = SOURCES[k];
                 const Icon = s.icon;
                 const total = view?.totals[k];
-                const week = o?.this_week[k];
-                const share = view?.all
-                  ? Math.round(((total ?? 0) / view.all) * 100)
-                  : 0;
+                const added = o?.new_in_period?.[k];
+                const share = view?.share[k] ?? 0;
                 return (
                   <Link
                     key={k}
@@ -567,9 +628,9 @@ export default function Dashboard() {
                         </span>
                         {k !== "spin" || o?.spin_available ? (
                           <span
-                            className={`text-xs ${week ? "font-medium text-emerald-600" : "text-gray-400"}`}
+                            className={`text-xs ${added ? "font-medium text-emerald-600" : "text-gray-400"}`}
                           >
-                            +{fmt(week)} this week
+                            +{fmt(added)} in period
                           </span>
                         ) : null}
                       </p>
@@ -583,7 +644,7 @@ export default function Dashboard() {
                         />
                       </div>
                       <p className="mt-1 text-[11px] text-gray-400">
-                        {share}% of leads
+                        {share}% of new leads
                         {isAdmin &&
                           ` · ${k === "spin" ? "live" : `synced ${timeAgo(view?.synced[k])}`}`}
                       </p>
@@ -597,7 +658,7 @@ export default function Dashboard() {
             <div className="mt-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
               <Panel
                 title="Lead inflow"
-                subtitle="New leads per day, last 30 days"
+                subtitle={`New leads per ${view?.weekly ? "week (7-day buckets)" : "day"} · ${label}`}
                 icon={TrendingUp}
                 right={view && <Legend keys={view.trendKeys} />}
               >
@@ -651,7 +712,15 @@ export default function Dashboard() {
                           tickLine={false}
                         />
                         <Tooltip
-                          content={<ChartTooltip labelFormat={dayLabel} />}
+                          content={
+                            <ChartTooltip
+                              labelFormat={(d, point) =>
+                                view.weekly
+                                  ? periodLabel(d, point?.end ?? d)
+                                  : dayLabel(d)
+                              }
+                            />
+                          }
                         />
                         {view.trendKeys.map((k) => (
                           <Area
@@ -672,7 +741,7 @@ export default function Dashboard() {
 
               <Panel
                 title="Source mix"
-                subtitle="Share of all leads"
+                subtitle="Share of new leads in the period"
                 icon={Sparkles}
               >
                 <div className="relative h-52">
@@ -698,9 +767,9 @@ export default function Dashboard() {
                   )}
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-2xl font-bold tabular-nums text-gray-900">
-                      {fmt(view?.all)}
+                      {fmt(o?.new_in_period?.all)}
                     </span>
-                    <span className="text-xs text-gray-500">leads</span>
+                    <span className="text-xs text-gray-500">in period</span>
                   </div>
                 </div>
                 <ul className="mt-3 space-y-1.5">
@@ -715,7 +784,7 @@ export default function Dashboard() {
                         {fmt(m.value)}
                       </span>
                       <span className="w-10 text-right tabular-nums text-xs text-gray-400">
-                        {Math.round((m.value / view.all) * 100)}%
+                        {m.pct}%
                       </span>
                     </li>
                   ))}
@@ -728,6 +797,7 @@ export default function Dashboard() {
               <Panel
                 title="Upcoming events by month"
                 subtitle="When your leads' weddings and events happen"
+                note={<NotFiltered show={view?.unfiltered.has("upcoming_by_month")} />}
                 icon={CalendarHeart}
                 right={
                   o && (
