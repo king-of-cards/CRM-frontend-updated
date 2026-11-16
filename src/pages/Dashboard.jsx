@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import {
   Area,
@@ -47,6 +47,7 @@ import { BarList, Kpi, Panel, SeriesToggles, toggled } from "../components/dashb
 import { periodFromSearch, periodLabel, periodText, todayIst } from "./dashboardPeriod.js";
 import { outcomeCells, outcomeLink } from "./dashboardOutcomes.js";
 import VendorToKocDashboard from "./VendorToKocDashboard.jsx";
+const DhruvaLeadsDashboard = lazy(() => import("./DhruvaLeadsDashboard.jsx"));
 
 // Overview of every lead source, built from GET /analytics/overview, for a period
 // (?from=YYYY-MM-DD&to=YYYY-MM-DD; default the last 30 days). See dashboardPeriod.js.
@@ -225,7 +226,7 @@ const monthLabel = (m) =>
 // ── Page ───────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const location = useLocation();
-  const { user, isAdmin, canSeeLeads } = useAuth();
+  const { user, isAdmin, canSeeLeads, isDhruva } = useAuth();
   const firstName = user?.name?.split(" ")[0];
   const [showIntro, setShowIntro] = useState(
     Boolean(location.state?.fromLogin),
@@ -247,7 +248,17 @@ export default function Dashboard() {
     [periodParam, fromParam, toParam, todayDate],
   );
   // Lead flow: kept in the URL with the period (switched from the top bar, see DashboardLayout)
-  const flow = searchParams.get("flow") === "vendors" ? "vendors" : "";
+  // Dhruva logins always stay on the Dhruva flow
+  const rawFlow = searchParams.get("flow");
+  const flow = isDhruva ? "dhruva" : rawFlow === "vendors" ? "vendors" : rawFlow === "dhruva" ? "dhruva" : "";
+  useEffect(() => {
+    if (!isDhruva || rawFlow === "dhruva") return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set("flow", "dhruva");
+      return next;
+    }, { replace: true });
+  }, [isDhruva, rawFlow, setSearchParams]);
   const setPeriod = useCallback(
     (next) =>
       setSearchParams({
@@ -266,11 +277,11 @@ export default function Dashboard() {
   const [hiddenSources, setHiddenSources] = useState(() => new Set());
 
   useEffect(() => {
-    if (!canSeeLeads) {
+    if (!canSeeLeads && !isDhruva) {
       setState({ loading: false, data: null });
       return;
     }
-    if (flow) return; // Vendors → KOC: that dashboard loads its own data
+    if (flow) return; // Vendor and Dhruva dashboards load their own data.
     let cancelled = false;
     const requests = requestsFor(period);
     const cached = cachedDashboard(period);
@@ -309,7 +320,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, canSeeLeads, refreshKey, period, flow]);
+  }, [isAdmin, canSeeLeads, isDhruva, refreshKey, period, flow]);
 
   const { loading, refreshing, data } = state;
   const o = data?.overview;
@@ -390,7 +401,7 @@ export default function Dashboard() {
         title={`${greeting()}${firstName ? `, ${firstName}` : ""}`}
         description={`${label} · here's how your leads are doing`}
         actions={
-          canSeeLeads && (
+          (canSeeLeads || isDhruva) && (
             <div className="flex flex-wrap items-start gap-2">
               <PeriodFilter
                 period={period}
@@ -413,7 +424,10 @@ export default function Dashboard() {
           )
         }
       >
-        {canSeeLeads && flow && (
+        {flow === "dhruva" && (canSeeLeads || isDhruva) && (
+          <DhruvaLeadsDashboard period={period} refreshKey={refreshKey} />
+        )}
+        {flow === "vendors" && canSeeLeads && (
           <VendorToKocDashboard period={period} refreshKey={refreshKey} isAdmin={isAdmin} />
         )}
         {canSeeLeads && !flow && state.error && (
@@ -424,7 +438,7 @@ export default function Dashboard() {
             {state.error}
           </p>
         )}
-        {!canSeeLeads ? (
+        {!canSeeLeads && !isDhruva ? (
           <NotLinkedVendor />
         ) : flow ? null : !loading && !o && state.error ? null : !loading && !o ? (
           <p

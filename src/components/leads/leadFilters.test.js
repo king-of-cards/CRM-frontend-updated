@@ -76,6 +76,14 @@ describe("active-filter count", () => {
   test("nothing set", () => {
     expect(activeCount(readFilters(q(""), "whatsapp"), "whatsapp")).toBe(0);
   });
+  test("Dhruva filters count date and event ranges once, plus each active filter group", () => {
+    const f = readFilters(q("date_from=2026-11-01&date_to=2026-11-05&event_from=2026-12-01&event_to=2026-12-31&event_type=wedding&event_type=engagement&update_status=pending&has_phone=no"), "dhruva");
+    expect(activeCount(f, "dhruva")).toBe(5);
+  });
+  test("Dhruva keeps only its API filters and repeats event types", () => {
+    const f = readFilters(q("venue=Palace&event_type=wedding&event_type=engagement&also_in=yes&vendor_id=2&sort=name:asc"), "dhruva");
+    expect(toApiQuery(f, "dhruva")).toEqual({ venue: "Palace", event_type: ["wedding", "engagement"], also_in: "yes" });
+  });
 });
 
 describe("quote", () => {

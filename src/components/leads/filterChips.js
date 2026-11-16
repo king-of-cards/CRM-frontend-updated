@@ -5,6 +5,7 @@ import { periodLabel, periodText } from "../../pages/dashboardPeriod.js";
 import { sourceLabel, statusLabel } from "../vendorToKoc/kocUtils.js";
 import {
   branchName,
+  DHRUVA,
   KOC,
   NOT_SHARED,
   ORIGIN_LABELS,
@@ -36,7 +37,7 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
   const add = (id, label, keys) => chips.push({ id, label, keys });
 
   if (has("date_from") || has("date_to"))
-    add("date", `${source === KOC ? "Received" : "Arrived"}: ${periodText(periodOfFilters(filters))}`, ["date_from", "date_to"]);
+    add("date", `${source === KOC || source === DHRUVA ? "Received" : "Arrived"}: ${periodText(periodOfFilters(filters))}`, ["date_from", "date_to"]);
 
   if (source === KOC) {
     if (has("lead_date_from") || has("lead_date_to"))
@@ -48,6 +49,19 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
     if (has("follow_up_due")) add("due", "Follow-up due", ["follow_up_due"]);
     if (has("city")) add("city", `City: ${filters.city}`, ["city"]);
     if (has("source")) add("source", `Source: ${list(filters.source, sourceLabel)}`, ["source"]);
+    return chips;
+  }
+
+  if (source === DHRUVA) {
+    if (has("event_from") || has("event_to") || has("upcoming_days")) add("event", has("upcoming_days") ? "Event: upcoming 30 days" : `Event: ${rangeText(filters.event_from, filters.event_to)}`, ["event_from", "event_to", "upcoming_days"]);
+    if (has("venue")) add("venue", `Venue: ${filters.venue}`, ["venue"]);
+    if (has("event_type")) add("event_type", `Event type: ${list(filters.event_type, (v) => v)}`, ["event_type"]);
+    if (has("update_status")) add("update", `Update: ${list(filters.update_status, (v) => UPDATE_LABELS[v] ?? v)}`, ["update_status"]);
+    if (has("quote")) add("quote", `Quote: ${filters.quote}`, ["quote"]);
+    if (has("conversion")) add("conversion", `Conversion: ${filters.conversion}`, ["conversion"]);
+    if (has("follow_up_from") || has("follow_up_to") || has("follow_up_due")) add("follow_up", `Follow-up: ${has("follow_up_due") ? "due" : rangeText(filters.follow_up_from, filters.follow_up_to)}`, ["follow_up_from", "follow_up_to", "follow_up_due"]);
+    if (has("has_phone")) add("has_phone", filters.has_phone === "yes" ? "Has phone" : "No phone", ["has_phone"]);
+    if (isAdmin && has("also_in")) add("also_in", `Also in another section: ${filters.also_in}`, ["also_in"]);
     return chips;
   }
 

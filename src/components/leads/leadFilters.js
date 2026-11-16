@@ -33,6 +33,12 @@ export const SOURCE_KEYS = {
 };
 // Vendors → KOC list (docs section 11): its own filters, not the lead sources' ones
 export const KOC = "vendor_to_koc";
+export const DHRUVA = "dhruva";
+export const DHRUVA_KEYS = [
+  "search", "date_from", "date_to", "event_from", "event_to", "upcoming_days",
+  "venue", "event_type", "update_status", "quote", "conversion",
+  "follow_up_from", "follow_up_to", "follow_up_due", "has_phone", "also_in",
+];
 export const KOC_KEYS = [
   "search",
   "date_from",
@@ -53,7 +59,7 @@ export const KOC_ADMIN_KEYS = ["vendor_id"];
 export const withoutKocAdminKeys = (query) =>
   Object.fromEntries(Object.entries(query).filter(([k]) => !KOC_ADMIN_KEYS.includes(k)));
 
-export const MULTI_KEYS = ["vendor_id", "origin", "update_status", "source"];
+export const MULTI_KEYS = ["vendor_id", "origin", "update_status", "source", "event_type"];
 export const NOT_SHARED = "__none__";
 export const UPCOMING_DAYS = "30";
 
@@ -65,7 +71,7 @@ export function pageSizeOf(params) {
 }
 
 export const keysFor = (source) =>
-  source === KOC ? KOC_KEYS : [...COMMON_KEYS, ...(SOURCE_KEYS[source] ?? [])];
+  source === KOC ? KOC_KEYS : source === DHRUVA ? DHRUVA_KEYS : [...COMMON_KEYS, ...(SOURCE_KEYS[source] ?? [])];
 
 // URLSearchParams -> { key: "" | "value" | ["v", …], sort }
 export function readFilters(params, source) {
@@ -109,6 +115,13 @@ export function activeCount(filters, source) {
       ["city"],
       ["source"],
     ].filter((g) => g.some(has)).length;
+  }
+  if (source === DHRUVA) {
+    return [
+      ["date_from", "date_to"], ["event_from", "event_to", "upcoming_days"], ["venue"],
+      ["event_type"], ["update_status"], ["quote"], ["conversion"],
+      ["follow_up_from", "follow_up_to", "follow_up_due"], ["has_phone"], ["also_in"],
+    ].filter((group) => group.some(has)).length;
   }
   const groups = [
     ["date_from", "date_to"],

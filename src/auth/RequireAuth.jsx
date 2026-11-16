@@ -4,8 +4,14 @@ import { useAuth } from "./useAuth.js";
 // Wrap a page so only logged-in users (optionally only a given role) can see it.
 //   <RequireAuth><Dashboard /></RequireAuth>
 //   <RequireAuth role="admin"><Users /></RequireAuth>
+//   <RequireAuth role={["admin","dhruva"]}><DhruvaLeads /></RequireAuth>
+//
+// Redirect targets:
+//   - Not logged in            → /login
+//   - Wrong role (non-admin/non-dhruva hitting admin page) → /dashboard
+//   - Dhruva login hitting any admin-only page             → /dashboard?flow=dhruva
 export default function RequireAuth({ role, children }) {
-  const { user, isReady } = useAuth();
+  const { user, isDhruva, isReady } = useAuth();
   const location = useLocation();
 
   if (!isReady) {
@@ -24,8 +30,18 @@ export default function RequireAuth({ role, children }) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  if (role && user.role !== role) {
-    return <Navigate to="/dashboard" replace />;
+  // Dhruva accounts can open only their dashboard and lead list.
+  if (isDhruva && !["/dashboard", "/dhruva-leads"].includes(location.pathname)) {
+    return <Navigate to="/dashboard?flow=dhruva" replace />;
+  }
+
+  // role check: accepts a string or an array of allowed roles
+  if (role) {
+    const allowed = Array.isArray(role) ? role : [role];
+    if (!allowed.includes(user.role)) {
+      // Dhruva logins are redirected to their own dashboard
+      return <Navigate to={isDhruva ? "/dashboard?flow=dhruva" : "/dashboard"} replace />;
+    }
   }
 
   return children;

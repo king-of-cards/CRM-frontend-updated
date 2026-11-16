@@ -1,6 +1,6 @@
-// The Lead flow: KOC → Vendors ("") or Vendors → KOC ("vendors"). Pure, no React.
-// It comes from the page: /dashboard?flow=vendors and /vendor-to-koc are Vendors → KOC;
-// /dashboard (no flow) and the four source pages are KOC → Vendors. The top bar tabs follow it.
+// The Lead flow: KOC → Vendors ("") | Vendors → KOC ("vendors") | Dhruva leads ("dhruva").
+// Pure, no React. It comes from the page URL/query string.
+// The top bar tabs follow the active flow.
 
 export const KOC_TABS = [
   { path: "/dashboard", label: "Dashboard" },
@@ -13,20 +13,39 @@ export const VENDOR_TABS = [
   { path: "/dashboard", label: "Dashboard" },
   { path: "/vendor-to-koc", label: "Vendors → KOC" },
 ];
+export const DHRUVA_TABS = [
+  { path: "/dashboard", label: "Dashboard" },
+  { path: "/dhruva-leads", label: "Dhruva leads" },
+];
 
-// Pages that show the Lead flow switch
-export const FLOW_PAGES = [...new Set([...KOC_TABS, ...VENDOR_TABS].map((t) => t.path))];
+// Pages that show the Lead flow switch (all lead-flow pages combined, deduplicated)
+export const FLOW_PAGES = [
+  ...new Set(
+    [...KOC_TABS, ...VENDOR_TABS, ...DHRUVA_TABS].map((t) => t.path),
+  ),
+];
 
 export function flowOf(pathname, search = "") {
+  if (pathname === "/dhruva-leads") return "dhruva";
   if (pathname === "/vendor-to-koc") return "vendors";
-  if (pathname === "/dashboard") return new URLSearchParams(search).get("flow") === "vendors" ? "vendors" : "";
+  if (pathname === "/dashboard") {
+    const flow = new URLSearchParams(search).get("flow");
+    if (flow === "vendors") return "vendors";
+    if (flow === "dhruva") return "dhruva";
+    return "";
+  }
   return "";
 }
 
-// Tabs for a flow: { path, to, label }. The Dashboard tab keeps the flow.
+// Tabs for a flow: { path, to, label }. The Dashboard tab keeps the active flow.
 export function tabsFor(flow) {
-  return (flow === "vendors" ? VENDOR_TABS : KOC_TABS).map((t) => ({
+  const tabs =
+    flow === "vendors" ? VENDOR_TABS : flow === "dhruva" ? DHRUVA_TABS : KOC_TABS;
+  return tabs.map((t) => ({
     ...t,
-    to: flow === "vendors" && t.path === "/dashboard" ? "/dashboard?flow=vendors" : t.path,
+    to:
+      t.path === "/dashboard" && flow
+        ? `/dashboard?flow=${flow}`
+        : t.path,
   }));
 }

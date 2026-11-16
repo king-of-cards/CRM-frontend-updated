@@ -11,6 +11,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
+  Star,
   Target,
   UserCog,
 } from "lucide-react";
@@ -28,6 +29,11 @@ const navItems = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
+// Dhruva logins only see Dashboard (their flow's tabs handle Dhruva leads)
+const dhruvaNavItems = [
+  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+];
+
 // Icons of the top bar tabs (which tabs show depends on the Lead flow: see leadFlow.js)
 const TAB_ICONS = {
   "/dashboard": LayoutDashboard,
@@ -36,6 +42,7 @@ const TAB_ICONS = {
   "/leads/wedding": Camera,
   "/leads/wedding-planner": ClipboardList,
   "/vendor-to-koc": Handshake,
+  "/dhruva-leads": Star,
 };
 
 const STORAGE_KEY = "crm-sidebar-collapsed";
@@ -47,19 +54,26 @@ export default function DashboardLayout({
   children,
 }) {
   const navigate = useNavigate();
-  const { user, isAdmin, canSeeLeads, logout } = useAuth();
-  const visibleNav = navItems.filter((item) => !item.adminOnly || isAdmin);
+  const { user, isAdmin, isDhruva, canSeeLeads, logout } = useAuth();
 
-  // Lead flow: from the page (Dashboard ?flow=vendors and /vendor-to-koc = Vendors → KOC).
-  // The top tabs follow it; the Lead flow switch shows on the Dashboard and the lead lists.
+  // Dhruva logins have a minimal sidebar; vendors/admins have the full one
+  const visibleNav = isDhruva
+    ? dhruvaNavItems
+    : navItems.filter((item) => !item.adminOnly || isAdmin);
+
+  // Lead flow: from the page (Dashboard ?flow=vendors and /vendor-to-koc = Vendors → KOC,
+  // Dashboard ?flow=dhruva and /dhruva-leads = Dhruva). The top tabs follow it;
+  // the Lead flow switch shows on the Dashboard and the lead lists (but not for Dhruva logins).
   const location = useLocation();
   const [, setSearchParams] = useSearchParams();
   const flow = flowOf(location.pathname, location.search);
   const visibleTabs = tabsFor(flow).map((t) => ({ ...t, icon: TAB_ICONS[t.path] }));
-  const topBarExtra =
-    canSeeLeads && FLOW_PAGES.includes(location.pathname) ? (
-      <LeadFlowToggle value={flow} onChange={chooseFlow} />
-    ) : null;
+
+  // The toggle is hidden for Dhruva logins (they only have the Dhruva flow)
+  const showToggle = !isDhruva && (canSeeLeads || isAdmin) && FLOW_PAGES.includes(location.pathname);
+  const topBarExtra = showToggle ? (
+    <LeadFlowToggle value={flow} onChange={chooseFlow} />
+  ) : null;
 
   // The other flow: on the Dashboard switch in place (keeping the period); elsewhere go to
   // that flow's Dashboard
@@ -73,7 +87,9 @@ export default function DashboardLayout({
         return params;
       });
     } else {
-      navigate(value ? "/dashboard?flow=vendors" : "/dashboard");
+      if (value === "vendors") navigate("/dashboard?flow=vendors");
+      else if (value === "dhruva") navigate("/dashboard?flow=dhruva");
+      else navigate("/dashboard");
     }
   }
 

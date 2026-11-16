@@ -1,10 +1,12 @@
 import { ArrowLeftRight } from "lucide-react";
 
 // The Dashboard's "Lead flow" switch, shown in the top bar next to the nav pill:
-// KOC → Vendors (value "") or Vendors → KOC (value "vendors", ?flow=vendors).
+// KOC → Vendors (value "") | Vendors → KOC (value "vendors") | Dhruva leads (value "dhruva").
+// Hidden for Dhruva logins (they have no other section to switch to).
 const FLOWS = [
   { value: "", label: "KOC → Vendors" },
   { value: "vendors", label: "Vendors → KOC" },
+  { value: "dhruva", label: "Dhruva leads" },
 ];
 
 export default function LeadFlowToggle({ value, onChange }) {

@@ -88,6 +88,8 @@ export default function AuthProvider({ children }) {
       isAdmin: user?.role === "admin",
       // Vendor logins see only their vendor's leads; one not linked to a vendor sees none
       isVendor: user?.role === "vendor",
+      // Dhruva logins use only the Dhruva section (docs/API_REFERENCE.md section 13)
+      isDhruva: user?.role === "dhruva",
       vendor: user?.vendor ?? null,
       canSeeLeads: user?.role === "admin" || (user?.role === "vendor" && Boolean(user?.vendor)),
       isReady,

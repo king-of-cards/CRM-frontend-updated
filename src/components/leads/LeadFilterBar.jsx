@@ -10,6 +10,7 @@ import { PENDING, SOURCES as KOC_SOURCES, STATUSES } from "../vendorToKoc/kocUti
 import {
   branchName,
   buildQuote,
+  DHRUVA,
   filtersOfPeriod,
   KOC,
   NOT_SHARED,
@@ -205,6 +206,27 @@ function FilterControls({ source, filters, update, options, isAdmin, today }) {
     { value: "", label: "Anyone" },
     ...counted(o.shared_with, partnerLabel).map((x) => ({ value: x.value, label: x.label })),
   ];
+
+  if (source === DHRUVA) return (
+    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <Field label="Event date" wide>
+        <div className="flex flex-wrap items-center gap-2">
+          <input type="date" aria-label="Event from" value={filters.event_from} max={filters.event_to || undefined} onChange={(e) => update({ event_from: e.target.value, upcoming_days: "" })} className={`${inputCls} w-auto`} />
+          <span className="text-gray-400">–</span>
+          <input type="date" aria-label="Event to" value={filters.event_to} min={filters.event_from || undefined} onChange={(e) => update({ event_to: e.target.value, upcoming_days: "" })} className={`${inputCls} w-auto`} />
+          <button type="button" onClick={() => update({ event_from: "", event_to: "", upcoming_days: filters.upcoming_days ? "" : UPCOMING_DAYS })} className="rounded-full px-3 py-1.5 text-xs ring-1 ring-gray-200">{filters.upcoming_days ? "Any event date" : "Upcoming 30 days"}</button>
+        </div>
+      </Field>
+      <Field label="Venue"><DebouncedInput value={filters.venue} onCommit={(v) => update({ venue: v })} list="dhruva-venues" placeholder="Any venue" aria-label="Venue" className={inputCls} /><datalist id="dhruva-venues">{(o.venues ?? []).map((v) => <option key={v.value} value={v.value} />)}</datalist></Field>
+      <Field label="Event type"><MultiSelect label="Event type" options={counted(o.event_types)} value={filters.event_type} onChange={(vals) => update({ event_type: vals })} /></Field>
+      <Field label="Update"><MultiSelect label="Update" options={updateOptions} value={filters.update_status} onChange={(vals) => update({ update_status: vals })} /></Field>
+      <AmountFilter label="Quoted amount" value={filters.quote} onChange={(v) => update({ quote: v })} anyLabel="Any quote" hasLabel="Has a quote" noneLabel="No quote yet" />
+      <AmountFilter label="Conversion amount" value={filters.conversion} onChange={(v) => update({ conversion: v })} anyLabel="Any" hasLabel="Has a conversion amount" noneLabel="No conversion amount" />
+      <Field label="Follow-up" wide><div className="flex flex-wrap items-center gap-2"><input type="date" aria-label="Follow-up from" value={filters.follow_up_from} max={filters.follow_up_to || undefined} onChange={(e) => update({ follow_up_from: e.target.value })} className={`${inputCls} w-auto`} /><span className="text-gray-400">–</span><input type="date" aria-label="Follow-up to" value={filters.follow_up_to} min={filters.follow_up_from || undefined} onChange={(e) => update({ follow_up_to: e.target.value })} className={`${inputCls} w-auto`} /><label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={filters.follow_up_due === "true"} onChange={(e) => update({ follow_up_due: e.target.checked ? "true" : "" })} className="h-4 w-4 accent-brand-600" />Due</label></div></Field>
+      <Field label="Phone"><Select label="Phone" value={filters.has_phone} onChange={(v) => update({ has_phone: v })} options={[{ value: "", label: "Any" }, { value: "yes", label: "Has phone" }, { value: "no", label: "No phone" }]} /></Field>
+      {isAdmin && <Field label="Also in another section"><Select label="Also in another section" value={filters.also_in} onChange={(v) => update({ also_in: v })} options={[{ value: "", label: "Any" }, { value: "yes", label: "Yes" }, { value: "no", label: "No" }]} /></Field>}
+    </div>
+  );
 
   return (
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -599,7 +621,7 @@ export default function LeadFilterBar({
       <div className="flex flex-wrap items-start gap-3">
         {searchBox}
         {/* Arrival (lists) / received (Vendors → KOC) date, as on the Dashboard; applies at once */}
-        <div title={source === KOC ? "Received date" : "Arrival date"}>
+        <div title={source === KOC || source === DHRUVA ? "Received date" : "Arrival date"}>
           <PeriodFilter
             alignStart
             period={periodOfFilters(filters)}

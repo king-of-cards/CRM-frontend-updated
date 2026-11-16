@@ -47,9 +47,12 @@ export default function Login() {
     setSubmitting(true);
     setFormError("");
     try {
-      await login(form.email, form.password);
-      // Go back to the page the user tried to open, or to the dashboard
-      const to = location.state?.from || "/dashboard";
+      const me = await login(form.email, form.password);
+      // Dhruva logins land on the Dhruva dashboard; others go back to where they came from
+      const isDhruva = me?.role === "dhruva";
+      const to = isDhruva
+        ? "/dashboard?flow=dhruva"
+        : (location.state?.from || "/dashboard");
       navigate(to, { replace: true, state: { fromLogin: true } });
     } catch (err) {
       if (err.status === 401) setFormError("Incorrect email or password.");
@@ -65,7 +68,7 @@ export default function Login() {
   }
 
   // Already logged in (e.g. opened /login in a new tab): skip the form
-  if (isReady && user) return <Navigate to="/dashboard" replace />;
+  if (isReady && user) return <Navigate to={user.role === "dhruva" ? "/dashboard?flow=dhruva" : "/dashboard"} replace />;
 
   return (
     <AuthLayout

@@ -52,6 +52,11 @@ describe("filter chips use names, never ids", () => {
       "Source: Bulk upload",
     ]);
   });
+  test("Dhruva chips show received date, venue, event type and update labels", () => {
+    expect(chips("date_from=2026-11-16&venue=Palace&event_type=wedding&update_status=pending&has_phone=no", "dhruva")).toEqual([
+      "Received: 16 Nov 2026", "Venue: Palace", "Event type: wedding", "Update: Pending", "No phone",
+    ]);
+  });
   test("each chip knows which keys it removes", () => {
     const [c] = filterChips(readFilters(new URLSearchParams("event_from=2026-12-01"), "wedding"), "wedding", {}, true);
     expect(c.label).toBe("Event: from 1 Dec 2026");

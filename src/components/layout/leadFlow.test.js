@@ -12,10 +12,15 @@ describe("Lead flow from the page", () => {
     for (const p of ["/leads/spin", "/leads/international", "/leads/wedding", "/leads/wedding-planner"])
       expect(flowOf(p, "")).toBe("");
   });
+  test("Dhruva pages", () => {
+    expect(flowOf("/dashboard", "?flow=dhruva&period=all")).toBe("dhruva");
+    expect(flowOf("/dhruva-leads", "")).toBe("dhruva");
+    expect(flowOf("/dhruva-leads", "?search=foo")).toBe("dhruva");
+  });
 });
 
 describe("tabs per flow", () => {
-  test("KOC → Vendors: Dashboard + the four sources, no Vendors → KOC", () => {
+  test("KOC → Vendors: Dashboard + the four sources, no Vendors → KOC or Dhruva", () => {
     expect(tabsFor("").map((t) => t.label)).toEqual(["Dashboard", "Spin leads", "International", "Wedding", "Wedding planner"]);
     expect(tabsFor("")[0].to).toBe("/dashboard");
   });
@@ -25,9 +30,15 @@ describe("tabs per flow", () => {
       ["Vendors → KOC", "/vendor-to-koc"],
     ]);
   });
-  test("the switch shows on the Dashboard and every lead list", () => {
+  test("Dhruva: Dashboard (keeping the flow) + Dhruva leads", () => {
+    expect(tabsFor("dhruva").map((t) => [t.label, t.to])).toEqual([
+      ["Dashboard", "/dashboard?flow=dhruva"],
+      ["Dhruva leads", "/dhruva-leads"],
+    ]);
+  });
+  test("the switch shows on the Dashboard and every lead list (including dhruva)", () => {
     expect(FLOW_PAGES.sort()).toEqual(
-      ["/dashboard", "/leads/international", "/leads/spin", "/leads/wedding", "/leads/wedding-planner", "/vendor-to-koc"].sort(),
+      ["/dashboard", "/dhruva-leads", "/leads/international", "/leads/spin", "/leads/wedding", "/leads/wedding-planner", "/vendor-to-koc"].sort(),
     );
   });
 });

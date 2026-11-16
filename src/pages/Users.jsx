@@ -11,6 +11,8 @@ import { kocErrors } from "../components/vendorToKoc/kocUtils.js";
 // block / unblock (not your own login). API errors are shown as the API returns them.
 
 const EMPTY_FORM = { name: "", email: "", password: "", role: "vendor", vendor_id: "" };
+// Roles that require a vendor to be linked
+const NEEDS_VENDOR = ["vendor"];
 const NOT_LINKED = "";
 
 const inputClass =
@@ -165,7 +167,7 @@ export default function Users() {
       return setFormError("Enter a name and an email address.");
     if (form.password.length < 8)
       return setFormError("The password needs at least 8 characters.");
-    if (form.role === "vendor" && !form.vendor_id)
+    if (NEEDS_VENDOR.includes(form.role) && !form.vendor_id)
       return setFormError("Pick the vendor this login belongs to.");
 
     setSaving(true);
@@ -284,10 +286,10 @@ export default function Users() {
                 >
                   <option value="vendor">Vendor</option>
                   <option value="admin">Admin</option>
+                  <option value="dhruva">Dhruva</option>
                 </select>
               </label>
-              {form.role === "vendor" && (
-                <label className="block">
+              {form.role === "vendor" && (                <label className="block">
                   <span className="mb-1 block px-1 text-xs font-medium text-gray-600">
                     Vendor<span className="ml-0.5 text-red-600">*</span>
                   </span>
@@ -371,7 +373,9 @@ export default function Users() {
                           className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
                             u.role === "admin"
                               ? "bg-brand-50 text-brand-800 ring-1 ring-brand-200"
-                              : "bg-gray-100 text-gray-700"
+                              : u.role === "dhruva"
+                                ? "bg-violet-50 text-violet-800 ring-1 ring-violet-200"
+                                : "bg-gray-100 text-gray-700"
                           }`}
                         >
                           {u.role}

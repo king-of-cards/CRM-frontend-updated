@@ -26,6 +26,7 @@ const WhatsAppLeads = lazy(
 const VendorToKocLeads = lazy(
   () => import("./components/vendorToKoc/VendorToKocLeads.jsx"),
 );
+const DhruvaLeads = lazy(() => import("./pages/DhruvaLeads.jsx"));
 
 // Shown for a split second while a page's code downloads
 function PageLoader() {
@@ -109,6 +110,14 @@ function App() {
           element={
             <RequireAuth role="admin">
               <Leads />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/dhruva-leads"
+          element={
+            <RequireAuth role={["admin", "dhruva"]}>
+              <DhruvaLeads />
             </RequireAuth>
           }
         />
