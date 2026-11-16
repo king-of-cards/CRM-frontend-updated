@@ -27,7 +27,7 @@ import {
   Users,
 } from "lucide-react";
 import { getKocDashboard } from "../api/vendorToKoc.js";
-import { Kpi, Panel } from "../components/dashboard/DashboardParts.jsx";
+import { Kpi, Panel, SeriesToggles, toggled } from "../components/dashboard/DashboardParts.jsx";
 import { dateTimeText, dayText, kocErrors, kocListLink, phoneText, statusLabel } from "../components/vendorToKoc/kocUtils.js";
 import { periodLabel } from "./dashboardPeriod.js";
 import {
@@ -78,7 +78,8 @@ function InflowTooltip({ active, payload, granularity, vendors }) {
   return (
     <div className="rounded-xl bg-white/95 px-3 py-2 text-xs shadow-lg ring-1 ring-gray-100 backdrop-blur">
       <p className="mb-1 font-semibold text-gray-900">{title}</p>
-      {!p.total && <p className="text-gray-500">No leads</p>}
+      {/* Only the ticked vendors (vendors) are shown */}
+      {!vendors.some((v) => p[`v${v.id}`]) && <p className="text-gray-500">No leads</p>}
       {vendors
         .filter((v) => p[`v${v.id}`])
         .map((v) => (
@@ -122,6 +123,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
   const [data, setData] = useState(() => getKocDashboard.peek(query) ?? null);
   const [loading, setLoading] = useState(() => !getKocDashboard.peek(query));
   const [error, setError] = useState("");
+  const [hiddenVendors, setHiddenVendors] = useState(() => new Set()); // Lead inflow: unticked vendors
 
   useEffect(() => {
     let cancelled = false;
@@ -148,6 +150,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
   const prev = d?.period?.previous;
   const granularity = d?.period?.granularity ?? "day";
   const vendors = (d?.inflow_vendors ?? []).map((v, i) => ({ ...v, color: VENDOR_COLORS[i % VENDOR_COLORS.length] }));
+  const shownVendors = vendors.filter((v) => !hiddenVendors.has(String(v.id)));
   const points = inflowPoints(d?.inflow);
   const statuses = statusRows(d?.by_status);
   const all = { all: true };
@@ -266,21 +269,18 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
               title="Lead inflow"
               subtitle={`Leads received per ${granularity === "month" ? "month" : granularity === "week" ? "week (7-day buckets)" : "day"}${isAdmin ? ", per vendor" : ""}`}
               icon={TrendingUp}
-              right={
-                vendors.length > 0 && (
-                  <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    {vendors.map((v) => (
-                      <span key={v.id} className="flex items-center gap-1.5 text-xs text-gray-500">
-                        <span className="h-2 w-2 rounded-full" style={{ background: v.color }} />
-                        {v.name}
-                      </span>
-                    ))}
-                  </div>
-                )
-              }
             >
+              {vendors.length > 0 && (
+                <SeriesToggles
+                  series={vendors.map((v) => ({ key: String(v.id), label: v.name, color: v.color }))}
+                  hidden={hiddenVendors}
+                  onToggle={(k) => setHiddenVendors((h) => toggled(h, k))}
+                />
+              )}
               <div className="h-64">
-                {d && (
+                {d && vendors.length > 0 && !shownVendors.length ? (
+                  <p className="flex h-full items-center justify-center text-sm text-gray-500">Select at least one source</p>
+                ) : d && (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={points} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -293,8 +293,8 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                         minTickGap={24}
                       />
                       <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                      <Tooltip content={<InflowTooltip granularity={granularity} vendors={vendors} />} />
-                      {vendors.map((v) => (
+                      <Tooltip content={<InflowTooltip granularity={granularity} vendors={shownVendors} />} />
+                      {shownVendors.map((v) => (
                         <Line
                           key={v.id}
                           type="monotone"

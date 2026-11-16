@@ -64,25 +64,22 @@ export function unlinkVendorUser(vendorId, userId) {
 }
 
 // ── Adding leads ──
-// POST /upload/preview (multipart): saves nothing. vendorId: admins only.
-export async function previewKocUpload(file, { sheetName, vendorId } = {}) {
+// Adding leads is for vendor logins only (admins get 403); the leads go to the login's vendor.
+// POST /upload/preview (multipart): saves nothing.
+export async function previewKocUpload(file, { sheetName } = {}) {
   const form = new FormData();
   form.append("file", file, file.name);
   if (sheetName) form.append("sheet_name", sheetName);
-  if (vendorId) form.append("vendor_id", String(vendorId));
   const res = await rawFetch(`${BASE}/upload/preview`, { method: "POST", body: form });
   return res.json();
 }
 
 // POST /leads/bulk: { added, duplicates_skipped, failed, errors: [{ index, field, message }] }
-export function bulkAddKocLeads(leads, vendorId) {
-  return apiRequest(`${BASE}/leads/bulk`, {
-    method: "POST",
-    body: { leads, ...(vendorId ? { vendor_id: Number(vendorId) } : {}) },
-  });
+export function bulkAddKocLeads(leads) {
+  return apiRequest(`${BASE}/leads/bulk`, { method: "POST", body: { leads } });
 }
 
-// POST /leads: one lead { name, date (YYYY-MM-DD), phone, city, vendor_id (admins) }
+// POST /leads: one lead { name, date (YYYY-MM-DD), phone, city }
 export function addKocLead(lead) {
   return apiRequest(`${BASE}/leads`, { method: "POST", body: lead });
 }

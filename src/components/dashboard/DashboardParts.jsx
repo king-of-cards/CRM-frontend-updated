@@ -116,3 +116,33 @@ export function BarList({
     </ul>
   );
 }
+
+// Checkboxes above a chart, one per series, coloured like the series (all ticked by default).
+// series: [{ key, label, color }]; hidden: Set of unticked keys
+export function SeriesToggles({ series, hidden, onToggle }) {
+  return (
+    <div className="mb-3 flex flex-wrap gap-x-4 gap-y-2" role="group" aria-label="Show series">
+      {series.map((s) => (
+        <label key={s.key} className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-600">
+          <input
+            type="checkbox"
+            checked={!hidden.has(s.key)}
+            onChange={() => onToggle(s.key)}
+            className="h-3.5 w-3.5"
+            style={{ accentColor: s.color }}
+          />
+          <span className="h-2 w-2 rounded-full" style={{ background: s.color }} aria-hidden="true" />
+          {s.label}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+// Toggle a key in a Set (returns a new Set)
+export const toggled = (set, key) => {
+  const next = new Set(set);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  return next;
+};

@@ -22,7 +22,8 @@ import { dayText, kocErrors, PENDING, phoneText, STATUSES } from "./kocUtils.js"
 
 // Vendors → KOC leads (docs/API_REFERENCE.md section 11). Admins see every vendor's leads and
 // edit Update, Additional comments and Follow-up date in the table; vendor logins see only
-// their own leads, without those columns. Both can add leads (single or bulk) and export.
+// their own leads, without those columns, and are the only ones who add leads (single or bulk).
+// Both export.
 
 const PAGE_SIZE = 20;
 const SORTS_ALL = [
@@ -297,20 +298,25 @@ export default function VendorToKocLeads() {
       subtitle={isAdmin ? "Leads vendors send to KOC" : "Leads you send to KOC"}
       action={
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setDialog("single")}
-            className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-4 py-2 text-sm font-medium text-white shadow-md shadow-brand-700/25 transition hover:opacity-95"
-          >
-            <Plus size={15} /> Add lead
-          </button>
-          <button
-            type="button"
-            onClick={() => setDialog("bulk")}
-            className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-          >
-            <FileUp size={15} /> Bulk upload
-          </button>
+          {/* Adding leads: vendor logins only (admins get 403 from the API) */}
+          {!isAdmin && (
+            <>
+              <button
+                type="button"
+                onClick={() => setDialog("single")}
+                className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-4 py-2 text-sm font-medium text-white shadow-md shadow-brand-700/25 transition hover:opacity-95"
+              >
+                <Plus size={15} /> Add lead
+              </button>
+              <button
+                type="button"
+                onClick={() => setDialog("bulk")}
+                className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+              >
+                <FileUp size={15} /> Bulk upload
+              </button>
+            </>
+          )}
           <ExportMenu onExport={runExport} busy={exporting} />
         </div>
       }
@@ -407,12 +413,8 @@ export default function VendorToKocLeads() {
         onClose={() => setOpenId(null)}
         onSaved={onSaved}
       />
-      {dialog === "single" && (
-        <KocAddLeadDialog isAdmin={isAdmin} vendors={vendors} onClose={() => setDialog(null)} onAdded={done} />
-      )}
-      {dialog === "bulk" && (
-        <KocBulkUploadDialog isAdmin={isAdmin} vendors={vendors} onClose={() => setDialog(null)} onImported={reload} />
-      )}
+      {!isAdmin && dialog === "single" && <KocAddLeadDialog onClose={() => setDialog(null)} onAdded={done} />}
+      {!isAdmin && dialog === "bulk" && <KocBulkUploadDialog onClose={() => setDialog(null)} onImported={reload} />}
     </SectionShell>
   );
 }

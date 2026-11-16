@@ -39,7 +39,7 @@ import { listSheetSources } from "../api/sheets.js";
 import { prefetchTabs } from "../api/prefetch.js";
 import NotLinkedVendor from "../components/leads/NotLinkedVendor.jsx";
 import PeriodFilter from "../components/dashboard/PeriodFilter.jsx";
-import { BarList, Kpi, Panel } from "../components/dashboard/DashboardParts.jsx";
+import { BarList, Kpi, Panel, SeriesToggles, toggled } from "../components/dashboard/DashboardParts.jsx";
 import { periodFromSearch, periodLabel, periodText, todayIst } from "./dashboardPeriod.js";
 import { outcomeCells, outcomeLink } from "./dashboardOutcomes.js";
 import VendorToKocDashboard from "./VendorToKocDashboard.jsx";
@@ -273,6 +273,8 @@ export default function Dashboard() {
     return { loading: !data, refreshing: Boolean(data), data, error: null };
   });
   const [refreshKey, setRefreshKey] = useState(0);
+  // Lead inflow: unticked sources (not kept in the URL)
+  const [hiddenSources, setHiddenSources] = useState(() => new Set());
 
   useEffect(() => {
     if (!canSeeLeads) {
@@ -639,10 +641,20 @@ export default function Dashboard() {
                 title="Lead inflow"
                 subtitle={`New leads per ${view?.monthly ? "month" : view?.weekly ? "week (7-day buckets)" : "day"} · ${label}`}
                 icon={TrendingUp}
-                right={view && <Legend keys={view.trendKeys} />}
               >
+                {view && (
+                  <SeriesToggles
+                    series={view.trendKeys.map((k) => ({ key: k, label: SOURCES[k].label, color: SOURCES[k].color }))}
+                    hidden={hiddenSources}
+                    onToggle={(k) => setHiddenSources((h) => toggled(h, k))}
+                  />
+                )}
                 <div className="h-64">
-                  {o && (
+                  {o && !view.trendKeys.some((k) => !hiddenSources.has(k)) ? (
+                    <p className="flex h-full items-center justify-center text-sm text-gray-500">
+                      Select at least one source
+                    </p>
+                  ) : o && (
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart
                         data={o.trend}
@@ -705,7 +717,7 @@ export default function Dashboard() {
                             />
                           }
                         />
-                        {view.trendKeys.map((k) => (
+                        {view.trendKeys.filter((k) => !hiddenSources.has(k)).map((k) => (
                           <Area
                             key={k}
                             type="monotone"

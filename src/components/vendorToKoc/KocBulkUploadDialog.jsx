@@ -5,7 +5,7 @@ import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/D
 import { readSheetNames } from "../crmLeads/xlsxSheets.js";
 import { fieldErrors, kocErrors, mapKocRecheck, rowKind, rowsToKocCsv } from "./kocUtils.js";
 
-// Vendors → KOC bulk upload (docs section 11): template → (admins: vendor) → file (+ sheet) →
+// Vendors → KOC bulk upload (docs section 11; vendor logins only): template → file (+ sheet) →
 // preview (nothing saved) → fix / remove rows, re-checked on blur or with "Re-check" →
 // submit the valid ones (POST /leads/bulk) → result. Errors are shown exactly as the API
 // returns them, matched by field, never by their text.
@@ -26,11 +26,10 @@ function Count({ label, n, cls }) {
   );
 }
 
-export default function KocBulkUploadDialog({ isAdmin, vendors, onClose, onImported }) {
+export default function KocBulkUploadDialog({ onClose, onImported }) {
   const [step, setStep] = useState("choose"); // choose | preview | result
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
-  const [vendorId, setVendorId] = useState("");
   const [file, setFile] = useState(null);
   const [sheets, setSheets] = useState(null);
   const [sheet, setSheet] = useState("");
@@ -42,7 +41,6 @@ export default function KocBulkUploadDialog({ isAdmin, vendors, onClose, onImpor
   const fileInput = useRef(null);
 
   const isXlsx = file && /\.xlsx$/i.test(file.name);
-  const vendorName = vendors.find((v) => String(v.id) === String(vendorId))?.name;
   const kinds = rows.map(rowKind);
   const counts = {
     valid: kinds.filter((k) => k === "valid").length,
@@ -83,11 +81,10 @@ export default function KocBulkUploadDialog({ isAdmin, vendors, onClose, onImpor
   }
 
   async function check() {
-    if (isAdmin && !vendorId) return setError("Pick the vendor these leads are for.");
     setBusy("preview");
     setError("");
     try {
-      const res = await previewKocUpload(file, { sheetName: isXlsx ? sheet : undefined, vendorId: isAdmin ? vendorId : undefined });
+      const res = await previewKocUpload(file, { sheetName: isXlsx ? sheet : undefined });
       setRows(res.rows.map((r) => ({ ...r, rev: 0, dirty: false, fixable: rowKind(r) !== "valid" })));
       setStep("preview");
     } catch (err) {
@@ -106,7 +103,7 @@ export default function KocBulkUploadDialog({ isAdmin, vendors, onClose, onImpor
     setError("");
     try {
       const csv = new File([rowsToKocCsv(current)], "recheck.csv", { type: "text/csv" });
-      const res = await previewKocUpload(csv, { vendorId: isAdmin ? vendorId : undefined });
+      const res = await previewKocUpload(csv);
       if (id !== checkId.current) return null;
       const byRow = new Map(mapKocRecheck(current, res.rows).map((r) => [r.row, r]));
       const next = rowsRef.current.map((r) => {
@@ -157,7 +154,7 @@ export default function KocBulkUploadDialog({ isAdmin, vendors, onClose, onImpor
     try {
       // Valid preview dates are YYYY-MM-DD, as the JSON endpoint takes them
       const leads = valid.map((r) => ({ name: r.name, date: r.date, phone: r.phone, city: r.city }));
-      const res = await bulkAddKocLeads(leads, isAdmin ? vendorId : undefined);
+      const res = await bulkAddKocLeads(leads);
       const errors = (res.errors ?? []).map((e) => ({ ...e, row: valid[e.index]?.row }));
       setResult({ ...res, errors, notSent: current.filter((r) => rowKind(r) !== "valid") });
       setStep("result");
@@ -222,7 +219,7 @@ export default function KocBulkUploadDialog({ isAdmin, vendors, onClose, onImpor
 
   return (
     <Drawer
-      kicker={isAdmin && vendorName ? `Vendors → KOC · ${vendorName}` : "Vendors → KOC"}
+      kicker="Vendors → KOC"
       title="Bulk upload"
       onClose={onClose}
       wide={step !== "choose"}
@@ -256,21 +253,6 @@ export default function KocBulkUploadDialog({ isAdmin, vendors, onClose, onImpor
 
             <section className="rounded-2xl bg-white p-4 ring-1 ring-gray-100">
               <h3 className="text-sm font-semibold text-gray-900">2. Choose your file</h3>
-              {isAdmin && (
-                <label className="mt-3 block">
-                  <span className="text-xs font-medium text-gray-600">
-                    Vendor<span className="ml-0.5 text-red-600">*</span>
-                  </span>
-                  <select value={vendorId} onChange={(e) => setVendorId(e.target.value)} className={`mt-1.5 ${fieldCls}`}>
-                    <option value="">Pick the vendor these leads are for</option>
-                    {vendors.filter((v) => v.is_active !== false).map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
               <p className="mt-3 text-xs text-gray-500">Excel (.xlsx) or CSV, up to 5 MB. Nothing is saved until you submit.</p>
               <label className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-gray-300 px-4 py-4 text-sm text-gray-600 hover:border-brand-600 hover:bg-brand-50/40">
                 {file ? <FileSpreadsheet size={20} className="text-brand-700" /> : <Upload size={20} />}
