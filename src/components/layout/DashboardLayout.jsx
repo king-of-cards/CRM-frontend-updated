@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { NavLink, useNavigate } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router";
 import {
   Camera,
   ClipboardList,
@@ -14,6 +14,8 @@ import {
   UserCog,
 } from "lucide-react";
 import { useAuth } from "../../auth/useAuth.js";
+import LeadFlowToggle from "../dashboard/LeadFlowToggle.jsx";
+import { flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
 
 // Shared frame for every page after login: collapsible sidebar, top bar, page content.
 // adminOnly items are hidden for vendor accounts (the backend allows those endpoints to admins only)
@@ -25,40 +27,60 @@ const navItems = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
-// Tabs in the floating top bar: the overview and one tab per lead source
-const topTabs = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  // Vendor logins see these too (only their own leads)
-  { to: "/leads/spin", label: "Spin leads", icon: Target },
-  {
-    to: "/leads/international",
-    label: "International",
-    icon: Globe,
-  },
-  { to: "/leads/wedding", label: "Wedding", icon: Camera },
-  {
-    to: "/leads/wedding-planner",
-    label: "Wedding planner",
-    icon: ClipboardList,
-  },
-  { to: "/vendor-to-koc", label: "Vendors → KOC", icon: Handshake },
-];
+// Icons of the top bar tabs (which tabs show depends on the Lead flow: see leadFlow.js)
+const TAB_ICONS = {
+  "/dashboard": LayoutDashboard,
+  "/leads/spin": Target,
+  "/leads/international": Globe,
+  "/leads/wedding": Camera,
+  "/leads/wedding-planner": ClipboardList,
+  "/vendor-to-koc": Handshake,
+};
 
 const STORAGE_KEY = "crm-sidebar-collapsed";
 
-// topBarExtra: optional node shown in the top bar to the right of the nav pill
-// (below it, full width, on narrow screens), e.g. the Dashboard's Lead flow switch.
 export default function DashboardLayout({
   title,
   description,
   actions,
-  topBarExtra,
   children,
 }) {
   const navigate = useNavigate();
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, canSeeLeads, logout } = useAuth();
   const visibleNav = navItems.filter((item) => !item.adminOnly || isAdmin);
-  const visibleTabs = topTabs.filter((tab) => !tab.adminOnly || isAdmin);
+
+  // Lead flow: from the page (Dashboard ?flow=vendors and /vendor-to-koc = Vendors → KOC).
+  // The top tabs follow it; the Lead flow switch shows on the Dashboard and the lead lists.
+  const location = useLocation();
+  const [, setSearchParams] = useSearchParams();
+  const flow = flowOf(location.pathname, location.search);
+  const visibleTabs = tabsFor(flow).map((t) => ({ ...t, icon: TAB_ICONS[t.path] }));
+  const topBarExtra =
+    canSeeLeads && FLOW_PAGES.includes(location.pathname) ? (
+      <LeadFlowToggle value={flow} onChange={chooseFlow} />
+    ) : null;
+
+  // The other flow: on the Dashboard switch in place (keeping the period); elsewhere go to
+  // that flow's Dashboard
+  function chooseFlow(value) {
+    if (value === flow) return;
+    if (location.pathname === "/dashboard") {
+      setSearchParams((prev) => {
+        const params = new URLSearchParams(prev);
+        if (value) params.set("flow", value);
+        else params.delete("flow");
+        return params;
+      });
+    } else {
+      navigate(value ? "/dashboard?flow=vendors" : "/dashboard");
+    }
+  }
+
+  // The nav pill scrolls sideways when tight: start at the left so the first tab is never cut off
+  const navRef = useRef(null);
+  useEffect(() => {
+    if (navRef.current) navRef.current.scrollLeft = 0;
+  }, [flow]);
 
   // Remember whether the sidebar was collapsed, so it stays that way between pages and visits.
   const [collapsed, setCollapsed] = useState(() => {
@@ -179,14 +201,15 @@ export default function DashboardLayout({
               className="pointer-events-none absolute inset-0 bg-linear-to-r from-white/0 via-white/10 to-white/0"
             />
             <nav
+              ref={navRef}
               aria-label="Sections"
               className="relative flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-              {visibleTabs.map(({ to, label, icon: Icon }) => (
+              {visibleTabs.map(({ path, to, label, icon: Icon }) => (
                 <NavLink
-                  key={to}
+                  key={path}
                   to={to}
-                  end={to === "/dashboard"}
+                  end={path === "/dashboard"}
                   className={({ isActive }) =>
                     `relative flex shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all ${
                       isActive

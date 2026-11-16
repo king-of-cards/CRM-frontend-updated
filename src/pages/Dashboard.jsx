@@ -43,7 +43,6 @@ import { BarList, Kpi, Panel, SeriesToggles, toggled } from "../components/dashb
 import { periodFromSearch, periodLabel, periodText, todayIst } from "./dashboardPeriod.js";
 import { outcomeCells, outcomeLink } from "./dashboardOutcomes.js";
 import VendorToKocDashboard from "./VendorToKocDashboard.jsx";
-import LeadFlowToggle from "../components/dashboard/LeadFlowToggle.jsx";
 
 // Overview of every lead source, built from GET /analytics/overview, for a period
 // (?from=YYYY-MM-DD&to=YYYY-MM-DD; default the last 30 days). See dashboardPeriod.js.
@@ -244,7 +243,7 @@ export default function Dashboard() {
       ),
     [periodParam, fromParam, toParam, todayDate],
   );
-  // Lead flow: kept in the URL with the period
+  // Lead flow: kept in the URL with the period (switched from the top bar, see DashboardLayout)
   const flow = searchParams.get("flow") === "vendors" ? "vendors" : "";
   const setPeriod = useCallback(
     (next) =>
@@ -254,14 +253,6 @@ export default function Dashboard() {
       }),
     [setSearchParams, flow],
   );
-  const setFlow = (value) =>
-    setSearchParams((prev) => {
-      const params = new URLSearchParams(prev);
-      if (value) params.set("flow", value);
-      else params.delete("flow");
-      return params;
-    });
-
   // Show the last numbers instantly (if this tab has seen them), then refresh in the background
   const [state, setState] = useState(() => {
     const data = cachedDashboard(period);
@@ -395,7 +386,6 @@ export default function Dashboard() {
       <DashboardLayout
         title={`${greeting()}${firstName ? `, ${firstName}` : ""}`}
         description={`${label} · here's how your leads are doing`}
-        topBarExtra={canSeeLeads && <LeadFlowToggle value={flow} onChange={setFlow} />}
         actions={
           canSeeLeads && (
             <div className="flex flex-wrap items-start gap-2">
