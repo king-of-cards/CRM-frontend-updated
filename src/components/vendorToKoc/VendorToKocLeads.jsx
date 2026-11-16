@@ -19,6 +19,7 @@ import KocBulkUploadDialog from "./KocBulkUploadDialog.jsx";
 import KocLeadPanel from "./KocLeadPanel.jsx";
 import { listUsers } from "../../api/users.js";
 import { AmountCell } from "../leads/InlineCrm.jsx";
+import { kpiCards } from "../leads/kpiCards.js";
 import { dateTimeText, dayText, kocErrors, PENDING, phoneText, statusLabel, STATUSES } from "./kocUtils.js";
 
 // Vendors → KOC leads (docs/API_REFERENCE.md section 11). Admins see every vendor's leads and
@@ -26,7 +27,6 @@ import { dateTimeText, dayText, kocErrors, PENDING, phoneText, statusLabel, STAT
 // their own leads, with those columns read-only (and never the Vendor column), and are the only ones who add leads (single or bulk).
 // Both export.
 
-const PAGE_SIZE = 10; // the default page size (10 / 25 / 50 / 100)
 const SORTS_ALL = [
   { value: "created_at:desc", label: "Newest first" },
   { value: "created_at:asc", label: "Oldest first" },
@@ -182,8 +182,9 @@ function ExportMenu({ onExport, busy }) {
 export default function VendorToKocLeads() {
   const { isAdmin, canSeeLeads, user: me } = useAuth();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE);
-  const { filters, query, queryKey, update, clear, apply, clearFilters, count } = useLeadFilters(KOC);
+  // Rows per page live in the URL too (?page_size=25)
+  const { filters, query, queryKey, update, clear, apply, clearFilters, count, pageSize, setPageSize } =
+    useLeadFilters(KOC);
   const sorts = isAdmin ? SORTS_ADMIN : SORTS_ALL;
   const sortValue = sorts.some((s) => s.value === filters.sort) ? filters.sort : sorts[0].value;
   // Vendor logins can't use the admin filters (the API answers 422): leave them out
@@ -277,12 +278,11 @@ export default function VendorToKocLeads() {
     setMessage({ kind: "ok", text });
   };
 
+  // The six KPIs over the current filters (stats.kpis), then Pending and Follow-ups due
   const statChips = [
-    { label: "Total leads", value: fmt(stats?.total) },
-    { label: "Bulk upload", value: fmt(stats?.by_source?.bulk_upload) },
-    { label: "Manual", value: fmt(stats?.by_source?.manual) },
-    { label: "Pending", value: fmt(stats?.by_status?.pending), tone: stats?.by_status?.pending ? "amber" : undefined },
-    { label: "Follow-ups due", value: fmt(stats?.follow_ups_due), tone: stats?.follow_ups_due ? "rose" : undefined },
+    ...kpiCards(stats?.kpis),
+    { label: "Pending", value: stats?.by_status?.pending ? fmt(stats.by_status.pending) : "—", tone: stats?.by_status?.pending ? "amber" : undefined },
+    { label: "Follow-ups due", value: stats?.follow_ups_due ? fmt(stats.follow_ups_due) : "—", tone: stats?.follow_ups_due ? "rose" : undefined },
   ];
   const colCount = isAdmin ? 11 : 10;
   const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });

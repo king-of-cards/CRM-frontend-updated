@@ -4,6 +4,7 @@ import {
   buildQuote,
   clearedParams,
   filtersOfPeriod,
+  pageSizeOf,
   parseQuote,
   periodOfFilters,
   readFilters,
@@ -97,5 +98,25 @@ describe("arrival date <-> period", () => {
   test("dates", () => {
     expect(periodOfFilters({ date_from: "2026-11-01", date_to: "" })).toEqual({ from: "2026-11-01", to: "2026-11-01" });
     expect(filtersOfPeriod({ from: "2026-11-01", to: "2026-11-05" })).toEqual({ date_from: "2026-11-01", date_to: "2026-11-05" });
+  });
+});
+
+describe("rows per page in the URL", () => {
+  test("?page_size: 10 / 25 / 50 / 100, anything else = 10", () => {
+    expect(pageSizeOf(q("page_size=25"))).toBe(25);
+    expect(pageSizeOf(q("page_size=100"))).toBe(100);
+    expect(pageSizeOf(q(""))).toBe(10);
+    expect(pageSizeOf(q("page_size=8"))).toBe(10);
+    expect(pageSizeOf(q("page_size=abc"))).toBe(10);
+  });
+  test("not a filter: not in the API query, the badge or the export filters", () => {
+    const f = readFilters(q("page_size=50&update_status=interested"), "wedding");
+    expect(toApiQuery(f, "wedding")).toEqual({ update_status: ["interested"] });
+    expect(activeCount(f, "wedding")).toBe(1);
+  });
+  test("Clear filters keeps it, with the sort", () => {
+    expect(clearedParams(q("page_size=50&search=a&update_status=interested&sort=name:asc")).toString()).toBe(
+      "sort=name%3Aasc&page_size=50",
+    );
   });
 });

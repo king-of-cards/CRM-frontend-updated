@@ -593,7 +593,7 @@ export default function Dashboard() {
                   </Link>
 
                   {/* CRM outcomes of the period's leads; each value opens the filtered list */}
-                  <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
+                  <dl className="mt-3 grid grid-cols-2 gap-x-2 gap-y-2.5 border-t border-gray-100 pt-3">
                     {outcomeCells(o?.outcomes?.[k]).map((c) => (
                       <div key={c.key} className="min-w-0">
                         <dt className="truncate text-[10px] font-semibold uppercase tracking-wider text-gray-400">

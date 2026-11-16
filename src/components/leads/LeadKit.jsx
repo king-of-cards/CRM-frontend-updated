@@ -13,6 +13,7 @@ import { listSheetSources, syncSheet } from "../../api/sheets.js";
 import { saveLeadCrm } from "../../api/leadCrm.js";
 import { CrmHeaderCells, InlineCrmCells } from "./InlineCrm.jsx";
 import LeadPanel from "./LeadPanel.jsx";
+import { PAGE_SIZES } from "./leadFilters.js";
 
 // One design for every lead section (Spin, International, Wedding, Wedding planner):
 // the section frame, stat chips, toolbar, the table with contact buttons + CRM columns,
@@ -271,7 +272,7 @@ export function SectionShell({
 
       {stats?.length > 0 && (
         <div
-          className={`mt-5 grid grid-cols-2 gap-3 px-6 ${stats.length >= 5 ? "sm:grid-cols-3 lg:grid-cols-5" : stats.length === 4 ? "lg:grid-cols-4" : "sm:grid-cols-3"}`}
+          className={`mt-5 grid grid-cols-2 gap-3 px-6 ${stats.length === 8 ? "sm:grid-cols-4" : stats.length === 6 ? "sm:grid-cols-3 xl:grid-cols-6" : stats.length >= 5 ? "sm:grid-cols-3 lg:grid-cols-5" : stats.length === 4 ? "lg:grid-cols-4" : "sm:grid-cols-3"}`}
         >
           {stats.map((s) => {
             const tone =
@@ -774,7 +775,7 @@ function pageList(current, total) {
 }
 
 // The lists' page sizes (the API accepts only these; default 10)
-export const PAGE_SIZES = [10, 25, 50, 100];
+export { PAGE_SIZES };
 
 // onPageSize (optional): show "Rows per page" (10 / 25 / 50 / 100)
 export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled }) {

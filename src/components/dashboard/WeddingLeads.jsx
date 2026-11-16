@@ -8,7 +8,6 @@ import {
   countdown,
   dateTime,
   dayDate,
-  fmt,
   inr,
   LeadTable,
   Pagination,
@@ -18,6 +17,7 @@ import {
   useSheetSync,
 } from "../leads/LeadKit.jsx";
 import CrmLeadActions from "../crmLeads/CrmLeadActions.jsx";
+import { kpiCards } from "../leads/kpiCards.js";
 import CrmRowBadge from "../crmLeads/CrmRowBadge.jsx";
 import LeadFilterBar from "../leads/LeadFilterBar.jsx";
 import { useLeadFilters } from "../leads/useLeadFilters.js";
@@ -25,7 +25,6 @@ import { useLeadFilters } from "../leads/useLeadFilters.js";
 // Wedding & event photography leads from the Wedding Google Sheet.
 
 const SOURCE = "wedding";
-const PAGE_SIZE = 10; // the default page size (10 / 25 / 50 / 100); same as TAB_DEFAULTS, so prefetched pages are reused
 
 const SORTS = [
   { value: "submitted_at:desc", label: "Newest first" },
@@ -44,9 +43,10 @@ const OCCASION_STYLES = {
 export default function WeddingLeads() {
   const { isAdmin, canSeeLeads } = useAuth();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   // Filters, kept in the URL; the same for the list, its stats and the export
-  const { filters, query, queryKey, update, clear, apply, clearFilters, count } = useLeadFilters(SOURCE);
+  // Rows per page live in the URL too (?page_size=25)
+  const { filters, query, queryKey, update, clear, apply, clearFilters, count, pageSize, setPageSize } =
+    useLeadFilters(SOURCE);
   const sortValue = filters.sort || SORTS[0].value;
   const listParams = (p) =>
     listQuery({ page: p, pageSize, filters: query, ...parseSort(sortValue) });
@@ -124,20 +124,8 @@ export default function WeddingLeads() {
         </div>
       }
       message={message ?? error}
-      stats={[
-        { label: "Total leads", value: fmt(stats?.total) },
-        {
-          label: "Last 7 days",
-          value: fmt(stats?.last_7_days),
-          tone: stats?.last_7_days ? "emerald" : undefined,
-        },
-        { label: "Upcoming events", value: fmt(stats?.upcoming_events) },
-        {
-          label: "Not shared in sheet",
-          value: fmt(stats?.not_shared),
-          tone: stats?.not_shared ? "amber" : undefined,
-        },
-      ]}
+      // The six KPIs over the current filters (stats.kpis)
+      stats={kpiCards(stats?.kpis)}
       toolbar={
         <LeadFilterBar
           source={SOURCE}

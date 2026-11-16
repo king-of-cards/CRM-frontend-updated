@@ -57,6 +57,13 @@ export const MULTI_KEYS = ["vendor_id", "origin", "update_status", "source"];
 export const NOT_SHARED = "__none__";
 export const UPCOMING_DAYS = "30";
 
+// Rows per page: the API accepts only these (default 10). Kept in the URL as ?page_size=25.
+export const PAGE_SIZES = [10, 25, 50, 100];
+export function pageSizeOf(params) {
+  const n = Number(params.get("page_size"));
+  return PAGE_SIZES.includes(n) ? n : PAGE_SIZES[0];
+}
+
 export const keysFor = (source) =>
   source === KOC ? KOC_KEYS : [...COMMON_KEYS, ...(SOURCE_KEYS[source] ?? [])];
 
@@ -135,11 +142,13 @@ export function withFilters(params, updates) {
   return next;
 }
 
-// "Clear filters": everything goes (the date back to All time) except the sort
+// "Clear filters": everything goes (the date back to All time) except the sort and rows per page
 export function clearedParams(params) {
   const next = new URLSearchParams();
-  const sort = params.get("sort");
-  if (sort) next.set("sort", sort);
+  for (const k of ["sort", "page_size"]) {
+    const v = params.get(k);
+    if (v) next.set(k, v);
+  }
   return next;
 }
 

@@ -22,7 +22,6 @@ import { flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
 // Only pages that exist. Add Customers / Orders here once their pages are built.
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/leads", label: "Leads explorer", icon: Target, adminOnly: true },
   { to: "/users", label: "Team", icon: UserCog, adminOnly: true },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router";
 import {
   activeCount,
   clearedParams,
+  PAGE_SIZES,
+  pageSizeOf,
   readFilters,
   toApiQuery,
   toQueryString,
@@ -17,6 +19,7 @@ import {
 //   apply(draft): replace the panel's filters with its draft (URLSearchParams), keeping the search,
 //     the sort and the date (those three are in the row, not the panel)
 //   clearFilters(): remove the panel's filters, keeping the search, the sort and the date
+//   pageSize / setPageSize(n): rows per page, kept in the URL (?page_size=25; 10 = not written)
 export function useLeadFilters(source) {
   const [params, setParams] = useSearchParams();
   const raw = params.toString();
@@ -35,7 +38,7 @@ export function useLeadFilters(source) {
     [setParams],
   );
   const keepSearchAndSort = (prev, next) => {
-    for (const k of ["search", "sort", "date_from", "date_to"]) {
+    for (const k of ["search", "sort", "date_from", "date_to", "page_size"]) {
       const v = prev.get(k);
       if (v) next.set(k, v);
       else next.delete(k);
@@ -50,8 +53,24 @@ export function useLeadFilters(source) {
     () => setParams((prev) => keepSearchAndSort(prev, new URLSearchParams()), { replace: true }),
     [setParams],
   );
+  const pageSize = pageSizeOf(new URLSearchParams(raw));
+  const setPageSize = useCallback(
+    (n) =>
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (n === PAGE_SIZES[0]) next.delete("page_size");
+          else next.set("page_size", String(n));
+          return next;
+        },
+        { replace: true },
+      ),
+    [setParams],
+  );
   return {
     filters,
+    pageSize,
+    setPageSize,
     query,
     queryKey,
     update,

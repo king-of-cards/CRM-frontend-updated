@@ -20,14 +20,6 @@ export const PENDING_UPDATE = { value: "", label: "Pending", style: "bg-white te
 export const updateInfo = (value) =>
   !value || value === "pending" ? PENDING_UPDATE : (UPDATE_OPTIONS.find((o) => o.value === value) ?? PENDING_UPDATE);
 
-// Legacy: Interest / Converted were replaced by Update and the conversion amount (the API now
-// answers 422 to interest / converted). Kept only for the unused components in CrmColumns.jsx.
-export const INTEREST_OPTIONS = [
-  { value: "interested", label: "Interested", style: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
-  { value: "not_interested", label: "Not interested", style: "bg-rose-50 text-rose-700 ring-rose-200" },
-  { value: "other", label: "Others", style: "bg-sky-50 text-sky-700 ring-sky-200" },
-];
-
 // PUT /api/v1/leads/{source}/{leadKey}/crm   (send only what changes)
 // changes: any of { vendor_id (admins; null = automatic), update_status (null = Pending),
 //   quoted_date, quoted_amount, conversion_amount (rupees, 0–10,00,00,000), notes }

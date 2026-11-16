@@ -20,12 +20,12 @@ import {
   dateTime,
   dayDate,
   emptyCrm,
-  fmt,
   LeadTable,
   Pagination,
   SectionShell,
 } from "../leads/LeadKit.jsx";
 import CrmLeadActions from "../crmLeads/CrmLeadActions.jsx";
+import { kpiCards } from "../leads/kpiCards.js";
 import CrmRowBadge from "../crmLeads/CrmRowBadge.jsx";
 import LeadFilterBar from "../leads/LeadFilterBar.jsx";
 import { useLeadFilters } from "../leads/useLeadFilters.js";
@@ -155,9 +155,10 @@ export default function RecentLeads() {
   const { isAdmin, canSeeLeads } = useAuth();
   const [createdCol, setCreatedCol] = useState(storedCreated);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   // Filters, kept in the URL; the same for the list and the export
-  const { filters, query, queryKey, update, clear, apply, clearFilters, count } = useLeadFilters("spin");
+  // Rows per page live in the URL too (?page_size=25)
+  const { filters, query, queryKey, update, clear, apply, clearFilters, count, pageSize, setPageSize } =
+    useLeadFilters("spin");
   const sortValue = filters.sort || "created:desc";
   const [openKey, setOpenKey] = useState(null); // lead to open (picked from the search suggestions)
   const [options, setOptions] = useState(() => getFilterOptions.peek("spin") ?? null);
@@ -341,16 +342,8 @@ export default function RecentLeads() {
         </div>
       }
       message={error}
-      stats={[
-        { label: "Total spin leads", value: fmt(data?.total) },
-        { label: "On this page", value: fmt(items.length) },
-        {
-          // Update = Converted, over all the filtered leads (kpis)
-          label: "Converted",
-          value: fmt(stats?.kpis?.converted),
-          tone: stats?.kpis?.converted ? "emerald" : undefined,
-        },
-      ]}
+      // The six KPIs over the current filters (stats.kpis)
+      stats={kpiCards(stats?.kpis)}
       toolbar={
         <LeadFilterBar
           source="spin"
