@@ -80,9 +80,12 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
   if (!lead) return null;
 
   const title = lead.name || phoneText(lead.phone);
+  // Header / PDF subtitle: vendor and city for admins; just the city for vendor logins
+  const subtitle = [isAdmin ? lead.vendor_name : null, lead.city].filter(Boolean).join(" · ");
   const digits = lead.phone ? `91${lead.phone}` : null;
   const details = [
-    ["Vendor", lead.vendor_name],
+    // Vendor: admins only (vendor logins never see it, in the panel or the PDF)
+    ...(isAdmin ? [["Vendor", lead.vendor_name]] : []),
     ["Date", lead.lead_date ? dayText(lead.lead_date) : null],
     ["Name", lead.name],
     ["Phone", lead.phone ? phoneText(lead.phone) : null],
@@ -137,7 +140,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
     try {
       await downloadLeadPdf({
         title,
-        subtitle: [lead.vendor_name, lead.city].filter(Boolean).join(" · "),
+        subtitle,
         source: "Vendors → KOC lead",
         fileName: `vendor-lead-${String(title || "lead")
           .replace(/[^\w]+/g, "-")
@@ -180,12 +183,12 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
           <div className="relative flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-base font-semibold ring-1 ring-white/30">
-                {initials(lead.name || lead.vendor_name)}
+                {initials(lead.name || (isAdmin ? lead.vendor_name : lead.city))}
               </span>
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">Vendors → KOC lead</p>
                 <h2 className="truncate text-xl font-semibold">{title}</h2>
-                <p className="truncate text-sm text-white/80">{[lead.vendor_name, lead.city].filter(Boolean).join(" · ")}</p>
+                <p className="truncate text-sm text-white/80">{subtitle}</p>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
