@@ -31,11 +31,33 @@ export const SOURCE_KEYS = {
     "shared_with",
   ],
 };
-export const MULTI_KEYS = ["vendor_id", "interest", "origin"];
+// Vendors → KOC list (docs section 11): its own filters, not the lead sources' ones
+export const KOC = "vendor_to_koc";
+export const KOC_KEYS = [
+  "search",
+  "date_from",
+  "date_to",
+  "lead_date_from",
+  "lead_date_to",
+  "vendor_id",
+  "update_status",
+  "follow_up_from",
+  "follow_up_to",
+  "follow_up_due",
+  "city",
+  "source",
+];
+// Admin-only Vendors → KOC filters (a vendor login sending them gets 422, so they're dropped)
+export const KOC_ADMIN_KEYS = ["vendor_id", "update_status", "follow_up_from", "follow_up_to", "follow_up_due"];
+export const withoutKocAdminKeys = (query) =>
+  Object.fromEntries(Object.entries(query).filter(([k]) => !KOC_ADMIN_KEYS.includes(k)));
+
+export const MULTI_KEYS = ["vendor_id", "interest", "origin", "update_status", "source"];
 export const NOT_SHARED = "__none__";
 export const UPCOMING_DAYS = "30";
 
-export const keysFor = (source) => [...COMMON_KEYS, ...(SOURCE_KEYS[source] ?? [])];
+export const keysFor = (source) =>
+  source === KOC ? KOC_KEYS : [...COMMON_KEYS, ...(SOURCE_KEYS[source] ?? [])];
 
 // URLSearchParams -> { key: "" | "value" | ["v", …], sort }
 export function readFilters(params, source) {
@@ -69,6 +91,17 @@ export function toQueryString(query) {
 // The number shown on the "Filters" badge: one per filter in use (search and sort aren't counted)
 export function activeCount(filters, source) {
   const has = (k) => (Array.isArray(filters[k]) ? filters[k].length > 0 : Boolean(filters[k]));
+  if (source === KOC) {
+    return [
+      ["date_from", "date_to"],
+      ["lead_date_from", "lead_date_to"],
+      ["vendor_id"],
+      ["update_status"],
+      ["follow_up_from", "follow_up_to", "follow_up_due"],
+      ["city"],
+      ["source"],
+    ].filter((g) => g.some(has)).length;
+  }
   const groups = [
     ["date_from", "date_to"],
     ["event_from", "event_to", "upcoming_days"],

@@ -4,6 +4,7 @@ import {
   Camera,
   ClipboardList,
   Globe,
+  Handshake,
   LayoutDashboard,
   LogOut,
   PanelLeftClose,
@@ -40,6 +41,7 @@ const topTabs = [
     label: "Wedding planner",
     icon: ClipboardList,
   },
+  { to: "/vendor-to-koc", label: "Vendors → KOC", icon: Handshake },
 ];
 
 const STORAGE_KEY = "crm-sidebar-collapsed";

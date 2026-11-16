@@ -1,0 +1,479 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router";
+import {
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  AlarmClock,
+  BadgeCheck,
+  Clock,
+  Filter as FunnelIcon,
+  Handshake,
+  Inbox,
+  MapPin,
+  PieChart as PieIcon,
+  ShoppingBag,
+  Sparkles,
+  TrendingUp,
+  Users,
+} from "lucide-react";
+import { getKocDashboard } from "../api/vendorToKoc.js";
+import { Kpi, Panel } from "../components/dashboard/DashboardParts.jsx";
+import { dateTimeText, dayText, kocErrors, phoneText, statusLabel } from "../components/vendorToKoc/kocUtils.js";
+import { periodLabel } from "./dashboardPeriod.js";
+import {
+  daysText,
+  funnelRows,
+  inflowPoints,
+  linkFor,
+  num,
+  pctText,
+  sourceRows,
+  statusRows,
+  VENDOR_COLORS,
+  vendorCells,
+} from "./vendorToKocDashboard.js";
+
+// Vendors → KOC dashboard (GET /analytics/vendor-to-koc), in the style of the KOC → Vendors one.
+// Admins: every card. Vendor logins: only what the API returns for them (Leads received with its
+// change, Average per day, Lead inflow). Every number links to the list with the same filters and
+// period; "—" for empty values.
+
+const STATUS_COLORS = ["#9ca3af", "#10b981", "#f43f5e", "#f97316", "#0ea5e9", "#8b5cf6", "#22c55e", "#64748b"];
+const NOT_FILTERED_NOTE = (
+  <p className="relative mt-1 text-[11px] text-gray-400">Not affected by date filter</p>
+);
+
+// A number that links to the list, or a grey "—"
+function N({ count, filters, period, className = "" }) {
+  const to = linkFor(count, filters, period);
+  if (!to) return <span className="text-gray-300">—</span>;
+  return (
+    <Link to={to} className={`hover:text-brand-700 hover:underline ${className}`}>
+      {num(count)}
+    </Link>
+  );
+}
+
+const shortDay = (d) => {
+  const [, m, day] = /^(\d{4})-(\d{2})-(\d{2})/.exec(d) ?? [];
+  return m ? `${Number(day)} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][Number(m) - 1]}` : d;
+};
+const monthText = (d) => dayText(d).replace(/^\d+ /, "");
+
+function InflowTooltip({ active, payload, granularity, vendors }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload;
+  const title =
+    granularity === "month" ? monthText(p.date) : granularity === "week" ? periodLabel(p.date, p.end) : dayText(p.date);
+  return (
+    <div className="rounded-xl bg-white/95 px-3 py-2 text-xs shadow-lg ring-1 ring-gray-100 backdrop-blur">
+      <p className="mb-1 font-semibold text-gray-900">{title}</p>
+      {!p.total && <p className="text-gray-500">No leads</p>}
+      {vendors
+        .filter((v) => p[`v${v.id}`])
+        .map((v) => (
+          <p key={v.id} className="flex items-center gap-2 text-gray-600">
+            <span className="h-2 w-2 rounded-full" style={{ background: v.color }} />
+            {v.name}
+            <span className="ml-auto pl-3 font-semibold tabular-nums text-gray-900">{p[`v${v.id}`]}</span>
+          </p>
+        ))}
+    </div>
+  );
+}
+
+function LinkedBars({ rows, period, color = "from-brand-600 to-brand-800", empty = "No data yet" }) {
+  const shown = rows.filter((r) => r.count);
+  if (!shown.length) return <p className="text-sm text-gray-500">{empty}</p>;
+  const max = Math.max(...shown.map((r) => r.count));
+  return (
+    <ul className="space-y-3">
+      {shown.map((r) => (
+        <li key={r.key}>
+          <div className="flex items-center justify-between text-sm">
+            <span className="truncate pr-3 text-gray-700">{r.label}</span>
+            <span className="tabular-nums font-medium text-gray-900">
+              <N count={r.count} filters={r.filters} period={period} />
+            </span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+            <div className={`h-full rounded-full bg-linear-to-r ${color}`} style={{ width: `${(r.count / max) * 100}%` }} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const tableTh = "whitespace-nowrap px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500";
+
+export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
+  const query = period.all ? { period: "all" } : { dateFrom: period.from, dateTo: period.to };
+  const [data, setData] = useState(() => getKocDashboard.peek(query) ?? null);
+  const [loading, setLoading] = useState(() => !getKocDashboard.peek(query));
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const q = period.all ? { period: "all" } : { dateFrom: period.from, dateTo: period.to };
+    const cached = getKocDashboard.peek(q);
+    if (cached) setData(cached);
+    setLoading(!cached);
+    getKocDashboard({ ...q, refresh: refreshKey > 0 })
+      .then((res) => {
+        if (!cancelled) {
+          setData(res);
+          setError("");
+        }
+      })
+      .catch((err) => !cancelled && setError(kocErrors(err).message))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [period.all, period.from, period.to, refreshKey]);
+
+  const d = data;
+  const kpiLoading = loading && !d;
+  const prev = d?.period?.previous;
+  const granularity = d?.period?.granularity ?? "day";
+  const vendors = (d?.inflow_vendors ?? []).map((v, i) => ({ ...v, color: VENDOR_COLORS[i % VENDOR_COLORS.length] }));
+  const points = inflowPoints(d?.inflow);
+  const statuses = statusRows(d?.by_status);
+  const all = { all: true };
+
+  return (
+    <>
+      {error && (
+        <p role="alert" className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
+          {error}
+        </p>
+      )}
+      {!loading && !d ? null : (
+        <>
+          {/* ── KPIs ── */}
+          <section
+            className={`mt-6 grid gap-4 sm:grid-cols-2 ${isAdmin ? "xl:grid-cols-3 2xl:grid-cols-6" : "xl:grid-cols-2"}`}
+            aria-label="Key numbers"
+          >
+            <Kpi
+              icon={Inbox}
+              label="Leads received"
+              value={<N count={d?.received} filters={{}} period={period} />}
+              delta={d?.change_pct ?? null}
+              caption={
+                isAdmin && prev && d?.previous_received != null
+                  ? `${num(d.previous_received)} in ${periodLabel(prev.date_from, prev.date_to)}`
+                  : ""
+              }
+              gradient="from-brand-600 to-brand-800"
+              loading={kpiLoading}
+            />
+            <Kpi
+              icon={TrendingUp}
+              label="Average per day"
+              value={d?.average_per_day?.period ? `${d.average_per_day.period} / day` : "—"}
+              caption={d?.average_per_day?.previous != null ? `${d.average_per_day.previous} before` : ""}
+              gradient="from-violet-500 to-violet-700"
+              loading={kpiLoading}
+            />
+            {isAdmin && (
+              <>
+                <Kpi
+                  icon={Clock}
+                  label="Pending"
+                  value={<N count={d?.pending} filters={{ update_status: ["pending"] }} period={period} />}
+                  caption="No update yet"
+                  gradient="from-amber-400 to-amber-600"
+                  loading={kpiLoading}
+                />
+                <div>
+                  <Kpi
+                    icon={AlarmClock}
+                    label="Follow-ups due"
+                    value={<N count={d?.follow_ups_due} filters={{ follow_up_due: "true" }} period={all} />}
+                    caption="Open leads, follow-up today or earlier"
+                    gradient="from-rose-500 to-rose-700"
+                    loading={kpiLoading}
+                  />
+                  {d?.not_filtered?.includes("follow_ups_due") && NOT_FILTERED_NOTE}
+                </div>
+                <Kpi
+                  icon={BadgeCheck}
+                  label="Converted"
+                  value={<N count={d?.converted} filters={{ update_status: ["converted"] }} period={period} />}
+                  caption={d?.converted_pct != null ? `${d.converted_pct}% of leads received` : ""}
+                  gradient="from-emerald-500 to-brand-700"
+                  loading={kpiLoading}
+                />
+                <Kpi
+                  icon={ShoppingBag}
+                  label="Purchased with us"
+                  value={<N count={d?.purchased_with_us} filters={{ update_status: ["purchased_with_us"] }} period={period} />}
+                  caption="Already purchased with us"
+                  gradient="from-sky-500 to-sky-700"
+                  loading={kpiLoading}
+                />
+              </>
+            )}
+          </section>
+
+          {/* ── Per vendor (admin) ── */}
+          {isAdmin && (d?.per_vendor ?? []).length > 0 && (
+            <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Vendors">
+              {d.per_vendor.map((v) => (
+                <div key={v.vendor_id} className="rounded-2xl bg-white p-4 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60">
+                  <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                    <Users size={15} className="text-brand-600" aria-hidden="true" />
+                    {v.vendor_name}
+                  </p>
+                  <p className="mt-0.5 text-xl font-bold tabular-nums text-gray-900">
+                    <N count={v.leads} filters={{ vendor_id: [String(v.vendor_id)] }} period={period} />
+                    <span className="ml-1.5 text-xs font-normal text-gray-400">leads</span>
+                  </p>
+                  <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
+                    {vendorCells(v).map((c) => (
+                      <div key={c.key} className="min-w-0">
+                        <dt className="truncate text-[10px] font-semibold uppercase tracking-wider text-gray-400">{c.label}</dt>
+                        <dd className="mt-0.5 text-sm font-semibold tabular-nums text-gray-900">
+                          <N count={c.count} filters={c.filters} period={period} />
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {/* ── Inflow + breakdown ── */}
+          <div className={`mt-6 grid gap-4 ${isAdmin ? "xl:grid-cols-[2fr_1fr]" : ""}`}>
+            <Panel
+              title="Lead inflow"
+              subtitle={`Leads received per ${granularity === "month" ? "month" : granularity === "week" ? "week (7-day buckets)" : "day"}${isAdmin ? ", per vendor" : ""}`}
+              icon={TrendingUp}
+              right={
+                vendors.length > 0 && (
+                  <div className="flex flex-wrap gap-x-4 gap-y-1">
+                    {vendors.map((v) => (
+                      <span key={v.id} className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <span className="h-2 w-2 rounded-full" style={{ background: v.color }} />
+                        {v.name}
+                      </span>
+                    ))}
+                  </div>
+                )
+              }
+            >
+              <div className="h-64">
+                {d && (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={points} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        tickFormatter={(v) => (granularity === "month" ? monthText(v) : shortDay(v))}
+                        tick={{ fontSize: 11, fill: "#9ca3af" }}
+                        axisLine={false}
+                        tickLine={false}
+                        minTickGap={24}
+                      />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
+                      <Tooltip content={<InflowTooltip granularity={granularity} vendors={vendors} />} />
+                      {vendors.map((v) => (
+                        <Line
+                          key={v.id}
+                          type="monotone"
+                          dataKey={(p) => p[`v${v.id}`] ?? 0}
+                          name={v.name}
+                          stroke={v.color}
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </Panel>
+
+            {isAdmin && (
+              <Panel title="Update breakdown" subtitle="Leads received in the period" icon={PieIcon}>
+                <div className="h-44">
+                  {d && d.received > 0 && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={statuses.filter((s) => s.count)}
+                          dataKey="count"
+                          nameKey="label"
+                          innerRadius="62%"
+                          outerRadius="90%"
+                          paddingAngle={3}
+                          stroke="none"
+                        >
+                          {statuses
+                            .filter((s) => s.count)
+                            .map((s) => (
+                              <Cell key={s.key} fill={STATUS_COLORS[statuses.indexOf(s)]} />
+                            ))}
+                        </Pie>
+                        <Tooltip formatter={(v, n) => [num(v), n]} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+                <ul className="mt-3 space-y-1.5">
+                  {statuses.map((s, i) => (
+                    <li key={s.key} className="flex items-center gap-2 text-sm">
+                      <span className="h-2.5 w-2.5 rounded-full" style={{ background: STATUS_COLORS[i] }} />
+                      <span className="truncate text-gray-600">{s.label}</span>
+                      <span className="ml-auto tabular-nums font-medium text-gray-900">
+                        <N count={s.count} filters={s.filters} period={period} />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Panel>
+            )}
+          </div>
+
+          {isAdmin && (
+            <>
+              {/* ── Funnel, cities, sources ── */}
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <Panel title="Funnel" subtitle="Received → updated → engaged → converted" icon={FunnelIcon}>
+                  <LinkedBars rows={funnelRows(d?.funnel)} period={period} />
+                </Panel>
+                <Panel title="Top cities" subtitle="Leads received in the period" icon={MapPin}>
+                  <LinkedBars
+                    rows={(d?.top_cities ?? []).map((c) => ({ key: c.value, label: c.value, count: c.count, filters: { city: c.value } }))}
+                    period={period}
+                    color="from-violet-400 to-violet-600"
+                  />
+                </Panel>
+                <Panel title="By source" subtitle="How the leads were added" icon={Sparkles}>
+                  <LinkedBars rows={sourceRows(d?.by_source)} period={period} color="from-rose-400 to-rose-600" />
+                </Panel>
+              </div>
+
+              {/* ── Vendor comparison ── */}
+              <div className="mt-6">
+                <Panel title="Vendor comparison" subtitle="Leads received in the period" icon={Handshake} flush>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="border-y border-gray-100 bg-gray-50/80">
+                        <tr>
+                          {["Vendor", "Leads", "Converted %", "Pending", "Avg days to first update"].map((h) => (
+                            <th key={h} className={tableTh}>
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(d?.per_vendor ?? []).map((v) => (
+                          <tr key={v.vendor_id} className="border-b border-gray-50">
+                            <td className="px-4 py-2.5 font-medium text-gray-900">{v.vendor_name}</td>
+                            <td className="px-4 py-2.5 tabular-nums">
+                              <N count={v.leads} filters={{ vendor_id: [String(v.vendor_id)] }} period={period} />
+                            </td>
+                            <td className="px-4 py-2.5 tabular-nums">{v.converted ? pctText(v.converted_pct) : "—"}</td>
+                            <td className="px-4 py-2.5 tabular-nums">
+                              <N
+                                count={v.pending}
+                                filters={{ vendor_id: [String(v.vendor_id)], update_status: ["pending"] }}
+                                period={period}
+                              />
+                            </td>
+                            <td className="px-4 py-2.5 tabular-nums text-gray-700">{daysText(v.average_days_to_update)}</td>
+                          </tr>
+                        ))}
+                        {!(d?.per_vendor ?? []).length && (
+                          <tr>
+                            <td colSpan={5} className="px-4 py-6 text-center text-sm text-gray-500">
+                              No leads in this period.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </Panel>
+              </div>
+
+              {/* ── Follow-ups + latest ── */}
+              <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                <Panel
+                  title="Next follow-ups"
+                  subtitle="Open leads, earliest first (overdue included)"
+                  icon={AlarmClock}
+                  right={d?.not_filtered?.includes("next_follow_ups") ? <span className="text-[11px] text-gray-400">Not affected by date filter</span> : null}
+                  flush
+                >
+                  <ul className="divide-y divide-gray-100">
+                    {(d?.next_follow_ups ?? []).map((l) => (
+                      <li key={l.id}>
+                        <Link
+                          to={linkFor(1, { search: l.phone }, all)}
+                          className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-gray-50"
+                        >
+                          <span className="w-24 shrink-0 text-xs font-semibold tabular-nums text-rose-600">
+                            {dayText(l.follow_up_date)}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-gray-900">{l.name || phoneText(l.phone)}</span>
+                            <span className="block truncate text-xs text-gray-500">
+                              {[l.vendor_name, statusLabel(l.update_status), l.city].filter(Boolean).join(" · ")}
+                            </span>
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                    {!(d?.next_follow_ups ?? []).length && (
+                      <li className="px-5 py-8 text-center text-sm text-gray-500">No follow-ups planned.</li>
+                    )}
+                  </ul>
+                </Panel>
+                <Panel title="Latest leads" subtitle="The newest leads of the period" icon={Inbox} flush>
+                  <ul className="divide-y divide-gray-100">
+                    {(d?.latest ?? []).map((l) => (
+                      <li key={l.id}>
+                        <Link
+                          to={linkFor(1, { search: l.phone }, period)}
+                          className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-gray-50"
+                        >
+                          <span className="w-[118px] shrink-0 truncate rounded-full bg-gray-50 px-2.5 py-0.5 text-center text-xs font-medium text-gray-700 ring-1 ring-gray-200">
+                            {l.vendor_name}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-gray-900">{l.name || phoneText(l.phone)}</span>
+                            <span className="block truncate text-xs text-gray-500">
+                              {[l.city, statusLabel(l.update_status)].filter(Boolean).join(" · ")}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-xs text-gray-400">{dateTimeText(l.created_at)}</span>
+                        </Link>
+                      </li>
+                    ))}
+                    {!(d?.latest ?? []).length && <li className="px-5 py-8 text-center text-sm text-gray-500">No leads in this period.</li>}
+                  </ul>
+                </Panel>
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+}

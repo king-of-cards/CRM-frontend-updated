@@ -39,8 +39,16 @@ import { listSheetSources } from "../api/sheets.js";
 import { prefetchTabs } from "../api/prefetch.js";
 import NotLinkedVendor from "../components/leads/NotLinkedVendor.jsx";
 import PeriodFilter from "../components/dashboard/PeriodFilter.jsx";
+import { BarList, Kpi, Panel } from "../components/dashboard/DashboardParts.jsx";
 import { periodFromSearch, periodLabel, periodText, todayIst } from "./dashboardPeriod.js";
 import { outcomeCells, outcomeLink } from "./dashboardOutcomes.js";
+import VendorToKocDashboard from "./VendorToKocDashboard.jsx";
+
+// "Lead flow" toggle: KOC → Vendors (this dashboard) or Vendors → KOC (?flow=vendors)
+const FLOWS = [
+  { value: "", label: "KOC → Vendors" },
+  { value: "vendors", label: "Vendors → KOC" },
+];
 
 // Overview of every lead source, built from GET /analytics/overview, for a period
 // (?from=YYYY-MM-DD&to=YYYY-MM-DD; default the last 30 days). See dashboardPeriod.js.
@@ -156,118 +164,6 @@ function cachedDashboard(period) {
 
 
 // ── Building blocks ────────────────────────────────────────────────────
-// flush: the body runs edge to edge (for lists with their own row padding)
-function Panel({
-  title,
-  subtitle,
-  icon: Icon,
-  right,
-  flush = false,
-  children,
-}) {
-  return (
-    <section
-      className={`rounded-2xl bg-white ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 ${flush ? "pt-5" : "p-5"}`}
-    >
-      <div
-        className={`flex items-start justify-between gap-3 ${flush ? "px-5" : ""}`}
-      >
-        <div>
-          <h2 className="flex items-center gap-2 text-base font-semibold text-gray-900">
-            {Icon && (
-              <Icon size={16} className="text-brand-600" aria-hidden="true" />
-            )}
-            {title}
-          </h2>
-          {subtitle && (
-            <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>
-          )}
-        </div>
-        {right}
-      </div>
-      <div className={flush ? "mt-3" : "mt-4"}>{children}</div>
-    </section>
-  );
-}
-
-function Kpi({ icon: Icon, label, value, caption, delta, gradient, loading }) {
-  return (
-    <div className="group relative overflow-hidden rounded-2xl bg-white p-5 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 transition-shadow hover:shadow-lg hover:shadow-gray-200/80">
-      {/* Corner glow in the card's colour */}
-      <span
-        aria-hidden="true"
-        className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-linear-to-br opacity-15 blur-xl ${gradient}`}
-      />
-      <div className="relative flex items-start justify-between">
-        <p className="text-sm font-medium text-gray-500">{label}</p>
-        <span
-          className={`flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br text-white shadow-sm ${gradient}`}
-        >
-          <Icon size={17} aria-hidden="true" />
-        </span>
-      </div>
-      {loading ? (
-        <span className="mt-3 block h-8 w-24 animate-pulse rounded-lg bg-gray-100" />
-      ) : (
-        <div className="relative mt-2 flex items-baseline gap-2">
-          <p className="text-3xl font-bold tracking-tight tabular-nums text-gray-900">
-            {value}
-          </p>
-          {delta != null && (
-            <span
-              className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                delta >= 0
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-rose-50 text-rose-700"
-              }`}
-            >
-              {delta >= 0 ? (
-                <ArrowUpRight size={12} />
-              ) : (
-                <ArrowDownRight size={12} />
-              )}
-              {Math.abs(delta)}%
-            </span>
-          )}
-        </div>
-      )}
-      <p className="relative mt-1.5 text-xs text-gray-500">{caption}</p>
-    </div>
-  );
-}
-
-function BarList({
-  items,
-  color = "from-brand-600 to-brand-800",
-  empty = "No data yet",
-}) {
-  if (!items?.length) return <p className="text-sm text-gray-500">{empty}</p>;
-  const max = Math.max(...items.map((i) => i.count));
-  return (
-    <ul className="space-y-3">
-      {items.map((i) => (
-        <li key={i.value}>
-          <div className="flex items-center justify-between text-sm">
-            <span className="truncate pr-3 text-gray-700">{i.value}</span>
-            <span className="tabular-nums font-medium text-gray-900">
-              {fmt(i.count)}
-            </span>
-          </div>
-          <div
-            className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100"
-            aria-hidden="true"
-          >
-            <div
-              className={`h-full rounded-full bg-linear-to-r ${color} transition-all duration-700`}
-              style={{ width: `${(i.count / max) * 100}%` }}
-            />
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function ChartTooltip({ active, payload, label, labelFormat }) {
   if (!active || !payload?.length) return null;
   const rows = payload.filter((p) => p.value);
@@ -353,11 +249,23 @@ export default function Dashboard() {
       ),
     [periodParam, fromParam, toParam, todayDate],
   );
+  // Lead flow: kept in the URL with the period
+  const flow = searchParams.get("flow") === "vendors" ? "vendors" : "";
   const setPeriod = useCallback(
     (next) =>
-      setSearchParams(next.all ? { period: "all" } : { from: next.from, to: next.to }),
-    [setSearchParams],
+      setSearchParams({
+        ...(next.all ? { period: "all" } : { from: next.from, to: next.to }),
+        ...(flow ? { flow } : {}),
+      }),
+    [setSearchParams, flow],
   );
+  const setFlow = (value) =>
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (value) params.set("flow", value);
+      else params.delete("flow");
+      return params;
+    });
 
   // Show the last numbers instantly (if this tab has seen them), then refresh in the background
   const [state, setState] = useState(() => {
@@ -371,6 +279,7 @@ export default function Dashboard() {
       setState({ loading: false, data: null });
       return;
     }
+    if (flow) return; // Vendors → KOC: that dashboard loads its own data
     let cancelled = false;
     const requests = requestsFor(period);
     const cached = cachedDashboard(period);
@@ -409,7 +318,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, canSeeLeads, refreshKey, period]);
+  }, [isAdmin, canSeeLeads, refreshKey, period, flow]);
 
   const { loading, refreshing, data } = state;
   const o = data?.overview;
@@ -513,7 +422,31 @@ export default function Dashboard() {
           )
         }
       >
-        {canSeeLeads && state.error && (
+        {canSeeLeads && (
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Lead flow</span>
+            <div className="flex gap-1 rounded-full bg-gray-100 p-1" role="tablist" aria-label="Lead flow">
+              {FLOWS.map((f) => (
+                <button
+                  key={f.value || "koc"}
+                  type="button"
+                  role="tab"
+                  aria-selected={flow === f.value}
+                  onClick={() => setFlow(f.value)}
+                  className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+                    flow === f.value ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {canSeeLeads && flow && (
+          <VendorToKocDashboard period={period} refreshKey={refreshKey} isAdmin={isAdmin} />
+        )}
+        {canSeeLeads && !flow && state.error && (
           <p
             role="alert"
             className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200"
@@ -523,7 +456,7 @@ export default function Dashboard() {
         )}
         {!canSeeLeads ? (
           <NotLinkedVendor />
-        ) : !loading && !o && state.error ? null : !loading && !o ? (
+        ) : flow ? null : !loading && !o && state.error ? null : !loading && !o ? (
           <p
             role="alert"
             className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200"

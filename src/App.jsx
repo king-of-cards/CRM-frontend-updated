@@ -22,6 +22,9 @@ const WeddingPlans = lazy(
 const WhatsAppLeads = lazy(
   () => import("./components/dashboard/WhatsAppLeads.jsx"),
 );
+const VendorToKocLeads = lazy(
+  () => import("./components/vendorToKoc/VendorToKocLeads.jsx"),
+);
 
 // Shown for a split second while a page's code downloads
 function PageLoader() {
@@ -63,6 +66,12 @@ const sourcePages = [
     title: "Wedding planner leads",
     description: "Full wedding plans from the Wedding planner Google Sheet.",
     element: <WeddingPlans />,
+  },
+  {
+    path: "/vendor-to-koc",
+    title: "Vendors → KOC",
+    description: "Leads vendors send to KOC.",
+    element: <VendorToKocLeads />,
   },
 ];
 

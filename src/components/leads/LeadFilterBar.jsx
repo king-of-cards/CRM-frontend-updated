@@ -6,11 +6,13 @@ import { todayIst } from "../../pages/dashboardPeriod.js";
 import { SearchBox, useDebounced } from "./LeadKit.jsx";
 import MultiSelect from "./MultiSelect.jsx";
 import PincodePicker from "./PincodePicker.jsx";
+import { PENDING, SOURCES as KOC_SOURCES, STATUSES } from "../vendorToKoc/kocUtils.js";
 import {
   branchName,
   buildQuote,
   filtersOfPeriod,
   INTEREST_LABELS,
+  KOC,
   NOT_SHARED,
   ORIGIN_LABELS,
   parseQuote,
@@ -25,6 +27,8 @@ import {
 //   options:     GET /{list}/filter-options
 //   sorts:       the page's sort options; sortValue: the current one
 //   renderSearch({ value, onChange }): a custom search box (Spin's suggestions)
+// source "vendor_to_koc" (Vendors → KOC, docs section 11) shows its own filters instead of the
+// CRM ones: Received date, Lead date, Vendor / Update / Follow-up (admins), City, Source.
 
 const labelCls = "mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500";
 const inputCls =
@@ -118,6 +122,7 @@ export default function LeadFilterBar({
 }) {
   const today = todayIst();
   const o = options ?? {};
+  const isKoc = source === KOC;
 
   // Search: typed text goes to the URL after a pause
   const [searchText, setSearchText] = useState(filters.search);
@@ -207,7 +212,7 @@ export default function LeadFilterBar({
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <Field label="Arrived" wide>
+        <Field label={isKoc ? "Received" : "Arrived"} wide>
           <PeriodFilter
             alignStart
             period={periodOfFilters(filters)}
@@ -216,6 +221,7 @@ export default function LeadFilterBar({
           />
         </Field>
 
+        {!isKoc && (
         <Field
           label="Event date"
           wide
@@ -264,6 +270,102 @@ export default function LeadFilterBar({
             )}
           </div>
         </Field>
+        )}
+
+        {/* Vendors → KOC */}
+        {isKoc && (
+          <>
+            <Field label="Lead date" wide>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="date"
+                  aria-label="Lead date from"
+                  value={filters.lead_date_from}
+                  max={filters.lead_date_to || undefined}
+                  onChange={(e) => update({ lead_date_from: e.target.value })}
+                  className={`${inputCls} w-auto`}
+                />
+                <span className="text-gray-400">–</span>
+                <input
+                  type="date"
+                  aria-label="Lead date to"
+                  value={filters.lead_date_to}
+                  min={filters.lead_date_from || undefined}
+                  onChange={(e) => update({ lead_date_to: e.target.value })}
+                  className={`${inputCls} w-auto`}
+                />
+              </div>
+            </Field>
+            {isAdmin && (
+              <>
+                <Field label="Vendor">
+                  <MultiSelect
+                    label="Vendor"
+                    anyLabel="All vendors"
+                    options={(o.vendors ?? []).map((v) => ({ value: String(v.id), label: v.name, name: v.name }))}
+                    value={filters.vendor_id}
+                    onChange={(vals) => update({ vendor_id: vals })}
+                  />
+                </Field>
+                <Field label="Update">
+                  <MultiSelect
+                    label="Update"
+                    options={[{ value: PENDING, label: "Pending", name: "Pending" }, ...STATUSES.map((x) => ({ ...x, name: x.label }))]}
+                    value={filters.update_status}
+                    onChange={(vals) => update({ update_status: vals })}
+                  />
+                </Field>
+                <Field label="Follow-up" wide>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="date"
+                      aria-label="Follow-up from"
+                      value={filters.follow_up_from}
+                      max={filters.follow_up_to || undefined}
+                      onChange={(e) => update({ follow_up_from: e.target.value })}
+                      className={`${inputCls} w-auto`}
+                    />
+                    <span className="text-gray-400">–</span>
+                    <input
+                      type="date"
+                      aria-label="Follow-up to"
+                      value={filters.follow_up_to}
+                      min={filters.follow_up_from || undefined}
+                      onChange={(e) => update({ follow_up_to: e.target.value })}
+                      className={`${inputCls} w-auto`}
+                    />
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={filters.follow_up_due === "true"}
+                        onChange={(e) => update({ follow_up_due: e.target.checked ? "true" : "" })}
+                        className="h-4 w-4 accent-brand-600"
+                      />
+                      Due
+                    </label>
+                  </div>
+                </Field>
+              </>
+            )}
+            <Field label="City">
+              <DebouncedInput
+                value={filters.city}
+                onCommit={(v) => update({ city: v })}
+                placeholder="Any city"
+                aria-label="City"
+                className={inputCls}
+              />
+            </Field>
+            <Field label="Source">
+              <MultiSelect
+                label="Source"
+                options={KOC_SOURCES.map((x) => ({ ...x, name: x.label }))}
+                value={filters.source}
+                onChange={(vals) => update({ source: vals })}
+              />
+            </Field>
+          </>
+        )}
 
         {/* Per source */}
         {source === "spin" && (
@@ -383,8 +485,8 @@ export default function LeadFilterBar({
           </Field>
         )}
 
-        {/* Common CRM filters */}
-        {isAdmin && (
+        {/* Common CRM filters (not for Vendors → KOC) */}
+        {!isKoc && isAdmin && (
           <Field label="Assigned to">
             <MultiSelect
               label="Assigned to"
@@ -400,6 +502,8 @@ export default function LeadFilterBar({
             />
           </Field>
         )}
+        {!isKoc && (
+        <>
         <Field label="Interest">
           <MultiSelect
             label="Interest"
@@ -464,6 +568,8 @@ export default function LeadFilterBar({
             onChange={(vals) => update({ origin: vals })}
           />
         </Field>
+        </>
+        )}
         {source === "wedding" && (
           <Field label="Repeats">
             <label className="flex h-[38px] cursor-pointer items-center gap-2 text-sm text-gray-600">

@@ -18,7 +18,7 @@ function url(path, query) {
   return `${API_BASE}${path}${qs ? `?${qs}` : ""}`;
 }
 
-async function rawFetch(path, { method = "GET", query, body } = {}) {
+export async function rawFetch(path, { method = "GET", query, body } = {}) {
   if (!getAccessToken()) await refreshAccessToken();
   const send = () => {
     const token = getAccessToken();
@@ -49,8 +49,8 @@ async function rawFetch(path, { method = "GET", query, body } = {}) {
   return res;
 }
 
-// Save a file response with the name from Content-Disposition
-async function saveFile(res, fallback) {
+// Save a file response with the name from Content-Disposition (also used by vendorToKoc.js)
+export async function saveFile(res, fallback) {
   const name = filenameFromDisposition(res.headers.get("content-disposition"), fallback);
   const href = URL.createObjectURL(await res.blob());
   const a = Object.assign(document.createElement("a"), { href, download: name });
