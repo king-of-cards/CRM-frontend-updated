@@ -10,6 +10,7 @@ const LeadSourcePage = lazy(() => import("./pages/LeadSourcePage.jsx"));
 const Leads = lazy(() => import("./pages/Leads.jsx"));
 const Settings = lazy(() => import("./pages/Settings.jsx"));
 const Users = lazy(() => import("./pages/Users.jsx"));
+const Branches = lazy(() => import("./pages/Branches.jsx"));
 const RecentLeads = lazy(
   () => import("./components/dashboard/RecentLeads.jsx"),
 );
@@ -116,6 +117,14 @@ function App() {
           element={
             <RequireAuth role="admin">
               <Users />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/branches"
+          element={
+            <RequireAuth role="admin">
+              <Branches />
             </RequireAuth>
           }
         />
