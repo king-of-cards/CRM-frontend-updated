@@ -43,12 +43,7 @@ import { BarList, Kpi, Panel, SeriesToggles, toggled } from "../components/dashb
 import { periodFromSearch, periodLabel, periodText, todayIst } from "./dashboardPeriod.js";
 import { outcomeCells, outcomeLink } from "./dashboardOutcomes.js";
 import VendorToKocDashboard from "./VendorToKocDashboard.jsx";
-
-// "Lead flow" toggle: KOC → Vendors (this dashboard) or Vendors → KOC (?flow=vendors)
-const FLOWS = [
-  { value: "", label: "KOC → Vendors" },
-  { value: "vendors", label: "Vendors → KOC" },
-];
+import LeadFlowToggle from "../components/dashboard/LeadFlowToggle.jsx";
 
 // Overview of every lead source, built from GET /analytics/overview, for a period
 // (?from=YYYY-MM-DD&to=YYYY-MM-DD; default the last 30 days). See dashboardPeriod.js.
@@ -400,6 +395,7 @@ export default function Dashboard() {
       <DashboardLayout
         title={`${greeting()}${firstName ? `, ${firstName}` : ""}`}
         description={`${label} · here's how your leads are doing`}
+        topBarExtra={canSeeLeads && <LeadFlowToggle value={flow} onChange={setFlow} />}
         actions={
           canSeeLeads && (
             <div className="flex flex-wrap items-start gap-2">
@@ -424,27 +420,6 @@ export default function Dashboard() {
           )
         }
       >
-        {canSeeLeads && (
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500">Lead flow</span>
-            <div className="flex gap-1 rounded-full bg-gray-100 p-1" role="tablist" aria-label="Lead flow">
-              {FLOWS.map((f) => (
-                <button
-                  key={f.value || "koc"}
-                  type="button"
-                  role="tab"
-                  aria-selected={flow === f.value}
-                  onClick={() => setFlow(f.value)}
-                  className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
-                    flow === f.value ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         {canSeeLeads && flow && (
           <VendorToKocDashboard period={period} refreshKey={refreshKey} isAdmin={isAdmin} />
         )}

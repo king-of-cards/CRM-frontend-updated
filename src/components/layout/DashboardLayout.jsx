@@ -46,10 +46,13 @@ const topTabs = [
 
 const STORAGE_KEY = "crm-sidebar-collapsed";
 
+// topBarExtra: optional node shown in the top bar to the right of the nav pill
+// (below it, full width, on narrow screens), e.g. the Dashboard's Lead flow switch.
 export default function DashboardLayout({
   title,
   description,
   actions,
+  topBarExtra,
   children,
 }) {
   const navigate = useNavigate();
@@ -164,8 +167,12 @@ export default function DashboardLayout({
       {/* Main area */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Floating pill top bar: tabs for the overview and each lead source */}
-        <header className="sticky top-0 z-30 flex justify-center px-4 pt-4">
-          <div className="relative flex w-full max-w-4xl items-center gap-2 overflow-hidden rounded-full bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 p-1.5 shadow-xl shadow-brand-800/25 ring-1 ring-white/10">
+        <header
+          className={`sticky top-0 z-30 flex justify-center px-4 pt-4 ${
+            topBarExtra ? "flex-col items-center gap-3 lg:flex-row lg:items-center" : ""
+          }`}
+        >
+          <div className={`relative flex w-full max-w-4xl items-center gap-2 overflow-hidden rounded-full ${topBarExtra ? "lg:min-w-0 lg:flex-1" : ""} bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 p-1.5 shadow-xl shadow-brand-800/25 ring-1 ring-white/10`}>
             {/* Soft light sweep across the bar */}
             <span
               aria-hidden="true"
@@ -226,6 +233,7 @@ export default function DashboardLayout({
               </div>
             )}
           </div>
+          {topBarExtra && <div className="w-full max-w-4xl shrink-0 lg:w-auto">{topBarExtra}</div>}
         </header>
 
         <main className="flex-1 px-6 pb-10 pt-8">
