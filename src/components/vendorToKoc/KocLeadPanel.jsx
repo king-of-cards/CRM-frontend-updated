@@ -18,7 +18,8 @@ import {
 // Admins only: Update, Additional comments and Follow-up date (editable; only changed fields are
 // sent) and who / when last updated. Vendor logins never see those fields (the API doesn't send
 // them either).
-//   people(id): a login's name for "Added by" / "Updated by" (never an id)
+//   people(id): a login's name for "Added by" (never an id). "Last updated by" is the API's
+//   status_updated_by_name, never the user id.
 
 const fieldCls =
   "w-full rounded-xl border border-gray-200 bg-white/90 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20";
@@ -99,7 +100,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
         [
           "Last updated",
           lead.status_updated_at
-            ? `${people(lead.status_updated_by, lead) ?? "—"} · ${dateTimeText(lead.status_updated_at)}`
+            ? `${lead.status_updated_by_name || "—"} · ${dateTimeText(lead.status_updated_at)}`
             : null,
         ],
       ]
