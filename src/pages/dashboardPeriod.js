@@ -42,12 +42,13 @@ export function presetPeriod(value, today) {
 }
 
 // ?period=all -> All time; ?from=&to= -> { from, to } (only one: that single day);
-// nothing: Last 30 days. Values are passed on as written; the API rejects bad ones (400).
+// nothing: All time (the Dashboard default). Values are passed on as written; the API
+// rejects bad ones (400).
 export function periodFromSearch(params, today) {
   if (params.get("period") === "all") return { all: true };
   const from = params.get("from") || "";
   const to = params.get("to") || "";
-  if (!from && !to) return presetPeriod(DEFAULT_PRESET, today);
+  if (!from && !to) return { all: true };
   return { from: from || to, to: to || from };
 }
 

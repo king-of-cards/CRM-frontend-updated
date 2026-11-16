@@ -156,7 +156,7 @@ export default function RecentLeads() {
   const [createdCol, setCreatedCol] = useState(storedCreated);
   const [page, setPage] = useState(1);
   // Filters, kept in the URL; the same for the list and the export
-  const { filters, query, queryKey, update, clear, count } = useLeadFilters("spin");
+  const { filters, query, queryKey, update, clear, apply, clearFilters, count } = useLeadFilters("spin");
   const sortValue = filters.sort || "created:desc";
   const [openKey, setOpenKey] = useState(null); // lead to open (picked from the search suggestions)
   const [options, setOptions] = useState(() => getFilterOptions.peek("spin") ?? null);
@@ -349,6 +349,8 @@ export default function RecentLeads() {
           filters={filters}
           update={update}
           clear={clear}
+          apply={apply}
+          clearFilters={clearFilters}
           count={count}
           options={options}
           isAdmin={isAdmin}

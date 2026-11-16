@@ -37,7 +37,7 @@ export default function WhatsAppLeads() {
   const { isAdmin, canSeeLeads } = useAuth();
   const [page, setPage] = useState(1);
   // Filters, kept in the URL; the same for the list, its stats and the export
-  const { filters, query, queryKey, update, clear, count } = useLeadFilters(SOURCE);
+  const { filters, query, queryKey, update, clear, apply, clearFilters, count } = useLeadFilters(SOURCE);
   const sortValue = filters.sort || SORTS[0].value;
   const listParams = (p) =>
     listQuery({ page: p, pageSize: PAGE_SIZE, filters: query, ...parseSort(sortValue) });
@@ -130,6 +130,8 @@ export default function WhatsAppLeads() {
           filters={filters}
           update={update}
           clear={clear}
+          apply={apply}
+          clearFilters={clearFilters}
           count={count}
           options={options}
           isAdmin={isAdmin}

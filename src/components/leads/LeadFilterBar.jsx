@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Filter, X } from "lucide-react";
+import { Filter, SlidersHorizontal, X } from "lucide-react";
 import FilterSelect from "../dashboard/FilterSelect.jsx";
 import PeriodFilter from "../dashboard/PeriodFilter.jsx";
 import { todayIst } from "../../pages/dashboardPeriod.js";
@@ -17,13 +17,19 @@ import {
   ORIGIN_LABELS,
   parseQuote,
   periodOfFilters,
+  readFilters,
+  toApiQuery,
   UPCOMING_DAYS,
   withCount,
+  withFilters,
 } from "./leadFilters.js";
+import { filterChips } from "./filterChips.js";
 
-// One filter bar for the four lead lists (docs/API_REFERENCE.md section 10), in the style of
-// the Spin filter panel. All values live in the URL (useLeadFilters); text and number boxes
-// update it 400 ms after typing stops. Names are shown for choices, never ids.
+// One filter bar for the lead lists (docs/API_REFERENCE.md sections 10 and 11): a row with the
+// search box, a "Filters" button (active-filter count) and Sort; the button opens a panel with
+// every filter option, edited as a draft until Apply (Clear removes them all). Active filters
+// show as removable chips under the row. All values live in the URL (useLeadFilters).
+// Names are shown for choices, never ids.
 //   options:     GET /{list}/filter-options
 //   sorts:       the page's sort options; sortValue: the current one
 //   renderSearch({ value, onChange }): a custom search box (Spin's suggestions)
@@ -34,12 +40,12 @@ const labelCls = "mb-1 block text-[11px] font-semibold uppercase tracking-wider 
 const inputCls =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 disabled:bg-gray-50 disabled:text-gray-400";
 
-// A text box that writes normalize(text) 400 ms after typing stops. It follows outside
-// changes (Clear filters, back/forward) without undoing what's being typed (e.g. a space).
+// A text box that writes normalize(text) to the panel's draft as you type (no requests are
+// made until Apply). It follows outside changes without undoing what's being typed.
 const trimText = (v) => v.trim();
 function DebouncedInput({ value, onCommit, normalize = trimText, ...props }) {
   const [text, setText] = useState(value ?? "");
-  const settled = useDebounced(text);
+  const settled = useDebounced(text, 0);
   useEffect(() => {
     if (normalize(text) !== (value ?? "")) setText(value ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,34 +113,11 @@ const counted = (list, label = (v) => v) =>
 const partnerLabel = (v) => (v === NOT_SHARED ? "Not shared yet" : v);
 const budgetLabel = (v) => (/^\d/.test(String(v)) ? `₹${String(v).replace(/[-_]/g, "–")}` : String(v));
 
-export default function LeadFilterBar({
-  source,
-  filters,
-  update,
-  clear,
-  count,
-  options,
-  isAdmin,
-  sorts,
-  sortValue,
-  placeholder = "Search…",
-  renderSearch,
-}) {
-  const today = todayIst();
+
+// Every filter option, for the panel. filters / update are the panel's draft.
+function FilterControls({ source, filters, update, options, isAdmin, today }) {
   const o = options ?? {};
   const isKoc = source === KOC;
-
-  // Search: typed text goes to the URL after a pause
-  const [searchText, setSearchText] = useState(filters.search);
-  const settledSearch = useDebounced(searchText.trim());
-  useEffect(() => {
-    if (searchText.trim() !== filters.search) setSearchText(filters.search);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.search]);
-  useEffect(() => {
-    if (settledSearch !== filters.search) update({ search: settledSearch });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settledSearch]);
 
   // Event date: Any | Upcoming 30 days | Date range
   const eventChosen = filters.upcoming_days ? "upcoming" : filters.event_from || filters.event_to ? "range" : "";
@@ -177,40 +160,7 @@ export default function LeadFilterBar({
     ...counted(o.shared_with, partnerLabel).map((x) => ({ value: x.value, label: x.label })),
   ];
 
-  const searchBox = renderSearch ? (
-    renderSearch({ value: searchText, onChange: setSearchText })
-  ) : (
-    <SearchBox value={searchText} onChange={setSearchText} placeholder={placeholder} />
-  );
-
   return (
-    <div className="w-full rounded-2xl bg-gray-50/80 p-4 ring-1 ring-gray-100">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-          <Filter size={15} className="text-brand-600" aria-hidden="true" /> Filters
-          {count > 0 && (
-            <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-semibold text-white">{count}</span>
-          )}
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          {searchBox}
-          {(count > 0 || filters.search) && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchText("");
-                setEventMode("");
-                setQuoteOp("");
-                clear();
-              }}
-              className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm text-gray-500 hover:bg-white hover:text-gray-900"
-            >
-              <X size={14} /> Clear filters
-            </button>
-          )}
-        </div>
-      </div>
-
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <Field label={isKoc ? "Received" : "Arrived"} wide>
           <PeriodFilter
@@ -584,10 +534,152 @@ export default function LeadFilterBar({
           </Field>
         )}
       </div>
+  );
+}
 
-      <div className="mt-3 flex justify-end">
-        <FilterSelect label="Sort" value={sortValue} onChange={(v) => update({ sort: v })} options={sorts} />
+export default function LeadFilterBar({
+  source,
+  filters,
+  update,
+  clear,
+  apply,
+  clearFilters,
+  count,
+  options,
+  isAdmin,
+  sorts,
+  sortValue,
+  placeholder = "Search…",
+  renderSearch,
+}) {
+  const today = todayIst();
+
+  // Search (in the row): typed text goes to the URL after a pause
+  const [searchText, setSearchText] = useState(filters.search);
+  const settledSearch = useDebounced(searchText.trim());
+  useEffect(() => {
+    if (searchText.trim() !== filters.search) setSearchText(filters.search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.search]);
+  useEffect(() => {
+    if (settledSearch !== filters.search) update({ search: settledSearch });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settledSearch]);
+
+  // The panel edits a draft (URL-style params) until Apply
+  const [draft, setDraft] = useState(null);
+  const open = draft !== null;
+  const openPanel = () => setDraft(withFilters(new URLSearchParams(), toApiQuery({ ...filters, search: "" }, source)));
+  const draftFilters = open ? readFilters(draft, source) : filters;
+  const draftUpdate = (updates) => setDraft((d) => withFilters(d, updates));
+
+  const chips = filterChips(filters, source, options, isAdmin);
+  // Removing a chip (or Clear all) closes the panel, so an open draft can't bring it back
+  const removeChip = (keys) => {
+    setDraft(null);
+    update(Object.fromEntries(keys.map((k) => [k, ""])));
+  };
+
+  const searchBox = renderSearch ? (
+    renderSearch({ value: searchText, onChange: setSearchText })
+  ) : (
+    <SearchBox value={searchText} onChange={setSearchText} placeholder={placeholder} />
+  );
+
+  return (
+    <div className="w-full rounded-2xl bg-gray-50/80 p-4 ring-1 ring-gray-100">
+      <div className="flex flex-wrap items-center gap-3">
+        {searchBox}
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => (open ? setDraft(null) : openPanel())}
+          className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ring-1 transition ${
+            open || count > 0
+              ? "bg-white text-brand-800 ring-brand-200"
+              : "bg-white text-gray-700 ring-gray-200 hover:bg-gray-50"
+          }`}
+        >
+          <SlidersHorizontal size={15} aria-hidden="true" />
+          Filters
+          {count > 0 && (
+            <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-semibold text-white">{count}</span>
+          )}
+        </button>
+        <div className="ml-auto">
+          <FilterSelect label="Sort" value={sortValue} onChange={(v) => update({ sort: v })} options={sorts} />
+        </div>
       </div>
+
+      {chips.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {chips.map((c) => (
+            <span
+              key={c.id}
+              className="inline-flex items-center gap-1 rounded-full bg-white py-1 pl-3 pr-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200"
+            >
+              {c.label}
+              <button
+                type="button"
+                onClick={() => removeChip(c.keys)}
+                aria-label={`Remove filter ${c.label}`}
+                className="rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+              >
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(null);
+              setSearchText("");
+              clear();
+            }}
+            className="px-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 hover:underline"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {open && (
+        <div className="mt-3 rounded-2xl bg-white p-4 ring-1 ring-gray-100">
+          <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <Filter size={15} className="text-brand-600" aria-hidden="true" /> Filters
+          </p>
+          <FilterControls
+            source={source}
+            filters={draftFilters}
+            update={draftUpdate}
+            options={options}
+            isAdmin={isAdmin}
+            today={today}
+          />
+          <div className="mt-4 flex justify-end gap-2 border-t border-gray-100 pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                clearFilters();
+                setDraft(null);
+              }}
+              className="rounded-full px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                apply(draft);
+                setDraft(null);
+              }}
+              className="rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-6 py-2 text-sm font-semibold text-white shadow-md shadow-brand-700/25"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -16,6 +16,8 @@ import { KOC, withoutKocAdminKeys } from "../leads/leadFilters.js";
 import { fieldCls } from "../crmLeads/Drawer.jsx";
 import KocAddLeadDialog from "./KocAddLeadDialog.jsx";
 import KocBulkUploadDialog from "./KocBulkUploadDialog.jsx";
+import KocLeadPanel from "./KocLeadPanel.jsx";
+import { listUsers } from "../../api/users.js";
 import { dayText, kocErrors, PENDING, phoneText, STATUSES } from "./kocUtils.js";
 
 // Vendors → KOC leads (docs/API_REFERENCE.md section 11). Admins see every vendor's leads and
@@ -178,9 +180,9 @@ function ExportMenu({ onExport, busy }) {
 }
 
 export default function VendorToKocLeads() {
-  const { isAdmin, canSeeLeads } = useAuth();
+  const { isAdmin, canSeeLeads, user: me } = useAuth();
   const [page, setPage] = useState(1);
-  const { filters, query, queryKey, update, clear, count } = useLeadFilters(KOC);
+  const { filters, query, queryKey, update, clear, apply, clearFilters, count } = useLeadFilters(KOC);
   const sorts = isAdmin ? SORTS_ADMIN : SORTS_ALL;
   const sortValue = sorts.some((s) => s.value === filters.sort) ? filters.sort : sorts[0].value;
   // Vendor logins can't use the admin filters (the API answers 422): leave them out
@@ -196,15 +198,20 @@ export default function VendorToKocLeads() {
   const [reloadKey, setReloadKey] = useState(0);
   const [dialog, setDialog] = useState(null); // "single" | "bulk"
   const [exporting, setExporting] = useState(false);
+  const [openId, setOpenId] = useState(null); // the lead shown in the details panel
+  const [userNames, setUserNames] = useState({}); // admins: login id -> name ("Added by")
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
   // Any filter or sort change goes back to page 1
   useEffect(() => setPage(1), [queryKey, sortValue]);
 
-  // Vendors for the filter and the add forms (admins only)
+  // Vendors for the filter and the add forms, and login names (admins only)
   useEffect(() => {
     if (!canSeeLeads || !isAdmin) return;
     listKocVendors().then(setVendors).catch(() => {});
+    listUsers({ limit: 200 })
+      .then((list) => setUserNames(Object.fromEntries(list.map((u) => [u.id, u.name]))))
+      .catch(() => {});
   }, [canSeeLeads, isAdmin, reloadKey]);
 
   useEffect(() => {
@@ -253,6 +260,15 @@ export default function VendorToKocLeads() {
       setExporting(false);
     }
   }
+
+  // "Added by" / "Updated by" as a name, never an id. Vendor logins can't list logins:
+  // "You" for their own, else "Another <vendor> login".
+  const people = (id, lead) => {
+    if (id == null) return null;
+    if (isAdmin) return userNames[id] ?? "—";
+    return id === me?.id ? "You" : `Another ${lead.vendor_name ?? "vendor"} login`;
+  };
+  const openLead = items.find((i) => i.id === openId) ?? null;
 
   const done = (text) => {
     setDialog(null);
@@ -306,6 +322,8 @@ export default function VendorToKocLeads() {
           filters={filters}
           update={update}
           clear={clear}
+          apply={apply}
+          clearFilters={clearFilters}
           count={count}
           options={{ vendors }}
           isAdmin={isAdmin}
@@ -344,7 +362,11 @@ export default function VendorToKocLeads() {
               </tr>
             )}
             {items.map((l) => (
-              <tr key={l.id} className="border-b border-gray-50 align-top">
+              <tr
+                key={l.id}
+                onClick={() => setOpenId(l.id)}
+                className={`cursor-pointer border-b border-gray-50 align-top transition-colors hover:bg-brand-50/40 ${openId === l.id ? "bg-brand-50/60" : ""}`}
+              >
                 <td className="px-4 py-3 tabular-nums text-gray-500">{l.sl_no ?? "—"}</td>
                 {isAdmin && <td className="whitespace-nowrap px-4 py-3 text-gray-800">{l.vendor_name ?? "—"}</td>}
                 <td className="whitespace-nowrap px-4 py-3 text-gray-800">{dayText(l.lead_date)}</td>
@@ -353,13 +375,14 @@ export default function VendorToKocLeads() {
                 <td className="px-4 py-3 text-gray-700">{l.city || "—"}</td>
                 {isAdmin && (
                   <>
-                    <td className="px-4 py-3">
+                    {/* Editing here mustn't open the details panel */}
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <StatusCell lead={l} onSaved={onSaved} />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <CommentCell lead={l} onSaved={onSaved} />
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <FollowUpCell lead={l} onSaved={onSaved} />
                     </td>
                   </>
@@ -377,6 +400,13 @@ export default function VendorToKocLeads() {
         </table>
       </div>
 
+      <KocLeadPanel
+        lead={openLead}
+        isAdmin={isAdmin}
+        people={people}
+        onClose={() => setOpenId(null)}
+        onSaved={onSaved}
+      />
       {dialog === "single" && (
         <KocAddLeadDialog isAdmin={isAdmin} vendors={vendors} onClose={() => setDialog(null)} onAdded={done} />
       )}

@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { getKocDashboard } from "../api/vendorToKoc.js";
 import { Kpi, Panel } from "../components/dashboard/DashboardParts.jsx";
-import { dateTimeText, dayText, kocErrors, phoneText, statusLabel } from "../components/vendorToKoc/kocUtils.js";
+import { dateTimeText, dayText, kocErrors, kocListLink, phoneText, statusLabel } from "../components/vendorToKoc/kocUtils.js";
 import { periodLabel } from "./dashboardPeriod.js";
 import {
   daysText,
@@ -233,10 +233,14 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
             <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Vendors">
               {d.per_vendor.map((v) => (
                 <div key={v.vendor_id} className="rounded-2xl bg-white p-4 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60">
-                  <p className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                  {/* The name opens this vendor's leads for the period (the count does too) */}
+                  <Link
+                    to={kocListLink({ vendor_id: [String(v.vendor_id)] }, period)}
+                    className="flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-brand-700 hover:underline"
+                  >
                     <Users size={15} className="text-brand-600" aria-hidden="true" />
                     {v.vendor_name}
-                  </p>
+                  </Link>
                   <p className="mt-0.5 text-xl font-bold tabular-nums text-gray-900">
                     <N count={v.leads} filters={{ vendor_id: [String(v.vendor_id)] }} period={period} />
                     <span className="ml-1.5 text-xs font-normal text-gray-400">leads</span>

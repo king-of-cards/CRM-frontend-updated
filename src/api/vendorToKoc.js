@@ -53,6 +53,16 @@ export function listKocVendors() {
 }
 listKocVendors.peek = () => peek(`${BASE}/vendors`);
 
+// Team page (admin): link or move a vendor login to a vendor, or unlink it (docs section 12)
+export function linkVendorUser(vendorId, userId) {
+  return apiRequest(`${BASE}/vendors/${encodeURIComponent(vendorId)}/users/${encodeURIComponent(userId)}`, { method: "PUT" });
+}
+export function unlinkVendorUser(vendorId, userId) {
+  return apiRequest(`${BASE}/vendors/${encodeURIComponent(vendorId)}/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  });
+}
+
 // ── Adding leads ──
 // POST /upload/preview (multipart): saves nothing. vendorId: admins only.
 export async function previewKocUpload(file, { sheetName, vendorId } = {}) {

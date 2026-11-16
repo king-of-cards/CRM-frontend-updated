@@ -37,8 +37,8 @@ describe("presets", () => {
 });
 
 describe("URL -> period", () => {
-  test("no params = Last 30 days", () => {
-    expect(periodFromSearch(q(""), TODAY)).toEqual({ from: "2026-10-18", to: TODAY });
+  test("no params = All time", () => {
+    expect(periodFromSearch(q(""), TODAY)).toEqual({ all: true });
   });
   test("both, or one = that single day", () => {
     expect(periodFromSearch(q("from=2026-11-01&to=2026-11-05"), TODAY)).toEqual({ from: "2026-11-01", to: "2026-11-05" });
@@ -99,8 +99,9 @@ describe("All time", () => {
     expect(periodText(all)).toBe("All time");
     expect(periodError(all, TODAY)).toBe(null);
   });
-  test("the Dashboard default stays Last 30 days", () => {
-    expect(periodFromSearch(new URLSearchParams(""), TODAY)).toEqual({ from: "2026-10-18", to: TODAY });
-    expect(periodText({ from: "2026-10-18", to: TODAY })).toBe("18 Oct – 16 Nov 2026");
+  test("the Dashboard default is All time", () => {
+    const period = periodFromSearch(new URLSearchParams(""), TODAY);
+    expect(period).toEqual({ all: true });
+    expect(periodText(period)).toBe("All time");
   });
 });
