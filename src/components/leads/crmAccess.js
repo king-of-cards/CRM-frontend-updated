@@ -1,9 +1,9 @@
 // Who may change which CRM field (see docs/API_REFERENCE.md, "Access: who sees and edits what").
-//   interest, quoted_amount, quoted_date, converted: admins and the assigned vendor
+//   update_status, quoted_amount, quoted_date, conversion_amount: admins and the assigned vendor
 //   vendor_id ("Assigned to"):                       admins only (vendors: read-only)
 //   notes:                                           both
 
-export const VENDOR_FIELDS = ["interest", "quoted_amount", "quoted_date", "converted"];
+export const VENDOR_FIELDS = ["update_status", "quoted_amount", "quoted_date", "conversion_amount"];
 export const ADMIN_FIELDS = ["vendor_id"];
 export const SHARED_FIELDS = ["notes"];
 

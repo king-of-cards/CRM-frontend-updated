@@ -24,7 +24,7 @@ import { useLeadFilters } from "../leads/useLeadFilters.js";
 // International leads (WhatsApp numbers) from the International Google Sheet.
 
 const SOURCE = "whatsapp"; // name in GOOGLE_SHEETS (backend .env)
-const PAGE_SIZE = 8; // same as TAB_DEFAULTS.whatsapp, so prefetched pages are reused
+const PAGE_SIZE = 10; // the default page size (10 / 25 / 50 / 100); same as TAB_DEFAULTS, so prefetched pages are reused
 
 const SORTS = [
   { value: "submitted_at:desc", label: "Newest first" },
@@ -36,11 +36,12 @@ const SORTS = [
 export default function WhatsAppLeads() {
   const { isAdmin, canSeeLeads } = useAuth();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   // Filters, kept in the URL; the same for the list, its stats and the export
   const { filters, query, queryKey, update, clear, apply, clearFilters, count } = useLeadFilters(SOURCE);
   const sortValue = filters.sort || SORTS[0].value;
   const listParams = (p) =>
-    listQuery({ page: p, pageSize: PAGE_SIZE, filters: query, ...parseSort(sortValue) });
+    listQuery({ page: p, pageSize, filters: query, ...parseSort(sortValue) });
   const [data, setData] = useState(
     () => listLeads.peek(SOURCE, listParams(1)) ?? null,
   );
@@ -56,7 +57,7 @@ export default function WhatsAppLeads() {
   const { lastSync, syncing, message, sync } = useSheetSync(isAdmin ? SOURCE : null, reload); // sheet sync: admins only
 
   // Any filter or sort change goes back to page 1
-  useEffect(() => setPage(1), [queryKey, sortValue]);
+  useEffect(() => setPage(1), [queryKey, sortValue, pageSize]);
 
   // Dropdown values (vendor logins: counted over their own leads)
   useEffect(() => {
@@ -89,7 +90,7 @@ export default function WhatsAppLeads() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSeeLeads, page, queryKey, sortValue, reloadKey]);
+  }, [canSeeLeads, page, pageSize, queryKey, sortValue, reloadKey]);
 
   if (!canSeeLeads) return null;
   const items = data?.items ?? [];
@@ -143,7 +144,8 @@ export default function WhatsAppLeads() {
       footer={
         <Pagination
           page={page}
-          pageSize={PAGE_SIZE}
+          pageSize={pageSize}
+          onPageSize={setPageSize}
           total={data?.total}
           onPage={setPage}
           disabled={loading}

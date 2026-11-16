@@ -498,11 +498,10 @@ export function emptyCrm(leadKey) {
     vendor: null,
     vendor_source: null,
     suggested_vendor: null,
-    interest: null,
-    converted: false,
-    converted_at: null,
+    update_status: null, // Pending
     quoted_date: null,
     quoted_amount: null,
+    conversion_amount: null,
     notes: null,
     updated_at: null,
   };
@@ -774,8 +773,12 @@ function pageList(current, total) {
   return out;
 }
 
-export function Pagination({ page, pageSize, total, onPage, disabled }) {
-  if (!total || total <= pageSize) return null;
+// The lists' page sizes (the API accepts only these; default 10)
+export const PAGE_SIZES = [10, 25, 50, 100];
+
+// onPageSize (optional): show "Rows per page" (10 / 25 / 50 / 100)
+export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled }) {
+  if (!total || total <= (onPageSize ? PAGE_SIZES[0] : pageSize)) return null;
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
@@ -786,8 +789,25 @@ export function Pagination({ page, pageSize, total, onPage, disabled }) {
       aria-label="Pages"
       className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-6 py-3 text-sm text-gray-500"
     >
-      <span className="tabular-nums">
+      <span className="flex items-center gap-3 tabular-nums">
         {fmt(from)}–{fmt(to)} of {fmt(total)}
+        {onPageSize && (
+          <label className="flex items-center gap-1.5 text-xs text-gray-500">
+            Rows per page
+            <select
+              value={pageSize}
+              disabled={disabled}
+              onChange={(e) => onPageSize(Number(e.target.value))}
+              className="rounded-full border border-gray-200 bg-white px-2 py-1 text-xs text-gray-800 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20"
+            >
+              {PAGE_SIZES.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </span>
       <div className="flex items-center gap-1">
         <button

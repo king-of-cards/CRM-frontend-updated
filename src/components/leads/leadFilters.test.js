@@ -18,11 +18,11 @@ const q = (s) => new URLSearchParams(s);
 describe("URL <-> filters", () => {
   test("reads common, repeated and per-source keys; ignores other sources' keys", () => {
     const f = readFilters(
-      q("search=asha&interest=interested&interest=not_set&vendor_id=2&unassigned=true&branch=4&country=UAE&sort=created:desc"),
+      q("search=asha&update_status=interested&update_status=pending&vendor_id=2&unassigned=true&branch=4&country=UAE&sort=created:desc"),
       "spin",
     );
     expect(f.search).toBe("asha");
-    expect(f.interest).toEqual(["interested", "not_set"]);
+    expect(f.update_status).toEqual(["interested", "pending"]);
     expect(f.vendor_id).toEqual(["2"]);
     expect(f.unassigned).toBe("true");
     expect(f.branch).toBe("4");
@@ -31,13 +31,18 @@ describe("URL <-> filters", () => {
   });
 
   test("API query: only filters in use, sort not included", () => {
-    const f = readFilters(q("search=&interest=other&quote=gt:50000&budget_min=100000&sort=name:asc"), "wedding");
-    expect(toApiQuery(f, "wedding")).toEqual({ interest: ["other"], quote: "gt:50000", budget_min: "100000" });
+    const f = readFilters(q("search=&update_status=will_call_back&quote=gt:50000&conversion=none&budget_min=100000&sort=name:asc"), "wedding");
+    expect(toApiQuery(f, "wedding")).toEqual({
+      update_status: ["will_call_back"],
+      quote: "gt:50000",
+      conversion: "none",
+      budget_min: "100000",
+    });
   });
 
   test("query string repeats arrays and keeps key order", () => {
-    expect(toQueryString({ page: 1, page_size: 8, interest: ["interested", "not_set"], search: "", sort: "x", order: "desc" })).toBe(
-      "page=1&page_size=8&interest=interested&interest=not_set&sort=x&order=desc",
+    expect(toQueryString({ page: 1, page_size: 10, update_status: ["interested", "pending"], search: "", sort: "x", order: "desc" })).toBe(
+      "page=1&page_size=10&update_status=interested&update_status=pending&sort=x&order=desc",
     );
   });
 
@@ -49,20 +54,20 @@ describe("URL <-> filters", () => {
   });
 
   test("withFilters changes and removes keys; clearedParams keeps only the sort", () => {
-    const next = withFilters(q("search=a&interest=other&sort=name:asc"), { interest: ["interested", "not_set"], search: "" });
-    expect(next.getAll("interest")).toEqual(["interested", "not_set"]);
+    const next = withFilters(q("search=a&update_status=converted&sort=name:asc"), { update_status: ["interested", "pending"], search: "" });
+    expect(next.getAll("update_status")).toEqual(["interested", "pending"]);
     expect(next.has("search")).toBe(false);
-    expect(clearedParams(q("search=a&date_from=2026-11-01&interest=other&sort=name:asc")).toString()).toBe("sort=name%3Aasc");
+    expect(clearedParams(q("search=a&date_from=2026-11-01&update_status=interested&sort=name:asc")).toString()).toBe("sort=name%3Aasc");
   });
 });
 
 describe("active-filter count", () => {
   test("search and sort aren't counted; ranges and date pairs count once", () => {
     const f = readFilters(
-      q("search=x&sort=a:b&date_from=2026-11-01&date_to=2026-11-05&budget_min=1&budget_max=9&guests_min=10&interest=other&city=Goa"),
+      q("search=x&sort=a:b&date_from=2026-11-01&date_to=2026-11-05&budget_min=1&budget_max=9&guests_min=10&update_status=converted&city=Goa"),
       "wedding_planner",
     );
-    expect(activeCount(f, "wedding_planner")).toBe(5); // date, interest, city, guests, budget
+    expect(activeCount(f, "wedding_planner")).toBe(5); // date, update, city, guests, budget
   });
   test("Assigned to counts once for vendors + unassigned", () => {
     expect(activeCount(readFilters(q("vendor_id=1&vendor_id=2&unassigned=true"), "spin"), "spin")).toBe(1);

@@ -9,8 +9,9 @@ import {
   X,
 } from "lucide-react";
 import {
-  INTEREST_OPTIONS,
-  interestInfo,
+  PENDING_UPDATE,
+  UPDATE_OPTIONS,
+  updateInfo,
   saveLeadCrm,
 } from "../../api/leadCrm.js";
 import { useVendors } from "./InlineCrm.jsx";
@@ -18,8 +19,8 @@ import { downloadLeadPdf } from "./leadPdf.js";
 import { useAuth } from "../../auth/useAuth.js";
 import { assignedText, panelChanges } from "./crmAccess.js";
 
-// Who edits what: Assigned to = admins (vendors see it as text); Interest, Quoted amount/date,
-// Converted and Notes = admins and the assigned vendor. Only changed, allowed fields are sent.
+// Who edits what: Assigned to = admins (vendors see it as text); Update, Quoted amount/date,
+// Conversion amount and Notes = admins and the assigned vendor. Only changed, allowed fields are sent.
 
 // Side panel for one lead: header in the app's green, a soft white gradient body,
 // contact buttons, the editable CRM details, every field, and a PDF download.
@@ -55,10 +56,10 @@ function formFrom(crm) {
       crm?.vendor_source === "manual" && crm?.vendor
         ? String(crm.vendor.id)
         : "",
-    interest: crm?.interest ?? "",
+    update_status: crm?.update_status ?? "",
     quoted_amount: crm?.quoted_amount != null ? String(crm.quoted_amount) : "",
     quoted_date: crm?.quoted_date ?? "",
-    converted: Boolean(crm?.converted),
+    conversion_amount: crm?.conversion_amount != null ? String(crm.conversion_amount) : "",
     notes: crm?.notes ?? "",
   };
 }
@@ -121,17 +122,18 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
   async function save(e) {
     e.preventDefault();
     if (!crm) return;
-    const toValues = (f) => {
-      const digits = f.quoted_amount.replace(/\D/g, "");
-      return {
-        vendor_id: f.vendor_id ? Number(f.vendor_id) : null,
-        interest: f.interest || null,
-        quoted_amount: digits ? Number(digits) : null,
-        quoted_date: f.quoted_date || null,
-        converted: f.converted,
-        notes: f.notes,
-      };
+    const amount = (text) => {
+      const digits = text.replace(/\D/g, "");
+      return digits ? Number(digits) : null;
     };
+    const toValues = (f) => ({
+      vendor_id: f.vendor_id ? Number(f.vendor_id) : null,
+      update_status: f.update_status || null,
+      quoted_amount: amount(f.quoted_amount),
+      quoted_date: f.quoted_date || null,
+      conversion_amount: amount(f.conversion_amount),
+      notes: f.notes,
+    });
     const changes = panelChanges(isAdmin, toValues(formFrom(crm)), toValues(form));
     if (!Object.keys(changes).length) {
       setError("Nothing to save: no changes.");
@@ -159,7 +161,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
   async function download() {
     setDownloading(true);
     try {
-      const interest = interestInfo(crm?.interest);
+      const update = updateInfo(crm?.update_status);
       await downloadLeadPdf({
         title: lead.title,
         subtitle: lead.subtitle,
@@ -185,7 +187,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   ? `${crm.vendor.name}${crm.vendor_source === "manual" ? "" : " (automatic)"}`
                   : "Unassigned",
               ],
-              ["Interest", interest?.label ?? "Not set"],
+              ["Update", update.label],
               [
                 "Quoted amount",
                 crm?.quoted_amount != null
@@ -193,7 +195,12 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   : null,
               ],
               ["Quoted date", crm?.quoted_date],
-              ["Converted", crm?.converted ? "Yes" : "No"],
+              [
+                "Conversion amount",
+                crm?.conversion_amount != null
+                  ? inr.format(crm.conversion_amount)
+                  : null,
+              ],
               ["Notes", crm?.notes],
             ],
           },
@@ -284,19 +291,17 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
               <span className="rounded-full bg-white/15 px-2.5 py-1 ring-1 ring-white/20">
                 {crm.vendor ? `Assigned: ${crm.vendor.name}` : "Unassigned"}
               </span>
-              {interestInfo(crm.interest) && (
-                <span className="rounded-full bg-white/15 px-2.5 py-1 ring-1 ring-white/20">
-                  {interestInfo(crm.interest).label}
-                </span>
-              )}
+              <span className="rounded-full bg-white/15 px-2.5 py-1 ring-1 ring-white/20">
+                {updateInfo(crm.update_status).label}
+              </span>
               {crm.quoted_amount != null && (
                 <span className="rounded-full bg-white/15 px-2.5 py-1 ring-1 ring-white/20">
                   Quoted {inr.format(crm.quoted_amount)}
                 </span>
               )}
-              {crm.converted && (
+              {crm.conversion_amount != null && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400 px-2.5 py-1 font-semibold text-emerald-950">
-                  <BadgeCheck size={13} /> Converted
+                  <BadgeCheck size={13} /> Converted {inr.format(crm.conversion_amount)}
                 </span>
               )}
             </div>
@@ -402,28 +407,22 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
               </label>
               )}
 
-              {/* Interest, quote and converted: admins and the assigned vendor */}
-              <fieldset className="mt-4">
-                <legend className="text-xs font-medium text-gray-600">
-                  Interest
-                </legend>
-                <div className="mt-1.5 grid grid-cols-3 gap-2">
-                  {INTEREST_OPTIONS.map((o) => {
-                    const active = form.interest === o.value;
-                    return (
-                      <button
-                        key={o.value}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => set("interest", active ? "" : o.value)}
-                        className={`rounded-xl px-2 py-2.5 text-xs font-semibold ring-1 transition ${active ? `${o.style} ring-2` : "bg-white text-gray-600 ring-gray-200 hover:bg-gray-50"}`}
-                      >
-                        {o.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </fieldset>
+              {/* Update and the amounts: admins and the assigned vendor */}
+              <label className="mt-4 block">
+                <span className="text-xs font-medium text-gray-600">Update</span>
+                <select
+                  value={form.update_status}
+                  onChange={(e) => set("update_status", e.target.value)}
+                  className={`mt-1.5 ${fieldCls}`}
+                >
+                  <option value="">{PENDING_UPDATE.label}</option>
+                  {UPDATE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <label className="block">
@@ -456,35 +455,23 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                 </label>
               </div>
 
-              <fieldset className="mt-4">
-                <legend className="text-xs font-medium text-gray-600">
-                  Converted
-                </legend>
-                <div className="mt-1.5 grid grid-cols-2 gap-2">
-                  {[
-                    {
-                      value: false,
-                      label: "No",
-                      on: "bg-gray-900 text-white ring-gray-900",
-                    },
-                    {
-                      value: true,
-                      label: "Yes",
-                      on: "bg-emerald-500 text-white ring-emerald-500",
-                    },
-                  ].map((o) => (
-                    <button
-                      key={o.label}
-                      type="button"
-                      aria-pressed={form.converted === o.value}
-                      onClick={() => set("converted", o.value)}
-                      className={`rounded-xl py-2.5 text-sm font-semibold ring-1 transition ${form.converted === o.value ? o.on : "bg-white text-gray-600 ring-gray-200 hover:bg-gray-50"}`}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
+              <label className="mt-4 block">
+                <span className="text-xs font-medium text-gray-600">
+                  Conversion amount (₹)
+                </span>
+                <input
+                  inputMode="numeric"
+                  value={form.conversion_amount}
+                  onChange={(e) =>
+                    set(
+                      "conversion_amount",
+                      e.target.value.replace(/[^\d,]/g, ""),
+                    )
+                  }
+                  placeholder="e.g. 40000"
+                  className={`mt-1.5 ${fieldCls}`}
+                />
+              </label>
 
               <label className="mt-4 block">
                 <span className="text-xs font-medium text-gray-600">Notes</span>

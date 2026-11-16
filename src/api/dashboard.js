@@ -26,7 +26,7 @@ const LATEST = {
 };
 const latestQuery = (source, { dateFrom, dateTo } = {}) => ({
   page: 1,
-  page_size: 6,
+  page_size: 10, // the smallest the API accepts (10 / 25 / 50 / 100); the feed shows 7
   sort: LATEST[source].sort,
   order: "desc",
   date_from: dateFrom,

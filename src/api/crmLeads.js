@@ -12,7 +12,7 @@ import { toQueryString } from "../components/leads/leadFilters.js";
 const API_BASE = import.meta.env?.VITE_API_URL ?? "/api/v1";
 const base = (source) => `/crm-leads/${encodeURIComponent(source)}`;
 
-// Arrays repeat the key (interest=a&interest=b), as the list filters expect
+// Arrays repeat the key (update_status=a&update_status=b), as the list filters expect
 function url(path, query) {
   const qs = toQueryString(query);
   return `${API_BASE}${path}${qs ? `?${qs}` : ""}`;

@@ -6,10 +6,10 @@ const chips = (qs, source, options, isAdmin = true) =>
   filterChips(readFilters(new URLSearchParams(qs), source), source, options, isAdmin).map((c) => c.label);
 
 describe("filter chips use names, never ids", () => {
-  test("spin: branch and vendor names, interest, quote, origin", () => {
+  test("spin: branch and vendor names, update, quote, conversion, origin", () => {
     expect(
       chips(
-        "branch=1&vendor_id=2&unassigned=true&interest=interested&interest=not_set&quote=gt:50000&origin=workflow&date_from=2026-11-01&date_to=2026-11-05",
+        "branch=1&vendor_id=2&unassigned=true&update_status=interested&update_status=pending&quote=gt:50000&conversion=has&origin=workflow&date_from=2026-11-01&date_to=2026-11-05",
         "spin",
         { branches: [{ id: "1", name: "Chamrajpet", count: 233 }], vendors: [{ id: 2, name: "Phodeo" }] },
       ),
@@ -17,8 +17,9 @@ describe("filter chips use names, never ids", () => {
       "Arrived: 1 – 5 Nov 2026",
       "Branch: Chamrajpet",
       "Assigned to: Unassigned, Phodeo",
-      "Interest: Interested, Not set",
+      "Update: Interested, Pending",
       "Quote more than ₹50,000",
+      "Has a conversion amount",
       "Origin: Spin game",
     ]);
   });
@@ -29,7 +30,7 @@ describe("filter chips use names, never ids", () => {
     ]);
   });
   test("vendor logins get no Assigned to chip", () => {
-    expect(chips("vendor_id=2&converted=yes", "whatsapp", { vendors: [] }, false)).toEqual(["Converted: Yes"]);
+    expect(chips("vendor_id=2&conversion=lt:10000", "whatsapp", { vendors: [] }, false)).toEqual(["Conversion less than ₹10,000"]);
   });
   test("wedding planner ranges and partner", () => {
     expect(

@@ -7,7 +7,7 @@ import {
   Target,
 } from "lucide-react";
 import { listSpinLeads } from "../../api/spinLeads.js";
-import { getFilterOptions, listLeads, listQuery } from "../../api/leadLists.js";
+import { getFilterOptions, getLeadStats, listLeads, listQuery } from "../../api/leadLists.js";
 import { listBranches } from "../../api/branches.js";
 import { pincodeArea } from "../leads/pincode.js";
 import { storeFor } from "../leads/stores.js";
@@ -33,7 +33,7 @@ import { useLeadFilters } from "../leads/useLeadFilters.js";
 // Spin leads: read live from the workflow database (read-only). The CRM columns come from
 // our own database next to each lead (sidecar), matched by the lead's id.
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 10; // the default page size (10 / 25 / 50 / 100)
 
 const CREATED_KEY = "crm-spin-created-column"; // remembered so later loads need one request
 
@@ -155,11 +155,13 @@ export default function RecentLeads() {
   const { isAdmin, canSeeLeads } = useAuth();
   const [createdCol, setCreatedCol] = useState(storedCreated);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   // Filters, kept in the URL; the same for the list and the export
   const { filters, query, queryKey, update, clear, apply, clearFilters, count } = useLeadFilters("spin");
   const sortValue = filters.sort || "created:desc";
   const [openKey, setOpenKey] = useState(null); // lead to open (picked from the search suggestions)
   const [options, setOptions] = useState(() => getFilterOptions.peek("spin") ?? null);
+  const [stats, setStats] = useState(() => getLeadStats.peek("spin", query) ?? null);
   const [branches, setBranches] = useState(
     () => listBranches.peek()?.branches ?? [],
   );
@@ -189,7 +191,7 @@ export default function RecentLeads() {
   }, [createdCol, f]);
 
   // Any filter or sort change goes back to page 1
-  useEffect(() => setPage(1), [queryKey, sortValue]);
+  useEffect(() => setPage(1), [queryKey, sortValue, pageSize]);
 
   // Dropdown values: branches, pincodes, budgets, origins, interests, vendors (admins)
   useEffect(() => {
@@ -220,7 +222,7 @@ export default function RecentLeads() {
           : key;
     const params = listQuery({
       page,
-      pageSize: PAGE_SIZE,
+      pageSize,
       filters: query,
       sort,
       order: sort ? order : undefined,
@@ -248,6 +250,10 @@ export default function RecentLeads() {
           return; // the effect runs again with the column known
         }
         res = await listLeads("spin", params);
+        // Stats over the same filters: GET /spin-leads/stats -> { total, kpis }
+        getLeadStats("spin", query)
+          .then((st) => !cancelled && setStats(st))
+          .catch(() => {});
         if (!cancelled) {
           setData(res);
           setError(null);
@@ -270,7 +276,7 @@ export default function RecentLeads() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSeeLeads, page, queryKey, sortValue, createdCol, reloadKey]);
+  }, [canSeeLeads, page, pageSize, queryKey, sortValue, createdCol, reloadKey]);
 
   if (!canSeeLeads) return null;
   const items = data?.items ?? [];
@@ -280,13 +286,14 @@ export default function RecentLeads() {
     const sort = createdCol || undefined;
     return listSpinLeads({
       page: 1,
-      pageSize: 7,
+      pageSize: 10,
       search: q,
       sort,
       order: "desc",
     }).then((res) => {
       const ff = pick(res.columns);
-      return res.items.map((l) => {
+      // page_size must be 10 / 25 / 50 / 100: ask for 10, suggest the first 7
+      return res.items.slice(0, 7).map((l) => {
         const name = (ff.name && l[ff.name]) || "Unnamed lead";
         const phone = ff.phone && l[ff.phone] ? String(l[ff.phone]) : null;
         const email = ff.email && l[ff.email] ? String(l[ff.email]) : null;
@@ -338,9 +345,10 @@ export default function RecentLeads() {
         { label: "Total spin leads", value: fmt(data?.total) },
         { label: "On this page", value: fmt(items.length) },
         {
-          label: "Converted (this page)",
-          value: fmt(items.filter((i) => i.crm?.converted).length),
-          tone: "emerald",
+          // Update = Converted, over all the filtered leads (kpis)
+          label: "Converted",
+          value: fmt(stats?.kpis?.converted),
+          tone: stats?.kpis?.converted ? "emerald" : undefined,
         },
       ]}
       toolbar={
@@ -373,7 +381,8 @@ export default function RecentLeads() {
       footer={
         <Pagination
           page={page}
-          pageSize={PAGE_SIZE}
+          pageSize={pageSize}
+          onPageSize={setPageSize}
           total={data?.total}
           onPage={setPage}
           disabled={loading}

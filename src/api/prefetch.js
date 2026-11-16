@@ -6,9 +6,9 @@ import { getWeddingPlanStats, listWeddingPlans } from "./weddingPlans.js";
 import { getWhatsAppLeadStats, listWhatsAppLeads } from "./whatsappLeads.js";
 
 export const TAB_DEFAULTS = {
-  whatsapp: { page: 1, pageSize: 8, sort: "submitted_at", order: "desc" },
-  wedding: { page: 1, pageSize: 8, sort: "submitted_at", order: "desc" },
-  planner: { page: 1, pageSize: 8, sort: "updated", order: "desc" },
+  whatsapp: { page: 1, pageSize: 10, sort: "submitted_at", order: "desc" },
+  wedding: { page: 1, pageSize: 10, sort: "submitted_at", order: "desc" },
+  planner: { page: 1, pageSize: 10, sort: "updated", order: "desc" },
 };
 
 let done = false;

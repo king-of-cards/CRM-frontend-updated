@@ -10,12 +10,14 @@ import {
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn, Spinner } from "./Drawer.jsx";
 import { defaultSheet, readSheetNames } from "./xlsxSheets.js";
 import { useVendors } from "../leads/InlineCrm.jsx";
+import { PENDING_UPDATE, UPDATE_OPTIONS, updateInfo } from "../../api/leadCrm.js";
 import {
   assignedChoice,
   assignedForUpload,
   AUTOMATIC,
   previewColumns,
   screenFieldKeys,
+  uploadFields,
   duplicateLabel,
   duplicateWhere,
   errorText,
@@ -33,6 +35,8 @@ import {
 // Bulk upload: template → file (+ sheet) → preview (nothing saved) → fix/remove rows → import → result.
 const MAX_BYTES = 5 * 1024 * 1024;
 const PAGE = 100;
+
+const inrAmount = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
 const editable = (r) => r.status === "error" || r.status === "duplicate";
 
@@ -75,7 +79,27 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
   const invalid = errors.length > 0;
   const cls = `${fieldCls} min-w-[140px] py-1.5 ${invalid ? "border-red-300" : ""}`;
   let input;
-  if (field.type === "assigned") {
+  if (field.type === "update") {
+    // Update: Pending (empty) or one of the 7 values; the preview sends the code (null = Pending)
+    const known = !value || UPDATE_OPTIONS.some((o) => o.value === value);
+    input = (
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        onBlur={onBlur}
+        className={cls}
+        aria-invalid={invalid}
+      >
+        <option value="">{PENDING_UPDATE.label}</option>
+        {!known && <option value={String(value)}>{String(value)} (unknown)</option>}
+        {UPDATE_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    );
+  } else if (field.type === "assigned") {
     // Unassigned, each active vendor, Automatic ("<vendor> · auto" in the file shows as Automatic)
     const choice = assignedChoice(value);
     const known = choice === "Unassigned" || choice === AUTOMATIC || vendors.some((v) => v.name === choice);
@@ -148,6 +172,9 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
 
 function cellText(field, value, branches) {
   if (field.type === "assigned") return assignedChoice(value);
+  if (field.type === "update") return updateInfo(value).label;
+  if (field.type === "amount" && value != null && value !== "" && /^\d+$/.test(String(value)))
+    return inrAmount.format(Number(value));
   if (value === null || value === undefined || value === "") return null;
   if (field.type === "branch") return branches.find((b) => String(b.id) === String(value))?.name ?? String(value);
   if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -267,8 +294,9 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
   // Columns: the list screen's (from the template), plus other fields in the file or with an error
   const columns = useMemo(() => {
     if (!meta || !preview) return [];
-    return previewColumns(meta.fields, {
-      screenKeys: templateHeaders ? screenFieldKeys(meta.fields, templateHeaders) : null,
+    const fields = uploadFields(meta.fields); // + Update, Quoted amount, Conversion amount
+    return previewColumns(fields, {
+      screenKeys: templateHeaders ? screenFieldKeys(fields, templateHeaders) : null,
       fileKeys: Object.values(preview.columns),
       errorKeys: rows.flatMap((r) => (r.errors ?? []).map((e) => e.field)),
     });
@@ -285,7 +313,7 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
     setBusy("recheck");
     setError("");
     try {
-      const csv = rowsToCsv(meta.fields, current, branches);
+      const csv = rowsToCsv(uploadFields(meta.fields), current, branches);
       const res = await previewCrmLeadImport(source, new File([csv], "recheck.csv", { type: "text/csv" }));
       if (id !== checkId.current) return null; // a newer check was started
       const checked = mapRecheck(current, res.rows);

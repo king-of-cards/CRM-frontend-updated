@@ -102,7 +102,7 @@ describe("crm-leads API", () => {
     const name = await exportCrmLeads("wedding", "csv", {
       search: "ravi",
       hide_repeats: "true",
-      interest: ["interested", "not_set"],
+      update_status: ["interested", "pending"],
       sort: "name",
       order: "asc",
       page: 2,
@@ -115,8 +115,8 @@ describe("crm-leads API", () => {
       ["format", "csv"],
       ["search", "ravi"],
       ["hide_repeats", "true"],
-      ["interest", "interested"],
-      ["interest", "not_set"],
+      ["update_status", "interested"],
+      ["update_status", "pending"],
       ["sort", "name"],
       ["order", "asc"],
     ]);

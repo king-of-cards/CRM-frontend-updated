@@ -263,17 +263,25 @@ export function parseCsvHeader(text) {
   return cells.filter((c) => c !== "");
 }
 
-// Field keys whose label is a template column (read-only columns have no field, so they drop out)
+// Field keys whose label is a template column, in the template's order (read-only columns have
+// no field, so they drop out)
 export function screenFieldKeys(fields, headers) {
-  const wanted = new Set(headers.map(normHeader));
-  return new Set(fields.filter((f) => wanted.has(normHeader(f.label))).map((f) => f.key));
+  const out = [];
+  for (const h of headers) {
+    const f = fields.find((x) => normHeader(x.label) === normHeader(h));
+    if (f && !out.includes(f.key)) out.push(f.key);
+  }
+  return out;
 }
 
-// Columns for the upload preview, in the fields' order: the screen's columns, plus any
-// other field that is in the file or has an error. Without the template: file columns only.
+// Columns for the upload preview: the screen's columns in the template's order, then any other
+// field that is in the file or has an error (in the fields' order). Without the template: the
+// file's columns, in the fields' order.
 export function previewColumns(fields, { screenKeys = null, fileKeys = [], errorKeys = [] } = {}) {
-  const keys = new Set(["phone", ...fileKeys, ...errorKeys, ...(screenKeys ?? [])]);
-  return fields.filter((f) => keys.has(f.key));
+  const screen = [...(screenKeys ?? [])];
+  const first = screen.map((k) => fields.find((f) => f.key === k)).filter(Boolean);
+  const extra = new Set(["phone", ...fileKeys, ...errorKeys]);
+  return [...first, ...fields.filter((f) => !screen.includes(f.key) && extra.has(f.key))];
 }
 
 // ── "Assigned to" choices: Unassigned, each active vendor, Automatic ──────────────
@@ -299,3 +307,14 @@ export function assignedChoice(value) {
 export function assignedForUpload(choice) {
   return choice;
 }
+
+// ── Upload-only CRM columns (docs section 2, "Uploads only") ─────────────
+// Update, Quoted amount and Conversion amount are read from bulk uploads (saved with each new
+// lead) but aren't in GET fields, since the add / edit forms don't have them. The preview and the
+// re-check use these definitions next to GET fields.
+export const UPLOAD_CRM_FIELDS = [
+  { key: "update_status", label: "Update", type: "update" },
+  { key: "quoted_amount", label: "Quoted amount", type: "amount" },
+  { key: "conversion_amount", label: "Conversion amount", type: "amount" },
+];
+export const uploadFields = (fields) => [...(fields ?? []), ...UPLOAD_CRM_FIELDS];

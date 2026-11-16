@@ -2,7 +2,7 @@ import { apiRequest, peek } from "./client.js";
 import { toQueryString } from "../components/leads/leadFilters.js";
 
 // The four lead lists with the filters of docs/API_REFERENCE.md section 10 (repeatable
-// parameters such as interest=…&interest=…). The query string is built here, in the order
+// parameters such as update_status=…&update_status=…). The query string is built here, in the order
 // page, page_size, filters…, sort, order, so with no filters the URL is the same as the
 // prefetched first page's (src/api/prefetch.js) and that answer is reused.
 

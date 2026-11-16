@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Loader2 } from "lucide-react";
-import { INTEREST_OPTIONS, interestInfo } from "../../api/leadCrm.js";
+import { PENDING_UPDATE, UPDATE_OPTIONS, updateInfo } from "../../api/leadCrm.js";
 import { listVendors } from "../../api/vendors.js";
 import { useAuth } from "../../auth/useAuth.js";
 import { assignedText } from "./crmAccess.js";
 
-// The four editable CRM cells in every lead table: Assigned to, Interest, Quote, Converted.
+// The editable CRM cells in every lead table: Assigned to, Update, Quoted amount, Conversion amount.
 // Each change is saved at once (only that field) and the row updates in place.
-// Who edits what: Assigned to = admins only (vendor logins don't get this column); Interest,
-// Quote and Converted = admins and the assigned vendor. Save errors (403/404…) are shown under
-// the cell.
+// Who edits what: Assigned to = admins only (vendor logins don't get this column); Update and the
+// amounts = admins and the assigned vendor. Save errors (403/404/422…) are shown under the cell.
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -148,38 +147,40 @@ export function VendorCell({ crm, save }) {
   );
 }
 
-export function InterestCell({ crm, save }) {
+// Update: Pending or one of the 7 values (null = Pending)
+export function UpdateCell({ crm, save }) {
   const { busy, error, run } = useSaver(save);
-  const info = interestInfo(crm.interest);
+  const info = updateInfo(crm.update_status);
   return (
     <span title={error || undefined}>
       <PillSelect
-        label="Interest"
-        value={crm.interest ?? ""}
+        label="Update"
+        value={crm.update_status ?? ""}
         busy={busy}
-        onChange={(v) => run({ interest: v || null })}
-        className={`${info ? info.style : "bg-white text-gray-500 ring-gray-200"} ${error ? "ring-red-400" : ""}`}
+        onChange={(v) => run({ update_status: v || null })}
+        className={`${info.style} ${error ? "ring-red-400" : ""}`}
       >
-        <option value="">Select…</option>
-        {INTEREST_OPTIONS.map((o) => (
+        <option value="">{PENDING_UPDATE.label}</option>
+        {UPDATE_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
         ))}
-        {info && !INTEREST_OPTIONS.includes(info) && (
-          <option value={info.value}>{info.label}</option>
-        )}
       </PillSelect>
       <SaveError error={error} />
     </span>
   );
 }
 
-export function QuoteCell({ crm, save }) {
+// An amount in rupees (quoted_amount or conversion_amount): click to edit, Enter / blur saves,
+// Escape cancels, empty clears. The first quote also sets today as the quoted date
+// (setQuotedDate: false where the lead has no quoted date, e.g. Vendors → KOC).
+export function AmountCell({ crm, save, field, label, setQuotedDate = true }) {
   const { busy, error, run } = useSaver(save);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const input = useRef(null);
+  const current = crm[field] ?? null;
 
   useEffect(() => {
     if (editing) input.current?.focus();
@@ -187,17 +188,17 @@ export function QuoteCell({ crm, save }) {
 
   const start = (e) => {
     e.stopPropagation();
-    setValue(crm.quoted_amount != null ? String(crm.quoted_amount) : "");
+    setValue(current != null ? String(current) : "");
     setEditing(true);
   };
   const commit = async () => {
     setEditing(false);
     const digits = value.replace(/\D/g, "");
     const amount = digits ? Number(digits) : null;
-    if (amount === (crm.quoted_amount ?? null)) return;
-    const changes = { quoted_amount: amount };
+    if (amount === current) return;
+    const changes = { [field]: amount };
     // First quote: remember today as the quoted date
-    if (amount != null && !crm.quoted_date)
+    if (setQuotedDate && field === "quoted_amount" && amount != null && !crm.quoted_date)
       changes.quoted_date = new Date().toISOString().slice(0, 10);
     await run(changes);
   };
@@ -219,7 +220,7 @@ export function QuoteCell({ crm, save }) {
             if (e.key === "Escape") setEditing(false);
           }}
           placeholder="Amount"
-          aria-label="Quoted amount"
+          aria-label={label}
           className="w-28 rounded-full border border-brand-300 bg-white py-1 pl-6 pr-2 text-right text-xs tabular-nums outline-none ring-2 ring-brand-600/20"
         />
       </span>
@@ -230,13 +231,13 @@ export function QuoteCell({ crm, save }) {
     <button
       type="button"
       onClick={start}
-      title={error || "Click to change the quoted amount"}
+      title={error || `Click to change the ${label.toLowerCase()}`}
       className={`inline-flex min-w-[88px] items-center justify-end gap-1 rounded-full px-2.5 py-1 text-xs tabular-nums transition hover:bg-gray-100 ${error ? "ring-1 ring-red-400" : ""}`}
     >
       {busy && <Loader2 size={12} className="animate-spin text-gray-400" />}
-      {crm.quoted_amount != null ? (
+      {current != null ? (
         <span className="text-sm font-semibold text-gray-900">
-          {inr.format(crm.quoted_amount)}
+          {inr.format(current)}
         </span>
       ) : (
         <span className="text-gray-400">+ Add</span>
@@ -247,33 +248,14 @@ export function QuoteCell({ crm, save }) {
   );
 }
 
-export function ConvertedCell({ crm, save }) {
-  const { busy, error, run } = useSaver(save);
-  return (
-    <span title={error || undefined}>
-      <PillSelect
-        label="Converted"
-        value={crm.converted ? "yes" : "no"}
-        busy={busy}
-        onChange={(v) => run({ converted: v === "yes" })}
-        className={`${crm.converted ? "bg-emerald-500 text-white ring-emerald-500" : "bg-white text-gray-600 ring-gray-200"} ${error ? "ring-red-400" : ""}`}
-      >
-        <option value="no">No</option>
-        <option value="yes">Yes</option>
-      </PillSelect>
-      <SaveError error={error} />
-    </span>
-  );
-}
-
 export function CrmHeaderCells({ className }) {
   const { isAdmin } = useAuth(); // vendor logins don't get the Assigned to column
   return (
     <>
       {isAdmin && <th className={className}>Assigned to</th>}
-      <th className={className}>Interest</th>
+      <th className={className}>Update</th>
       <th className={`${className} text-right`}>Quoted amount</th>
-      <th className={className}>Converted</th>
+      <th className={`${className} text-right`}>Conversion amount</th>
     </>
   );
 }
@@ -296,13 +278,13 @@ export function InlineCrmCells({ crm, save, className = "px-4 py-3" }) {
         </td>
       )}
       <td className={`whitespace-nowrap ${className}`}>
-        <InterestCell crm={crm} save={save} />
+        <UpdateCell crm={crm} save={save} />
       </td>
       <td className={`whitespace-nowrap text-right ${className}`}>
-        <QuoteCell crm={crm} save={save} />
+        <AmountCell crm={crm} save={save} field="quoted_amount" label="Quoted amount" />
       </td>
-      <td className={`whitespace-nowrap ${className}`}>
-        <ConvertedCell crm={crm} save={save} />
+      <td className={`whitespace-nowrap text-right ${className}`}>
+        <AmountCell crm={crm} save={save} field="conversion_amount" label="Conversion amount" />
       </td>
     </>
   );

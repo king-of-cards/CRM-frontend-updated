@@ -11,9 +11,9 @@ export const COMMON_KEYS = [
   "upcoming_days",
   "vendor_id",
   "unassigned",
-  "interest",
+  "update_status",
   "quote",
-  "converted",
+  "conversion",
   "origin",
 ];
 export const SOURCE_KEYS = {
@@ -53,7 +53,7 @@ export const KOC_ADMIN_KEYS = ["vendor_id"];
 export const withoutKocAdminKeys = (query) =>
   Object.fromEntries(Object.entries(query).filter(([k]) => !KOC_ADMIN_KEYS.includes(k)));
 
-export const MULTI_KEYS = ["vendor_id", "interest", "origin", "update_status", "source"];
+export const MULTI_KEYS = ["vendor_id", "origin", "update_status", "source"];
 export const NOT_SHARED = "__none__";
 export const UPCOMING_DAYS = "30";
 
@@ -107,9 +107,9 @@ export function activeCount(filters, source) {
     ["date_from", "date_to"],
     ["event_from", "event_to", "upcoming_days"],
     ["vendor_id", "unassigned"],
-    ["interest"],
+    ["update_status"],
     ["quote"],
-    ["converted"],
+    ["conversion"],
     ["origin"],
   ];
   const own = SOURCE_KEYS[source] ?? [];
@@ -172,12 +172,16 @@ export const ORIGIN_LABELS = {
   added: "Added",
   imported: "Imported",
 };
-export const INTEREST_LABELS = {
+// Update (update_status): "pending" (no update yet) and the 7 values, as Vendors → KOC
+export const UPDATE_LABELS = {
+  pending: "Pending",
+  converted: "Converted",
+  not_converted: "Not converted",
+  purchased_elsewhere: "Already purchased somewhere else",
+  purchased_with_us: "Already purchased with us",
+  will_call_back: "Will call back",
   interested: "Interested",
   not_interested: "Not interested",
-  other: "Others",
-  follow_up: "Follow up",
-  not_set: "Not set",
 };
 export const branchName = (b) => b.name || `Branch #${b.id}`;
 export const withCount = (label, count) => (count != null ? `${label} (${count})` : label);

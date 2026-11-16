@@ -37,12 +37,12 @@ describe("links", () => {
   test("filter + the Dashboard's dates", () => {
     const period = { from: "2026-10-18", to: "2026-11-16" };
     expect(cells.map((c) => outcomeLink("/leads/wedding", c.filter, period))).toEqual([
-      "/leads/wedding?interest=interested&date_from=2026-10-18&date_to=2026-11-16",
-      "/leads/wedding?converted=yes&date_from=2026-10-18&date_to=2026-11-16",
+      "/leads/wedding?update_status=interested&date_from=2026-10-18&date_to=2026-11-16",
+      "/leads/wedding?update_status=converted&date_from=2026-10-18&date_to=2026-11-16",
       "/leads/wedding?quote=has&date_from=2026-10-18&date_to=2026-11-16",
     ]);
   });
   test("All time: no dates", () => {
-    expect(outcomeLink("/leads/spin", cells[0].filter, { all: true })).toBe("/leads/spin?interest=interested");
+    expect(outcomeLink("/leads/spin", cells[0].filter, { all: true })).toBe("/leads/spin?update_status=interested");
   });
 });

@@ -6,6 +6,7 @@ import {
   parseCsvHeader,
   previewColumns,
   screenFieldKeys,
+  uploadFields,
   ddmmyyyy,
   duplicateLabel,
   duplicateWhere,
@@ -48,8 +49,8 @@ describe("exportQuery", () => {
 
   test("repeated filters stay arrays; empty arrays are dropped", () => {
     expect(
-      exportQuery("whatsapp", { interest: ["interested", "not_set"], origin: [], vendor_id: ["2"], quote: "gt:50000" }),
-    ).toEqual({ format: "xlsx", interest: ["interested", "not_set"], vendor_id: ["2"], quote: "gt:50000" });
+      exportQuery("whatsapp", { update_status: ["interested", "pending"], origin: [], vendor_id: ["2"], quote: "gt:50000" }),
+    ).toEqual({ format: "xlsx", update_status: ["interested", "pending"], vendor_id: ["2"], quote: "gt:50000" });
   });
 
   test("spin: no order without a sort", () => {
@@ -240,5 +241,46 @@ describe("Assigned to choices", () => {
     expect(assignedForUpload(AUTOMATIC)).toBe("Automatic");
     expect(assignedForUpload("RJ")).toBe("RJ");
     expect(assignedForUpload("Unassigned")).toBe("Unassigned");
+  });
+});
+
+describe("upload-only CRM columns", () => {
+  const fields = [
+    { key: "name", label: "Lead" },
+    { key: "phone", label: "Contact", type: "phone" },
+    { key: "assigned_to", label: "Assigned to", type: "assigned" },
+    { key: "submitted_at", label: "Submitted", type: "datetime" },
+  ];
+  test("Update, Quoted amount and Conversion amount are added after GET fields", () => {
+    expect(uploadFields(fields).map((f) => f.key)).toEqual([
+      "name",
+      "phone",
+      "assigned_to",
+      "submitted_at",
+      "update_status",
+      "quoted_amount",
+      "conversion_amount",
+    ]);
+  });
+  test("preview columns follow the template's order; read-only columns (Quoted date) drop out", () => {
+    const all = uploadFields(fields);
+    const headers = ["Lead", "Contact", "Assigned to", "Update", "Quoted amount", "Quoted date", "Conversion amount", "Submitted"];
+    expect(previewColumns(all, { screenKeys: screenFieldKeys(all, headers) }).map((f) => f.label)).toEqual([
+      "Lead",
+      "Contact",
+      "Assigned to",
+      "Update",
+      "Quoted amount",
+      "Conversion amount",
+      "Submitted",
+    ]);
+  });
+  test("the re-check CSV sends the update code and amounts back as the preview returned them", () => {
+    const csv = rowsToCsv(uploadFields(fields), [
+      { row: 2, values: { name: "Asha", phone: "9845012345", update_status: "will_call_back", quoted_amount: 150000, conversion_amount: null } },
+    ]);
+    expect(csv).toBe(
+      "name,phone,assigned_to,submitted_at,update_status,quoted_amount,conversion_amount\r\nAsha,9845012345,,,will_call_back,150000,\r\n",
+    );
   });
 });

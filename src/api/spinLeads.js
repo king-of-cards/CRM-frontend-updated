@@ -6,7 +6,6 @@ import { apiRequest, peek } from "./client.js";
 // Filters (all optional):
 //   branch       branch id                      pincode    pincode starts with
 //   budget       exact budget value ("10-20")   vendorId   assigned to this vendor
-//   converted    "yes" | "no"
 const spinQuery = ({
   page = 1,
   pageSize = 50,
@@ -17,8 +16,6 @@ const spinQuery = ({
   pincode,
   budget,
   vendorId,
-  interest,
-  converted,
 } = {}) => ({
   page,
   page_size: pageSize,
@@ -29,8 +26,6 @@ const spinQuery = ({
   pincode,
   budget,
   vendor_id: vendorId,
-  interest,
-  converted,
 });
 
 export function listSpinLeads(params) {

@@ -22,6 +22,9 @@ import {
   MapPin,
   PieChart as PieIcon,
   ShoppingBag,
+  ThumbsUp,
+  Wallet,
+  IndianRupee,
   Sparkles,
   TrendingUp,
   Users,
@@ -30,6 +33,7 @@ import { getKocDashboard } from "../api/vendorToKoc.js";
 import { Kpi, Panel, SeriesToggles, toggled } from "../components/dashboard/DashboardParts.jsx";
 import { dateTimeText, dayText, kocErrors, kocListLink, phoneText, statusLabel } from "../components/vendorToKoc/kocUtils.js";
 import { periodLabel } from "./dashboardPeriod.js";
+import { shortRupees } from "./dashboardOutcomes.js";
 import {
   daysText,
   funnelRows,
@@ -169,7 +173,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
         <>
           {/* ── KPIs ── */}
           <section
-            className={`mt-6 grid gap-4 sm:grid-cols-2 ${outcomes ? "xl:grid-cols-3 2xl:grid-cols-6" : "xl:grid-cols-2"}`}
+            className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
             aria-label="Key numbers"
           >
             <Kpi
@@ -185,12 +189,37 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
               gradient="from-brand-600 to-brand-800"
               loading={kpiLoading}
             />
+            {/* The six KPIs (kpis, docs section 9) over the period's leads; vendors: their own */}
             <Kpi
-              icon={TrendingUp}
-              label="Average per day"
-              value={d?.average_per_day?.period ? `${d.average_per_day.period} / day` : "—"}
-              caption={d?.average_per_day?.previous != null ? `${d.average_per_day.previous} before` : ""}
+              icon={ThumbsUp}
+              label="Interested"
+              value={<N count={d?.kpis?.interested} filters={{ update_status: ["interested"] }} period={period} />}
+              caption={`${num(d?.kpis?.not_interested)} not interested`}
               gradient="from-violet-500 to-violet-700"
+              loading={kpiLoading}
+            />
+            <Kpi
+              icon={IndianRupee}
+              label="Quoted"
+              value={d?.kpis?.quoted_count ? shortRupees(d.kpis.quoted_total) : "—"}
+              caption={
+                d?.kpis?.quoted_count
+                  ? `${num(d.kpis.quoted_count)} ${d.kpis.quoted_count === 1 ? "quote" : "quotes"}`
+                  : "No quotes in this period"
+              }
+              gradient="from-indigo-500 to-indigo-700"
+              loading={kpiLoading}
+            />
+            <Kpi
+              icon={Wallet}
+              label="Conversion"
+              value={d?.kpis?.conversion_count ? shortRupees(d.kpis.conversion_total) : "—"}
+              caption={
+                d?.kpis?.conversion_count
+                  ? `${num(d.kpis.conversion_count)} with a conversion amount`
+                  : "No conversion amounts in this period"
+              }
+              gradient="from-teal-500 to-teal-700"
               loading={kpiLoading}
             />
             {outcomes && (
@@ -217,8 +246,12 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                 <Kpi
                   icon={BadgeCheck}
                   label="Converted"
-                  value={<N count={d?.converted} filters={{ update_status: ["converted"] }} period={period} />}
-                  caption={d?.converted_pct != null ? `${d.converted_pct}% of leads received` : ""}
+                  value={<N count={d?.kpis?.converted ?? d?.converted} filters={{ update_status: ["converted"] }} period={period} />}
+                  caption={
+                    (d?.kpis?.converted_pct ?? d?.converted_pct) != null
+                      ? `${d?.kpis?.converted_pct ?? d?.converted_pct}% of leads received`
+                      : ""
+                  }
                   gradient="from-emerald-500 to-brand-700"
                   loading={kpiLoading}
                 />

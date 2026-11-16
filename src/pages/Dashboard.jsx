@@ -16,6 +16,10 @@ import {
 } from "recharts";
 import {
   AlertCircle,
+  BadgeCheck,
+  ThumbsDown,
+  ThumbsUp,
+  Wallet,
   ArrowDownRight,
   ArrowUpRight,
   CalendarHeart,
@@ -98,7 +102,6 @@ function short(amount) {
 }
 
 // Leads per day (1 decimal from the API)
-const perDay = (n) => (n == null ? "—" : Number(n).toLocaleString("en-IN", { maximumFractionDigits: 1 }));
 
 // A money figure only when the period has values for it, else "—" (not ₹0)
 const money = (stats, key) => (stats?.count ? short(stats[key]) : "—");
@@ -435,13 +438,13 @@ export default function Dashboard() {
           <>
             {/* ── KPIs ── */}
             <section
-              className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6"
+              className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
               aria-label="Key numbers"
             >
               <Kpi
                 icon={Inbox}
                 label="Leads in period"
-                value={fmt(view?.all)}
+                value={fmt(o?.kpis?.total ?? view?.all)}
                 delta={o?.change_pct?.all ?? null}
                 caption={
                   prev
@@ -451,36 +454,53 @@ export default function Dashboard() {
                 gradient="from-brand-600 to-brand-800"
                 loading={kpiLoading}
               />
+              {/* The six KPIs (kpis, docs section 9): every source's leads of the period */}
               <Kpi
-                icon={TrendingUp}
-                label="Average per day"
-                value={`${perDay(o?.average_per_day?.period?.all)} / day`}
-                caption={
-                  o?.average_per_day?.previous?.all != null
-                    ? `${perDay(o.average_per_day.previous.all)} before`
-                    : ""
-                }
-                gradient="from-violet-500 to-violet-700"
+                icon={ThumbsUp}
+                label="Interested"
+                value={fmt(o?.kpis?.interested)}
+                caption="Update: Interested"
+                gradient="from-emerald-500 to-emerald-700"
                 loading={kpiLoading}
               />
               <Kpi
-                icon={CalendarHeart}
-                label="Events in 30 days"
-                value={fmt(o?.upcoming_30_days.all)}
-                caption="Hot leads: their date is close"
+                icon={ThumbsDown}
+                label="Not interested"
+                value={fmt(o?.kpis?.not_interested)}
+                caption="Update: Not interested"
                 gradient="from-rose-500 to-rose-700"
                 loading={kpiLoading}
               />
               <Kpi
                 icon={IndianRupee}
-                label="Wedding budgets"
-                value={money(o?.wedding_budget, "total")}
+                label="Quoted"
+                value={o?.kpis?.quoted_count ? short(o.kpis.quoted_total) : "—"}
                 caption={
-                  o?.wedding_budget?.count
-                    ? `Avg ${short(o.wedding_budget.average)} per plan`
-                    : "No plans in this period"
+                  o?.kpis?.quoted_count
+                    ? `${fmt(o.kpis.quoted_count)} ${o.kpis.quoted_count === 1 ? "quote" : "quotes"}`
+                    : "No quotes in this period"
                 }
+                gradient="from-violet-500 to-violet-700"
+                loading={kpiLoading}
+              />
+              <Kpi
+                icon={BadgeCheck}
+                label="Converted"
+                value={fmt(o?.kpis?.converted)}
+                caption={o?.kpis?.converted_pct != null ? `${o.kpis.converted_pct}% of leads` : ""}
                 gradient="from-emerald-500 to-brand-700"
+                loading={kpiLoading}
+              />
+              <Kpi
+                icon={Wallet}
+                label="Conversion"
+                value={o?.kpis?.conversion_count ? short(o.kpis.conversion_total) : "—"}
+                caption={
+                  o?.kpis?.conversion_count
+                    ? `${fmt(o.kpis.conversion_count)} with a conversion amount`
+                    : "No conversion amounts in this period"
+                }
+                gradient="from-sky-500 to-brand-700"
                 loading={kpiLoading}
               />
               <Kpi
@@ -828,9 +848,10 @@ export default function Dashboard() {
                       sub: `${fmt(o?.photography_budget.count)} leads gave one`,
                     },
                     {
-                      label: "Median wedding budget",
-                      value: money(o?.wedding_budget, "median"),
-                      sub: `${fmt(o?.wedding_budget.count)} plans`,
+                      // wedding_budget is no longer returned; budget_fit is
+                      label: "Plans over budget",
+                      value: fmt(o?.budget_fit?.over ?? null),
+                      sub: `of ${fmt((o?.budget_fit?.fits ?? 0) + (o?.budget_fit?.over ?? 0))} estimated plans`,
                     },
                     {
                       label: "Avg guests per wedding",

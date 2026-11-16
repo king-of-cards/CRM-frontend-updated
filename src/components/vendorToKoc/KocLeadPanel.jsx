@@ -37,7 +37,14 @@ const formOf = (lead) => ({
   update_status: lead?.update_status ?? PENDING,
   additional_comments: lead?.additional_comments ?? "",
   follow_up_date: lead?.follow_up_date ?? "",
+  quoted_amount: lead?.quoted_amount != null ? String(lead.quoted_amount) : "",
+  conversion_amount: lead?.conversion_amount != null ? String(lead.conversion_amount) : "",
 });
+const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+const amountOf = (text) => {
+  const digits = String(text ?? "").replace(/\D/g, "");
+  return digits ? Number(digits) : null;
+};
 
 export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }) {
   const [shown, setShown] = useState(false);
@@ -98,6 +105,8 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
         ["Update", statusLabel(lead.update_status)],
         ["Additional comments", lead.additional_comments],
         ["Follow-up date", lead.follow_up_date ? dayText(lead.follow_up_date) : null],
+        ["Quoted amount", lead.quoted_amount != null ? inr.format(lead.quoted_amount) : null],
+        ["Conversion amount", lead.conversion_amount != null ? inr.format(lead.conversion_amount) : null],
         [
           "Last updated",
           lead.status_updated_at
@@ -120,6 +129,8 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
     if (form.additional_comments !== before.additional_comments)
       changes.additional_comments = form.additional_comments.trim() || null;
     if (form.follow_up_date !== before.follow_up_date) changes.follow_up_date = form.follow_up_date || null;
+    if (form.quoted_amount !== before.quoted_amount) changes.quoted_amount = amountOf(form.quoted_amount);
+    if (form.conversion_amount !== before.conversion_amount) changes.conversion_amount = amountOf(form.conversion_amount);
     if (!Object.keys(changes).length) return setError("Nothing to save: no changes.");
     setSaving(true);
     setError("");
@@ -158,11 +169,13 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
   }
 
   const btn = "flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition";
-  // Admins edit Update / comments / follow-up in the form above, so only "Last updated" is listed
+  // Admins edit Update / comments / follow-up / amounts in the form above, so only "Last updated" is listed
   // for them; vendor logins see every follow-up field read-only
   const sections = [
     { title: "Lead details", rows: details },
-    isAdmin ? { title: "Last update", rows: followRows.slice(3) } : { title: "KOC follow-up", rows: followRows },
+    isAdmin
+      ? { title: "Last update", rows: followRows.filter(([label]) => label === "Last updated") }
+      : { title: "KOC follow-up", rows: followRows },
   ];
 
   return (
@@ -273,6 +286,28 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
                 <span className="text-xs font-medium text-gray-600">Follow-up date</span>
                 <input type="date" value={form.follow_up_date} onChange={(e) => set("follow_up_date", e.target.value)} className={`mt-1.5 ${fieldCls}`} />
               </label>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-xs font-medium text-gray-600">Quoted amount (₹)</span>
+                  <input
+                    inputMode="numeric"
+                    value={form.quoted_amount}
+                    onChange={(e) => set("quoted_amount", e.target.value.replace(/[^\d,]/g, ""))}
+                    placeholder="e.g. 45000"
+                    className={`mt-1.5 ${fieldCls}`}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-medium text-gray-600">Conversion amount (₹)</span>
+                  <input
+                    inputMode="numeric"
+                    value={form.conversion_amount}
+                    onChange={(e) => set("conversion_amount", e.target.value.replace(/[^\d,]/g, ""))}
+                    placeholder="e.g. 40000"
+                    className={`mt-1.5 ${fieldCls}`}
+                  />
+                </label>
+              </div>
               {error && (
                 <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">
                   {error}

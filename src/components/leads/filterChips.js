@@ -5,10 +5,10 @@ import { periodLabel, periodText } from "../../pages/dashboardPeriod.js";
 import { sourceLabel, statusLabel } from "../vendorToKoc/kocUtils.js";
 import {
   branchName,
-  INTEREST_LABELS,
   KOC,
   NOT_SHARED,
   ORIGIN_LABELS,
+  UPDATE_LABELS,
   parseQuote,
   periodOfFilters,
 } from "./leadFilters.js";
@@ -83,22 +83,25 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
     const names = [...(has("unassigned") ? ["Unassigned"] : []), ...(filters.vendor_id ?? []).map(vendorName)];
     add("assigned", `Assigned to: ${names.join(", ")}`, ["vendor_id", "unassigned"]);
   }
-  if (has("interest")) add("interest", `Interest: ${list(filters.interest, (v) => INTEREST_LABELS[v] ?? v)}`, ["interest"]);
-  if (has("quote")) {
-    const q = parseQuote(filters.quote);
+  if (has("update_status"))
+    add("update", `Update: ${list(filters.update_status, (v) => UPDATE_LABELS[v] ?? v)}`, ["update_status"]);
+  // Amount filters: "has" | "none" | "gt:<n>" | "lt:<n>"
+  const amountChip = (key, has_, none, noun) => {
+    const q = parseQuote(filters[key]);
     const text =
       q.op === "has"
-        ? "Has a quote"
+        ? has_
         : q.op === "none"
-          ? "No quote yet"
+          ? none
           : q.op === "gt"
-            ? `Quote more than ${inr.format(Number(q.amount))}`
+            ? `${noun} more than ${inr.format(Number(q.amount))}`
             : q.op === "lt"
-              ? `Quote less than ${inr.format(Number(q.amount))}`
-              : `Quote: ${filters.quote}`;
-    add("quote", text, ["quote"]);
-  }
-  if (has("converted")) add("converted", `Converted: ${filters.converted === "yes" ? "Yes" : "No"}`, ["converted"]);
+              ? `${noun} less than ${inr.format(Number(q.amount))}`
+              : `${noun}: ${filters[key]}`;
+    add(key, text, [key]);
+  };
+  if (has("quote")) amountChip("quote", "Has a quote", "No quote yet", "Quote");
+  if (has("conversion")) amountChip("conversion", "Has a conversion amount", "No conversion amount", "Conversion");
   if (has("origin")) add("origin", `Origin: ${list(filters.origin, (v) => ORIGIN_LABELS[v] ?? v)}`, ["origin"]);
   return chips;
 }

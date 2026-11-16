@@ -18,6 +18,7 @@ import KocAddLeadDialog from "./KocAddLeadDialog.jsx";
 import KocBulkUploadDialog from "./KocBulkUploadDialog.jsx";
 import KocLeadPanel from "./KocLeadPanel.jsx";
 import { listUsers } from "../../api/users.js";
+import { AmountCell } from "../leads/InlineCrm.jsx";
 import { dateTimeText, dayText, kocErrors, PENDING, phoneText, statusLabel, STATUSES } from "./kocUtils.js";
 
 // Vendors → KOC leads (docs/API_REFERENCE.md section 11). Admins see every vendor's leads and
@@ -25,7 +26,7 @@ import { dateTimeText, dayText, kocErrors, PENDING, phoneText, statusLabel, STAT
 // their own leads, with those columns read-only (and never the Vendor column), and are the only ones who add leads (single or bulk).
 // Both export.
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10; // the default page size (10 / 25 / 50 / 100)
 const SORTS_ALL = [
   { value: "created_at:desc", label: "Newest first" },
   { value: "created_at:asc", label: "Oldest first" },
@@ -181,12 +182,13 @@ function ExportMenu({ onExport, busy }) {
 export default function VendorToKocLeads() {
   const { isAdmin, canSeeLeads, user: me } = useAuth();
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const { filters, query, queryKey, update, clear, apply, clearFilters, count } = useLeadFilters(KOC);
   const sorts = isAdmin ? SORTS_ADMIN : SORTS_ALL;
   const sortValue = sorts.some((s) => s.value === filters.sort) ? filters.sort : sorts[0].value;
   // Vendor logins can't use the admin filters (the API answers 422): leave them out
   const apiFilters = isAdmin ? query : withoutKocAdminKeys(query);
-  const listParams = (p) => ({ page: p, page_size: PAGE_SIZE, ...apiFilters, ...parseSort(sortValue) });
+  const listParams = (p) => ({ page: p, page_size: pageSize, ...apiFilters, ...parseSort(sortValue) });
 
   const [data, setData] = useState(() => listKocLeads.peek(listParams(1)) ?? null);
   const [stats, setStats] = useState(() => getKocStats.peek(apiFilters) ?? null);
@@ -202,7 +204,7 @@ export default function VendorToKocLeads() {
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
   // Any filter or sort change goes back to page 1
-  useEffect(() => setPage(1), [queryKey, sortValue]);
+  useEffect(() => setPage(1), [queryKey, sortValue, pageSize]);
 
   // Vendors for the filter and the add forms, and login names (admins only)
   useEffect(() => {
@@ -236,7 +238,7 @@ export default function VendorToKocLeads() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSeeLeads, isAdmin, page, queryKey, sortValue, reloadKey]);
+  }, [canSeeLeads, isAdmin, page, pageSize, queryKey, sortValue, reloadKey]);
 
   if (!canSeeLeads) return null;
   const items = data?.items ?? [];
@@ -282,7 +284,10 @@ export default function VendorToKocLeads() {
     { label: "Pending", value: fmt(stats?.by_status?.pending), tone: stats?.by_status?.pending ? "amber" : undefined },
     { label: "Follow-ups due", value: fmt(stats?.follow_ups_due), tone: stats?.follow_ups_due ? "rose" : undefined },
   ];
-  const colCount = isAdmin ? 9 : 8;
+  const colCount = isAdmin ? 11 : 10;
+  const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
+  // An admin's amount edit (PATCH), for AmountCell: errors are shown under the cell
+  const saveAmount = (lead) => async (changes) => onSaved(await updateKocLead(lead.id, changes));
 
   return (
     <SectionShell
@@ -332,7 +337,16 @@ export default function VendorToKocLeads() {
           placeholder="Search name, city or phone…"
         />
       }
-      footer={<Pagination page={page} pageSize={PAGE_SIZE} total={data?.total} onPage={setPage} disabled={loading} />}
+      footer={
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          total={data?.total}
+          onPage={setPage}
+          onPageSize={setPageSize}
+          disabled={loading}
+        />
+      }
     >
       <div className="overflow-x-auto">
         <table className={`w-full text-sm transition-opacity ${loading && data ? "opacity-50" : ""}`}>
@@ -348,6 +362,8 @@ export default function VendorToKocLeads() {
               <th className={th}>Update</th>
               <th className={th}>Additional comments</th>
               <th className={th}>Follow-up date</th>
+              <th className={`${th} text-right`}>Quoted amount</th>
+              <th className={`${th} text-right`}>Conversion amount</th>
             </tr>
           </thead>
           <tbody>
@@ -382,6 +398,13 @@ export default function VendorToKocLeads() {
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <FollowUpCell lead={l} onSaved={onSaved} />
                     </td>
+                    {/* Amounts: admins edit them (PATCH quoted_amount / conversion_amount) */}
+                    <td className="whitespace-nowrap px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <AmountCell crm={l} save={saveAmount(l)} field="quoted_amount" label="Quoted amount" setQuotedDate={false} />
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                      <AmountCell crm={l} save={saveAmount(l)} field="conversion_amount" label="Conversion amount" setQuotedDate={false} />
+                    </td>
                   </>
                 ) : (
                   <>
@@ -395,6 +418,12 @@ export default function VendorToKocLeads() {
                     </td>
                     <td className="max-w-[280px] whitespace-pre-line px-4 py-3 text-gray-700">{l.additional_comments || "—"}</td>
                     <td className="whitespace-nowrap px-4 py-3 text-gray-800">{l.follow_up_date ? dayText(l.follow_up_date) : "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-gray-800">
+                      {l.quoted_amount != null ? inr.format(l.quoted_amount) : "—"}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-gray-800">
+                      {l.conversion_amount != null ? inr.format(l.conversion_amount) : "—"}
+                    </td>
                   </>
                 )}
               </tr>

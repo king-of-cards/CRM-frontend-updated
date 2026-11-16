@@ -29,7 +29,7 @@ export function outcomeCells(outcome) {
       key: "interested",
       label: "INTERESTED",
       text: interested ? count(interested) : "—",
-      filter: interested ? { interest: "interested" } : null,
+      filter: interested ? { update_status: "interested" } : null,
     },
     {
       key: "converted",
@@ -37,7 +37,7 @@ export function outcomeCells(outcome) {
       text: converted
         ? `${count(converted)}${o.converted_pct != null ? ` · ${o.converted_pct}%` : ""}`
         : "—",
-      filter: converted ? { converted: "yes" } : null,
+      filter: converted ? { update_status: "converted" } : null,
     },
     {
       key: "quoted",

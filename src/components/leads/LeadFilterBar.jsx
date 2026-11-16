@@ -11,10 +11,10 @@ import {
   branchName,
   buildQuote,
   filtersOfPeriod,
-  INTEREST_LABELS,
   KOC,
   NOT_SHARED,
   ORIGIN_LABELS,
+  UPDATE_LABELS,
   parseQuote,
   periodOfFilters,
   readFilters,
@@ -115,6 +115,62 @@ const partnerLabel = (v) => (v === NOT_SHARED ? "Not shared yet" : v);
 const budgetLabel = (v) => (/^\d/.test(String(v)) ? `₹${String(v).replace(/[-_]/g, "–")}` : String(v));
 
 
+// An amount filter (quote / conversion): Any | Has | None | More than | Less than (+ ₹ amount).
+// value: "has" | "none" | "gt:<amount>" | "lt:<amount>" | "".
+function AmountFilter({ label, value, onChange, anyLabel, hasLabel, noneLabel }) {
+  const parsed = parseQuote(value);
+  const [op, setOp] = useState(parsed.op);
+  // Follow the value, except right after this control cleared it itself ("More than" with no
+  // amount yet stays chosen)
+  const skipSync = useRef(false);
+  useEffect(() => {
+    if (skipSync.current) {
+      skipSync.current = false;
+      return;
+    }
+    setOp(parsed.op);
+  }, [parsed.op]);
+  const needsAmount = op === "gt" || op === "lt";
+  return (
+    <Field label={label} wide>
+      <div className="flex gap-2">
+        <select
+          aria-label={label}
+          value={op}
+          onChange={(e) => {
+            const nextOp = e.target.value;
+            setOp(nextOp);
+            const next = buildQuote(nextOp, parsed.amount);
+            const resulting = parseQuote(next).op;
+            if (resulting !== parsed.op && resulting !== nextOp) skipSync.current = true;
+            onChange(next);
+          }}
+          className={`${inputCls} w-48 flex-none`}
+        >
+          <option value="">{anyLabel}</option>
+          <option value="has">{hasLabel}</option>
+          <option value="none">{noneLabel}</option>
+          <option value="gt">More than</option>
+          <option value="lt">Less than</option>
+        </select>
+        <span className="relative block min-w-0 flex-1">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">₹</span>
+          <DebouncedInput
+            value={parsed.amount}
+            normalize={digitsOnly}
+            onCommit={(v) => onChange(buildQuote(op, v))}
+            disabled={!needsAmount}
+            inputMode="numeric"
+            placeholder={needsAmount ? "Amount" : "Pick an option"}
+            aria-label={`${label} value`}
+            className={`${inputCls} pl-7`}
+          />
+        </span>
+      </div>
+    </Field>
+  );
+}
+
 // Every filter option, for the panel. filters / update are the panel's draft.
 function FilterControls({ source, filters, update, options, isAdmin, today }) {
   const o = options ?? {};
@@ -134,27 +190,16 @@ function FilterControls({ source, filters, update, options, isAdmin, today }) {
     setEventMode(eventChosen);
   }, [eventChosen]);
 
-  // Quoted amount: Any | Has a quote | No quote | More than | Less than (+ amount)
-  const quote = parseQuote(filters.quote);
-  const [quoteOp, setQuoteOp] = useState(quote.op);
-  const skipQuoteSync = useRef(false); // as above: "More than" with no amount yet stays chosen
-  useEffect(() => {
-    if (skipQuoteSync.current) {
-      skipQuoteSync.current = false;
-      return;
-    }
-    setQuoteOp(quote.op);
-  }, [quote.op]);
-
   // Assigned to: Unassigned + vendors (admins only)
   const assigned = [...(filters.unassigned ? ["unassigned"] : []), ...filters.vendor_id];
   const vendorOptions = [
     { value: "unassigned", label: "Unassigned", name: "Unassigned" },
     ...(o.vendors ?? []).map((v) => ({ value: String(v.id), label: v.name, name: v.name })),
   ];
-  const interestOptions = o.interests
-    ? counted(o.interests, (v) => INTEREST_LABELS[v] ?? v)
-    : Object.entries(INTEREST_LABELS).map(([value, label]) => ({ value, label, name: label }));
+  // Update: from filter-options.updates (pending first, then the 7 values, with counts)
+  const updateOptions = o.updates
+    ? counted(o.updates, (v) => UPDATE_LABELS[v] ?? v)
+    : Object.entries(UPDATE_LABELS).map(([value, label]) => ({ value, label, name: label }));
   const originOptions = counted(o.origins, (v) => ORIGIN_LABELS[v] ?? v);
   const partnerOptions = [
     { value: "", label: "Anyone" },
@@ -447,62 +492,30 @@ function FilterControls({ source, filters, update, options, isAdmin, today }) {
         )}
         {!isKoc && (
         <>
-        <Field label="Interest">
+        <Field label="Update">
           <MultiSelect
-            label="Interest"
-            options={interestOptions}
-            value={filters.interest}
-            onChange={(vals) => update({ interest: vals })}
+            label="Update"
+            options={updateOptions}
+            value={filters.update_status}
+            onChange={(vals) => update({ update_status: vals })}
           />
         </Field>
-        <Field label="Quoted amount" wide>
-          <div className="flex gap-2">
-            <select
-              aria-label="Quoted amount"
-              value={quoteOp}
-              onChange={(e) => {
-                const op = e.target.value;
-                setQuoteOp(op);
-                const next = buildQuote(op, quote.amount);
-                const nextOp = parseQuote(next).op;
-                if (nextOp !== quote.op && nextOp !== op) skipQuoteSync.current = true;
-                update({ quote: next });
-              }}
-              className={`${inputCls} w-40 flex-none`}
-            >
-              <option value="">Any quote</option>
-              <option value="has">Has a quote</option>
-              <option value="none">No quote yet</option>
-              <option value="gt">More than</option>
-              <option value="lt">Less than</option>
-            </select>
-            <span className="relative block min-w-0 flex-1">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">₹</span>
-              <DebouncedInput
-                value={quote.amount}
-                normalize={digitsOnly}
-                onCommit={(v) => update({ quote: buildQuote(quoteOp, v) })}
-                disabled={quoteOp !== "gt" && quoteOp !== "lt"}
-                inputMode="numeric"
-                placeholder={quoteOp === "gt" || quoteOp === "lt" ? "Amount" : "Pick an option"}
-                aria-label="Quoted amount value"
-                className={`${inputCls} pl-7`}
-              />
-            </span>
-          </div>
-        </Field>
-        <Field label="Converted">
-          <Select
-            label="Converted"
-            value={filters.converted}
-            onChange={(v) => update({ converted: v })}
-            options={[
-              { value: "", label: "Any" },
-              { value: "yes", label: "Yes" },
-              { value: "no", label: "No" },
-            ]}
-          />
-        </Field>
+        <AmountFilter
+          label="Quoted amount"
+          value={filters.quote}
+          onChange={(v) => update({ quote: v })}
+          anyLabel="Any quote"
+          hasLabel="Has a quote"
+          noneLabel="No quote yet"
+        />
+        <AmountFilter
+          label="Conversion amount"
+          value={filters.conversion}
+          onChange={(v) => update({ conversion: v })}
+          anyLabel="Any"
+          hasLabel="Has a conversion amount"
+          noneLabel="No conversion amount"
+        />
         <Field label="Origin">
           <MultiSelect
             label="Origin"
