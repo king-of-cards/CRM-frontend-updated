@@ -18,11 +18,11 @@ import KocAddLeadDialog from "./KocAddLeadDialog.jsx";
 import KocBulkUploadDialog from "./KocBulkUploadDialog.jsx";
 import KocLeadPanel from "./KocLeadPanel.jsx";
 import { listUsers } from "../../api/users.js";
-import { dayText, kocErrors, PENDING, phoneText, STATUSES } from "./kocUtils.js";
+import { dateTimeText, dayText, kocErrors, PENDING, phoneText, statusLabel, STATUSES } from "./kocUtils.js";
 
 // Vendors → KOC leads (docs/API_REFERENCE.md section 11). Admins see every vendor's leads and
 // edit Update, Additional comments and Follow-up date in the table; vendor logins see only
-// their own leads, without those columns, and are the only ones who add leads (single or bulk).
+// their own leads, with those columns read-only (and never the Vendor column), and are the only ones who add leads (single or bulk).
 // Both export.
 
 const PAGE_SIZE = 20;
@@ -33,13 +33,11 @@ const SORTS_ALL = [
   { value: "lead_date:desc", label: "Lead date (latest)" },
   { value: "name:asc", label: "Name A–Z" },
   { value: "city:asc", label: "City A–Z" },
-];
-const SORTS_ADMIN = [
-  ...SORTS_ALL,
-  { value: "vendor_name:asc", label: "Vendor A–Z" },
   { value: "follow_up_date:asc", label: "Follow-up (soonest)" },
   { value: "update_status:asc", label: "Update" },
 ];
+// Admins also sort by vendor (vendor logins never see the Vendor column)
+const SORTS_ADMIN = [...SORTS_ALL, { value: "vendor_name:asc", label: "Vendor A–Z" }];
 const th = "whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500";
 
 function CellError({ text }) {
@@ -281,14 +279,10 @@ export default function VendorToKocLeads() {
     { label: "Total leads", value: fmt(stats?.total) },
     { label: "Bulk upload", value: fmt(stats?.by_source?.bulk_upload) },
     { label: "Manual", value: fmt(stats?.by_source?.manual) },
-    ...(isAdmin
-      ? [
-          { label: "Pending", value: fmt(stats?.by_status?.pending), tone: stats?.by_status?.pending ? "amber" : undefined },
-          { label: "Follow-ups due", value: fmt(stats?.follow_ups_due), tone: stats?.follow_ups_due ? "rose" : undefined },
-        ]
-      : []),
+    { label: "Pending", value: fmt(stats?.by_status?.pending), tone: stats?.by_status?.pending ? "amber" : undefined },
+    { label: "Follow-ups due", value: fmt(stats?.follow_ups_due), tone: stats?.follow_ups_due ? "rose" : undefined },
   ];
-  const colCount = isAdmin ? 9 : 5;
+  const colCount = isAdmin ? 9 : 8;
 
   return (
     <SectionShell
@@ -350,13 +344,10 @@ export default function VendorToKocLeads() {
               <th className={th}>Name</th>
               <th className={th}>Phone</th>
               <th className={th}>City</th>
-              {isAdmin && (
-                <>
-                  <th className={th}>Update</th>
-                  <th className={th}>Additional comments</th>
-                  <th className={th}>Follow-up date</th>
-                </>
-              )}
+              {/* KOC's update: admins edit it, vendor logins see it read-only */}
+              <th className={th}>Update</th>
+              <th className={th}>Additional comments</th>
+              <th className={th}>Follow-up date</th>
             </tr>
           </thead>
           <tbody>
@@ -379,7 +370,7 @@ export default function VendorToKocLeads() {
                 <td className="px-4 py-3 font-medium text-gray-900">{l.name || "—"}</td>
                 <td className="whitespace-nowrap px-4 py-3 tabular-nums text-gray-800">{phoneText(l.phone)}</td>
                 <td className="px-4 py-3 text-gray-700">{l.city || "—"}</td>
-                {isAdmin && (
+                {isAdmin ? (
                   <>
                     {/* Editing here mustn't open the details panel */}
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -391,6 +382,19 @@ export default function VendorToKocLeads() {
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <FollowUpCell lead={l} onSaved={onSaved} />
                     </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-4 py-3">
+                      <span className="font-medium text-gray-900">{statusLabel(l.update_status)}</span>
+                      {l.status_updated_at && (
+                        <span className="mt-0.5 block text-[11px] text-gray-500">
+                          Last updated: {l.status_updated_by_name || "—"} · {dateTimeText(l.status_updated_at)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="max-w-[280px] whitespace-pre-line px-4 py-3 text-gray-700">{l.additional_comments || "—"}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-gray-800">{l.follow_up_date ? dayText(l.follow_up_date) : "—"}</td>
                   </>
                 )}
               </tr>

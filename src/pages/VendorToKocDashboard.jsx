@@ -44,8 +44,9 @@ import {
 } from "./vendorToKocDashboard.js";
 
 // Vendors → KOC dashboard (GET /analytics/vendor-to-koc), in the style of the KOC → Vendors one.
-// Admins: every card. Vendor logins: only what the API returns for them (Leads received with its
-// change, Average per day, Lead inflow). Every number links to the list with the same filters and
+// Admins: every card. Vendor logins: what the API returns for them, over their own leads (the
+// numbers, update breakdown, funnel, follow-ups); never the per-vendor cards, top cities, by source
+// or latest leads. Every number links to the list with the same filters and
 // period; "—" for empty values.
 
 const STATUS_COLORS = ["#9ca3af", "#10b981", "#f43f5e", "#f97316", "#0ea5e9", "#8b5cf6", "#22c55e", "#64748b"];
@@ -154,6 +155,8 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
   const points = inflowPoints(d?.inflow);
   const statuses = statusRows(d?.by_status);
   const all = { all: true };
+  // The outcome cards: admins, and vendor logins once the API sends them (pending, funnel…)
+  const outcomes = isAdmin || d?.pending !== undefined;
 
   return (
     <>
@@ -166,7 +169,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
         <>
           {/* ── KPIs ── */}
           <section
-            className={`mt-6 grid gap-4 sm:grid-cols-2 ${isAdmin ? "xl:grid-cols-3 2xl:grid-cols-6" : "xl:grid-cols-2"}`}
+            className={`mt-6 grid gap-4 sm:grid-cols-2 ${outcomes ? "xl:grid-cols-3 2xl:grid-cols-6" : "xl:grid-cols-2"}`}
             aria-label="Key numbers"
           >
             <Kpi
@@ -190,7 +193,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
               gradient="from-violet-500 to-violet-700"
               loading={kpiLoading}
             />
-            {isAdmin && (
+            {outcomes && (
               <>
                 <Kpi
                   icon={Clock}
@@ -264,7 +267,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
           )}
 
           {/* ── Inflow + breakdown ── */}
-          <div className={`mt-6 grid gap-4 ${isAdmin ? "xl:grid-cols-[2fr_1fr]" : ""}`}>
+          <div className={`mt-6 grid gap-4 ${outcomes ? "xl:grid-cols-[2fr_1fr]" : ""}`}>
             <Panel
               title="Lead inflow"
               subtitle={`Leads received per ${granularity === "month" ? "month" : granularity === "week" ? "week (7-day buckets)" : "day"}${isAdmin ? ", per vendor" : ""}`}
@@ -311,7 +314,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
               </div>
             </Panel>
 
-            {isAdmin && (
+            {outcomes && (
               <Panel title="Update breakdown" subtitle="Leads received in the period" icon={PieIcon}>
                 <div className="h-44">
                   {d && d.received > 0 && (
@@ -352,13 +355,15 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
             )}
           </div>
 
-          {isAdmin && (
+          {outcomes && (
             <>
-              {/* ── Funnel, cities, sources ── */}
-              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {/* ── Funnel (everyone), cities and sources (admins) ── */}
+              <div className={`mt-6 grid gap-4 ${isAdmin ? "md:grid-cols-2 xl:grid-cols-3" : ""}`}>
                 <Panel title="Funnel" subtitle="Received → updated → engaged → converted" icon={FunnelIcon}>
                   <LinkedBars rows={funnelRows(d?.funnel)} period={period} />
                 </Panel>
+                {isAdmin && (
+                <>
                 <Panel title="Top cities" subtitle="Leads received in the period" icon={MapPin}>
                   <LinkedBars
                     rows={(d?.top_cities ?? []).map((c) => ({ key: c.value, label: c.value, count: c.count, filters: { city: c.value } }))}
@@ -369,9 +374,12 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                 <Panel title="By source" subtitle="How the leads were added" icon={Sparkles}>
                   <LinkedBars rows={sourceRows(d?.by_source)} period={period} color="from-rose-400 to-rose-600" />
                 </Panel>
+                </>
+                )}
               </div>
 
-              {/* ── Vendor comparison ── */}
+              {/* ── Vendor comparison (admins) ── */}
+              {isAdmin && (
               <div className="mt-6">
                 <Panel title="Vendor comparison" subtitle="Leads received in the period" icon={Handshake} flush>
                   <div className="overflow-x-auto">
@@ -415,9 +423,10 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                   </div>
                 </Panel>
               </div>
+              )}
 
-              {/* ── Follow-ups + latest ── */}
-              <div className="mt-6 grid gap-4 xl:grid-cols-2">
+              {/* ── Follow-ups (everyone) + latest (admins) ── */}
+              <div className={`mt-6 grid gap-4 ${isAdmin ? "xl:grid-cols-2" : ""}`}>
                 <Panel
                   title="Next follow-ups"
                   subtitle="Open leads, earliest first (overdue included)"
@@ -449,6 +458,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                     )}
                   </ul>
                 </Panel>
+                {isAdmin && (
                 <Panel title="Latest leads" subtitle="The newest leads of the period" icon={Inbox} flush>
                   <ul className="divide-y divide-gray-100">
                     {(d?.latest ?? []).map((l) => (
@@ -473,6 +483,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                     {!(d?.latest ?? []).length && <li className="px-5 py-8 text-center text-sm text-gray-500">No leads in this period.</li>}
                   </ul>
                 </Panel>
+                )}
               </div>
             </>
           )}

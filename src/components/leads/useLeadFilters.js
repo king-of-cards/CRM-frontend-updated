@@ -14,8 +14,9 @@ import {
 //   query:    the API query for the list, stats and export (no paging / sort)
 //   queryKey: the same as a string, for effect dependencies (changes reset the page to 1)
 //   update({ key: value }): change filters ("" / [] removes one); clear(): all but the sort
-//   apply(draft): replace the filters with the panel's draft (URLSearchParams), keeping search and sort
-//   clearFilters(): remove every filter (the date back to All time), keeping search and sort
+//   apply(draft): replace the panel's filters with its draft (URLSearchParams), keeping the search,
+//     the sort and the date (those three are in the row, not the panel)
+//   clearFilters(): remove the panel's filters, keeping the search, the sort and the date
 export function useLeadFilters(source) {
   const [params, setParams] = useSearchParams();
   const raw = params.toString();
@@ -34,7 +35,7 @@ export function useLeadFilters(source) {
     [setParams],
   );
   const keepSearchAndSort = (prev, next) => {
-    for (const k of ["search", "sort"]) {
+    for (const k of ["search", "sort", "date_from", "date_to"]) {
       const v = prev.get(k);
       if (v) next.set(k, v);
       else next.delete(k);

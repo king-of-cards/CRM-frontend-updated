@@ -1,5 +1,5 @@
 // Who may change which CRM field (see docs/API_REFERENCE.md, "Access: who sees and edits what").
-//   interest, quoted_amount, quoted_date, converted: the assigned vendor only (admins: read-only)
+//   interest, quoted_amount, quoted_date, converted: admins and the assigned vendor
 //   vendor_id ("Assigned to"):                       admins only (vendors: read-only)
 //   notes:                                           both
 
@@ -10,7 +10,7 @@ export const SHARED_FIELDS = ["notes"];
 export function canEdit(isAdmin, field) {
   if (SHARED_FIELDS.includes(field)) return true;
   if (ADMIN_FIELDS.includes(field)) return Boolean(isAdmin);
-  if (VENDOR_FIELDS.includes(field)) return !isAdmin;
+  if (VENDOR_FIELDS.includes(field)) return true;
   return false;
 }
 

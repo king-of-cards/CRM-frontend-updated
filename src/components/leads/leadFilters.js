@@ -47,8 +47,9 @@ export const KOC_KEYS = [
   "city",
   "source",
 ];
-// Admin-only Vendors → KOC filters (a vendor login sending them gets 422, so they're dropped)
-export const KOC_ADMIN_KEYS = ["vendor_id", "update_status", "follow_up_from", "follow_up_to", "follow_up_due"];
+// Admin-only Vendors → KOC filter: vendor logins only see their own vendor (the API ignores it
+// for them; it's dropped). Update and Follow-up filters are for everyone.
+export const KOC_ADMIN_KEYS = ["vendor_id"];
 export const withoutKocAdminKeys = (query) =>
   Object.fromEntries(Object.entries(query).filter(([k]) => !KOC_ADMIN_KEYS.includes(k)));
 

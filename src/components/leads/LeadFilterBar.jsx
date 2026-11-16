@@ -26,8 +26,9 @@ import {
 import { filterChips } from "./filterChips.js";
 
 // One filter bar for the lead lists (docs/API_REFERENCE.md sections 10 and 11): a row with the
-// search box, a "Filters" button (active-filter count) and Sort; the button opens a panel with
-// every filter option, edited as a draft until Apply (Clear removes them all). Active filters
+// search box, the date control (as on the Dashboard), a "Filters" button (count of the panel's
+// filters) and Sort; the button opens a panel with the other filter options, edited as a draft
+// until Apply (Clear removes them; the date stays). Active filters
 // show as removable chips under the row. All values live in the URL (useLeadFilters).
 // Names are shown for choices, never ids.
 //   options:     GET /{list}/filter-options
@@ -162,15 +163,6 @@ function FilterControls({ source, filters, update, options, isAdmin, today }) {
 
   return (
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <Field label={isKoc ? "Received" : "Arrived"} wide>
-          <PeriodFilter
-            alignStart
-            period={periodOfFilters(filters)}
-            today={today}
-            onChange={(p) => update(filtersOfPeriod(p))}
-          />
-        </Field>
-
         {!isKoc && (
         <Field
           label="Event date"
@@ -246,8 +238,8 @@ function FilterControls({ source, filters, update, options, isAdmin, today }) {
                 />
               </div>
             </Field>
+            {/* Vendor: admins only; Update and Follow-up: everyone */}
             {isAdmin && (
-              <>
                 <Field label="Vendor">
                   <MultiSelect
                     label="Vendor"
@@ -257,6 +249,8 @@ function FilterControls({ source, filters, update, options, isAdmin, today }) {
                     onChange={(vals) => update({ vendor_id: vals })}
                   />
                 </Field>
+            )}
+              <>
                 <Field label="Update">
                   <MultiSelect
                     label="Update"
@@ -296,7 +290,6 @@ function FilterControls({ source, filters, update, options, isAdmin, today }) {
                   </div>
                 </Field>
               </>
-            )}
             <Field label="City">
               <DebouncedInput
                 value={filters.city}
@@ -574,6 +567,8 @@ export default function LeadFilterBar({
   const draftUpdate = (updates) => setDraft((d) => withFilters(d, updates));
 
   const chips = filterChips(filters, source, options, isAdmin);
+  // The Filters badge counts the panel's filters (the date has its own control in the row)
+  const panelCount = count - (filters.date_from || filters.date_to ? 1 : 0);
   // Removing a chip (or Clear all) closes the panel, so an open draft can't bring it back
   const removeChip = (keys) => {
     setDraft(null);
@@ -588,22 +583,34 @@ export default function LeadFilterBar({
 
   return (
     <div className="w-full rounded-2xl bg-gray-50/80 p-4 ring-1 ring-gray-100">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-start gap-3">
         {searchBox}
+        {/* Arrival (lists) / received (Vendors → KOC) date, as on the Dashboard; applies at once */}
+        <div title={source === KOC ? "Received date" : "Arrival date"}>
+          <PeriodFilter
+            alignStart
+            period={periodOfFilters(filters)}
+            today={today}
+            onChange={(p) => {
+              setDraft(null);
+              update(filtersOfPeriod(p));
+            }}
+          />
+        </div>
         <button
           type="button"
           aria-expanded={open}
           onClick={() => (open ? setDraft(null) : openPanel())}
           className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ring-1 transition ${
-            open || count > 0
+            open || panelCount > 0
               ? "bg-white text-brand-800 ring-brand-200"
               : "bg-white text-gray-700 ring-gray-200 hover:bg-gray-50"
           }`}
         >
           <SlidersHorizontal size={15} aria-hidden="true" />
           Filters
-          {count > 0 && (
-            <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-semibold text-white">{count}</span>
+          {panelCount > 0 && (
+            <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-semibold text-white">{panelCount}</span>
           )}
         </button>
         <div className="ml-auto">

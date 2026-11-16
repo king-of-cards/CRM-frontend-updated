@@ -85,7 +85,14 @@ describe("list helpers", () => {
       city: "Goa",
       source: ["manual"],
     });
-    expect(withoutKocAdminKeys(q)).toEqual({ search: "a", city: "Goa", source: ["manual"] });
+    // vendor logins: only the Vendor filter is dropped
+    expect(withoutKocAdminKeys(q)).toEqual({
+      search: "a",
+      update_status: ["pending", "converted"],
+      follow_up_due: "true",
+      city: "Goa",
+      source: ["manual"],
+    });
     expect(activeCount(f, "vendor_to_koc")).toBe(5); // vendor, update, follow-up, city, source
   });
 });

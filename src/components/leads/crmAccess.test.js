@@ -2,10 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { assignedText, canEdit, panelChanges } from "./crmAccess.js";
 
 describe("who edits what", () => {
-  test("admins: Assigned to and Notes only", () => {
-    expect(canEdit(true, "vendor_id")).toBe(true);
-    expect(canEdit(true, "notes")).toBe(true);
-    for (const f of ["interest", "quoted_amount", "quoted_date", "converted"]) expect(canEdit(true, f)).toBe(false);
+  test("admins: everything, including Assigned to", () => {
+    for (const f of ["vendor_id", "notes", "interest", "quoted_amount", "quoted_date", "converted"])
+      expect(canEdit(true, f)).toBe(true);
   });
   test("vendors: interest, quote, converted and notes; not Assigned to", () => {
     expect(canEdit(false, "vendor_id")).toBe(false);
@@ -26,9 +25,9 @@ describe("assignedText", () => {
 
 describe("panelChanges", () => {
   const before = { vendor_id: null, interest: null, quoted_amount: null, quoted_date: null, converted: false, notes: "" };
-  test("admin: only vendor_id and notes, only when changed", () => {
+  test("admin: every changed field, Assigned to included", () => {
     const after = { ...before, vendor_id: 2, interest: "interested", notes: "called" };
-    expect(panelChanges(true, before, after)).toEqual({ vendor_id: 2, notes: "called" });
+    expect(panelChanges(true, before, after)).toEqual({ vendor_id: 2, interest: "interested", notes: "called" });
   });
   test("vendor: never vendor_id", () => {
     const after = { ...before, vendor_id: 3, interest: "interested", quoted_amount: 45000, converted: true };

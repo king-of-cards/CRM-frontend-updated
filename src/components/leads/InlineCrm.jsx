@@ -7,8 +7,9 @@ import { assignedText } from "./crmAccess.js";
 
 // The four editable CRM cells in every lead table: Assigned to, Interest, Quote, Converted.
 // Each change is saved at once (only that field) and the row updates in place.
-// Who edits what: Assigned to = admins; Interest, Quote, Converted = the assigned vendor.
-// The other role sees the value as read-only text. Save errors (403/404…) are shown under the cell.
+// Who edits what: Assigned to = admins only (vendor logins don't get this column); Interest,
+// Quote and Converted = admins and the assigned vendor. Save errors (403/404…) are shown under
+// the cell.
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -148,19 +149,8 @@ export function VendorCell({ crm, save }) {
 }
 
 export function InterestCell({ crm, save }) {
-  const { isAdmin } = useAuth();
   const { busy, error, run } = useSaver(save);
   const info = interestInfo(crm.interest);
-  // Admins: read-only
-  if (isAdmin) {
-    return info ? (
-      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ${info.style}`}>
-        {info.label}
-      </span>
-    ) : (
-      <span className="text-gray-300">—</span>
-    );
-  }
   return (
     <span title={error || undefined}>
       <PillSelect
@@ -186,7 +176,6 @@ export function InterestCell({ crm, save }) {
 }
 
 export function QuoteCell({ crm, save }) {
-  const { isAdmin } = useAuth();
   const { busy, error, run } = useSaver(save);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
@@ -212,17 +201,6 @@ export function QuoteCell({ crm, save }) {
       changes.quoted_date = new Date().toISOString().slice(0, 10);
     await run(changes);
   };
-
-  // Admins: read-only
-  if (isAdmin) {
-    return crm.quoted_amount != null ? (
-      <span className="text-sm font-semibold tabular-nums text-gray-900">
-        {inr.format(crm.quoted_amount)}
-      </span>
-    ) : (
-      <span className="text-gray-300">—</span>
-    );
-  }
 
   if (editing) {
     return (
@@ -270,18 +248,7 @@ export function QuoteCell({ crm, save }) {
 }
 
 export function ConvertedCell({ crm, save }) {
-  const { isAdmin } = useAuth();
   const { busy, error, run } = useSaver(save);
-  // Admins: read-only
-  if (isAdmin) {
-    return crm.converted ? (
-      <span className="inline-flex rounded-full bg-emerald-500 px-3 py-1 text-xs font-medium text-white">
-        Yes
-      </span>
-    ) : (
-      <span className="text-xs text-gray-600">No</span>
-    );
-  }
   return (
     <span title={error || undefined}>
       <PillSelect
@@ -300,9 +267,10 @@ export function ConvertedCell({ crm, save }) {
 }
 
 export function CrmHeaderCells({ className }) {
+  const { isAdmin } = useAuth(); // vendor logins don't get the Assigned to column
   return (
     <>
-      <th className={className}>Assigned to</th>
+      {isAdmin && <th className={className}>Assigned to</th>}
       <th className={className}>Interest</th>
       <th className={`${className} text-right`}>Quoted amount</th>
       <th className={className}>Converted</th>
@@ -312,8 +280,9 @@ export function CrmHeaderCells({ className }) {
 
 // The four cells for one row. save(changes) -> Promise
 export function InlineCrmCells({ crm, save, className = "px-4 py-3" }) {
+  const { isAdmin } = useAuth(); // vendor logins don't get the Assigned to column
   if (!crm) {
-    return [0, 1, 2, 3].map((i) => (
+    return (isAdmin ? [0, 1, 2, 3] : [1, 2, 3]).map((i) => (
       <td key={i} className={`${className} text-gray-300`}>
         —
       </td>
@@ -321,9 +290,11 @@ export function InlineCrmCells({ crm, save, className = "px-4 py-3" }) {
   }
   return (
     <>
-      <td className={`whitespace-nowrap ${className}`}>
-        <VendorCell crm={crm} save={save} />
-      </td>
+      {isAdmin && (
+        <td className={`whitespace-nowrap ${className}`}>
+          <VendorCell crm={crm} save={save} />
+        </td>
+      )}
       <td className={`whitespace-nowrap ${className}`}>
         <InterestCell crm={crm} save={save} />
       </td>

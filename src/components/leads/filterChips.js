@@ -42,10 +42,10 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
     if (has("lead_date_from") || has("lead_date_to"))
       add("lead_date", `Lead date: ${rangeText(filters.lead_date_from, filters.lead_date_to)}`, ["lead_date_from", "lead_date_to"]);
     if (isAdmin && has("vendor_id")) add("vendor", `Vendor: ${list(filters.vendor_id, vendorName)}`, ["vendor_id"]);
-    if (isAdmin && has("update_status")) add("update", `Update: ${list(filters.update_status, statusLabel)}`, ["update_status"]);
-    if (isAdmin && (has("follow_up_from") || has("follow_up_to")))
+    if (has("update_status")) add("update", `Update: ${list(filters.update_status, statusLabel)}`, ["update_status"]);
+    if (has("follow_up_from") || has("follow_up_to"))
       add("follow_up", `Follow-up: ${rangeText(filters.follow_up_from, filters.follow_up_to)}`, ["follow_up_from", "follow_up_to"]);
-    if (isAdmin && has("follow_up_due")) add("due", "Follow-up due", ["follow_up_due"]);
+    if (has("follow_up_due")) add("due", "Follow-up due", ["follow_up_due"]);
     if (has("city")) add("city", `City: ${filters.city}`, ["city"]);
     if (has("source")) add("source", `Source: ${list(filters.source, sourceLabel)}`, ["source"]);
     return chips;

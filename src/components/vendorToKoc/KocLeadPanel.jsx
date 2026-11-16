@@ -14,10 +14,9 @@ import {
 } from "./kocUtils.js";
 
 // Details of one Vendors → KOC lead, in the style of the KOC → Vendors lead panel.
-// Everyone: vendor, date, name, phone, city, source, received, added by, and a PDF.
-// Admins only: Update, Additional comments and Follow-up date (editable; only changed fields are
-// sent) and who / when last updated. Vendor logins never see those fields (the API doesn't send
-// them either).
+// Everyone: vendor, date, name, phone, city, source, received, added by, KOC's update (Update,
+// Additional comments, Follow-up date, "Last updated: <name> · <when>"), and a PDF.
+// Admins edit the update (only changed fields are sent); vendor logins see it read-only.
 //   people(id): a login's name for "Added by" (never an id). "Last updated by" is the API's
 //   status_updated_by_name, never the user id.
 
@@ -92,8 +91,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
     ["Received", lead.created_at ? dateTimeText(lead.created_at) : null],
     ["Added by", people(lead.created_by, lead)],
   ];
-  const adminRows = isAdmin
-    ? [
+  const followRows = [
         ["Update", statusLabel(lead.update_status)],
         ["Additional comments", lead.additional_comments],
         ["Follow-up date", lead.follow_up_date ? dayText(lead.follow_up_date) : null],
@@ -103,8 +101,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
             ? `${lead.status_updated_by_name || "—"} · ${dateTimeText(lead.status_updated_at)}`
             : null,
         ],
-      ]
-    : [];
+      ];
 
   const set = (k, v) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -147,7 +144,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
           .toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`,
         sections: [
           { title: "Lead details", rows: details },
-          ...(isAdmin ? [{ title: "KOC follow-up", rows: adminRows }] : []),
+          { title: "KOC follow-up", rows: followRows },
         ],
       });
     } catch (err) {
@@ -158,7 +155,12 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
   }
 
   const btn = "flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition";
-  const sections = [{ title: "Lead details", rows: details }, ...(isAdmin ? [{ title: "Last update", rows: adminRows.slice(3) }] : [])];
+  // Admins edit Update / comments / follow-up in the form above, so only "Last updated" is listed
+  // for them; vendor logins see every follow-up field read-only
+  const sections = [
+    { title: "Lead details", rows: details },
+    isAdmin ? { title: "Last update", rows: followRows.slice(3) } : { title: "KOC follow-up", rows: followRows },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={`Lead: ${title}`}>
@@ -201,7 +203,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
               </button>
             </div>
           </div>
-          {isAdmin && (
+          {(
             <div className="relative mt-4 flex flex-wrap gap-2 text-xs">
               <span className="rounded-full bg-white/15 px-2.5 py-1 ring-1 ring-white/20">{statusLabel(lead.update_status)}</span>
               {lead.follow_up_date && (

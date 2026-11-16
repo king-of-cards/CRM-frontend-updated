@@ -18,8 +18,8 @@ import { downloadLeadPdf } from "./leadPdf.js";
 import { useAuth } from "../../auth/useAuth.js";
 import { assignedText, panelChanges } from "./crmAccess.js";
 
-// Who edits what: Assigned to = admins; Interest, Quoted amount/date, Converted = the assigned
-// vendor; Notes = both. The other role sees read-only text. Only changed, allowed fields are sent.
+// Who edits what: Assigned to = admins (vendors see it as text); Interest, Quoted amount/date,
+// Converted and Notes = admins and the assigned vendor. Only changed, allowed fields are sent.
 
 // Side panel for one lead: header in the app's green, a soft white gradient body,
 // contact buttons, the editable CRM details, every field, and a PDF download.
@@ -402,26 +402,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
               </label>
               )}
 
-              {isAdmin ? (
-                // Admins: interest, quote and converted are set by the assigned vendor
-                <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  {[
-                    ["Interest", interestInfo(crm.interest)?.label ?? "—"],
-                    [
-                      "Quoted amount",
-                      crm.quoted_amount != null ? inr.format(crm.quoted_amount) : "—",
-                    ],
-                    ["Quoted date", crm.quoted_date || "—"],
-                    ["Converted", crm.converted ? "Yes" : "No"],
-                  ].map(([label, value]) => (
-                    <div key={label}>
-                      <dt className="text-xs font-medium text-gray-600">{label}</dt>
-                      <dd className="mt-1 font-medium text-gray-900">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : (
-              <>
+              {/* Interest, quote and converted: admins and the assigned vendor */}
               <fieldset className="mt-4">
                 <legend className="text-xs font-medium text-gray-600">
                   Interest
@@ -504,8 +485,6 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   ))}
                 </div>
               </fieldset>
-              </>
-              )}
 
               <label className="mt-4 block">
                 <span className="text-xs font-medium text-gray-600">Notes</span>
