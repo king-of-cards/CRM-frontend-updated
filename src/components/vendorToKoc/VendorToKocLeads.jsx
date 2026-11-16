@@ -260,12 +260,12 @@ export default function VendorToKocLeads() {
     }
   }
 
-  // "Added by" / "Updated by" as a name, never an id. Vendor logins can't list logins:
-  // "You" for their own, else "Another <vendor> login".
+  // "Added by" as a name, never an id. Vendor logins can't list logins: "You" for their own,
+  // else "Another team member" (no vendor name).
   const people = (id, lead) => {
     if (id == null) return null;
     if (isAdmin) return userNames[id] ?? "—";
-    return id === me?.id ? "You" : `Another ${lead.vendor_name ?? "vendor"} login`;
+    return id === me?.id ? "You" : "Another team member";
   };
   const openLead = items.find((i) => i.id === openId) ?? null;
 
