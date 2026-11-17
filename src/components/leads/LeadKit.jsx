@@ -292,6 +292,7 @@ export function SectionShell({
                 >
                   {s.value ?? "—"}
                 </p>
+                {s.subtitle && <p className="mt-0.5 text-[11px] leading-tight text-gray-500">{s.subtitle}</p>}
               </div>
             );
           })}

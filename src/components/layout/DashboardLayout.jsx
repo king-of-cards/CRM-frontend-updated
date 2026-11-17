@@ -18,6 +18,8 @@ import {
 import { useAuth } from "../../auth/useAuth.js";
 import LeadFlowToggle from "../dashboard/LeadFlowToggle.jsx";
 import { flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
+import LeadBackButton from "./LeadBackButton.jsx";
+import { isLeadRoute } from "./leadBack.js";
 
 // Shared frame for every page after login: collapsible sidebar, top bar, page content.
 // adminOnly items are hidden for vendor accounts (the backend allows those endpoints to admins only)
@@ -280,13 +282,16 @@ export default function DashboardLayout({
           {/* Page heading */}
           {(title || actions) && (
             <div className="mb-2 flex flex-wrap items-end justify-between gap-4">
-              <div>
+              <div className="flex flex-wrap items-center gap-3">
+                {isLeadRoute(location.pathname) && <LeadBackButton />}
+                <div>
                 <h1 className="text-2xl font-bold tracking-tight text-gray-900">
                   {title}
                 </h1>
                 {description && (
                   <p className="mt-1 text-sm text-gray-500">{description}</p>
                 )}
+                </div>
               </div>
               {actions}
             </div>

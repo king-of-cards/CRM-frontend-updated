@@ -3,7 +3,7 @@
 // "—" when a value is zero or missing.
 
 const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
-const count = (n) => Number(n).toLocaleString("en-IN");
+const count = (n) => Number(n ?? 0).toLocaleString("en-IN");
 
 // ₹45,000 · ₹1.5 L · ₹1.2 Cr
 export function shortRupees(amount) {
@@ -24,16 +24,19 @@ export function kpiCards(kpis) {
     { label: "Not interested", value: n(k.not_interested), tone: k.not_interested ? "rose" : undefined },
     {
       label: "Quoted amount",
-      value: k.quoted_count ? `${shortRupees(k.quoted_total ?? 0)} · ${count(k.quoted_count)} ${k.quoted_count === 1 ? "quote" : "quotes"}` : "—",
+      value: k.quoted_count ? shortRupees(k.quoted_total ?? 0) : "—",
+      subtitle: `₹ · ${count(k.quoted_count)} ${k.quoted_count === 1 ? "quote" : "quotes"}`,
     },
     {
       label: "Converted",
-      value: k.converted ? `${count(k.converted)}${k.converted_pct != null ? ` · ${k.converted_pct}%` : ""}` : "—",
+      value: n(k.converted),
+      subtitle: `${count(k.converted)} · ${k.converted_pct == null ? "—" : `${k.converted_pct}%`} conversion rate`,
       tone: k.converted ? "emerald" : undefined,
     },
     {
       label: "Conversion amount",
-      value: k.conversion_count ? `${shortRupees(k.conversion_total ?? 0)} · ${count(k.conversion_count)}` : "—",
+      value: k.conversion_count ? shortRupees(k.conversion_total ?? 0) : "—",
+      subtitle: k.conversion_count ? `${count(k.conversion_count)} with conversion amount` : "No conversion amounts",
     },
   ];
 }

@@ -36,6 +36,7 @@ import { periodLabel } from "./dashboardPeriod.js";
 import { shortRupees } from "./dashboardOutcomes.js";
 import {
   daysText,
+  dashboardKpiLinks,
   funnelRows,
   inflowPoints,
   linkFor,
@@ -159,6 +160,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
   const points = inflowPoints(d?.inflow);
   const statuses = statusRows(d?.by_status);
   const all = { all: true };
+  const kpiLinks = dashboardKpiLinks(period);
   // The outcome cards: admins, and vendor logins once the API sends them (pending, funnel…)
   const outcomes = isAdmin || d?.pending !== undefined;
 
@@ -178,8 +180,9 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
           >
             <Kpi
               icon={Inbox}
-              label="Leads received"
-              value={<N count={d?.received} filters={{}} period={period} />}
+              label="Total leads"
+              value={num(d?.received)}
+              to={kpiLinks.total}
               delta={d?.change_pct ?? null}
               caption={
                 isAdmin && prev && d?.previous_received != null
@@ -193,27 +196,28 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
             <Kpi
               icon={ThumbsUp}
               label="Interested"
-              value={<N count={d?.kpis?.interested} filters={{ update_status: ["interested"] }} period={period} />}
+              value={num(d?.kpis?.interested)}
+              to={kpiLinks.interested}
               caption={`${num(d?.kpis?.not_interested)} not interested`}
               gradient="from-violet-500 to-violet-700"
               loading={kpiLoading}
             />
             <Kpi
               icon={IndianRupee}
-              label="Quoted"
+              label="Quoted amount"
               value={d?.kpis?.quoted_count ? shortRupees(d.kpis.quoted_total) : "—"}
+              to={kpiLinks.quoted_amount}
               caption={
-                d?.kpis?.quoted_count
-                  ? `${num(d.kpis.quoted_count)} ${d.kpis.quoted_count === 1 ? "quote" : "quotes"}`
-                  : "No quotes in this period"
+                `₹ · ${Number(d?.kpis?.quoted_count ?? 0).toLocaleString("en-IN")} ${d?.kpis?.quoted_count === 1 ? "quote" : "quotes"}`
               }
               gradient="from-indigo-500 to-indigo-700"
               loading={kpiLoading}
             />
             <Kpi
               icon={Wallet}
-              label="Conversion"
+              label="Conversion amount"
               value={d?.kpis?.conversion_count ? shortRupees(d.kpis.conversion_total) : "—"}
+              to={kpiLinks.conversion_amount}
               caption={
                 d?.kpis?.conversion_count
                   ? `${num(d.kpis.conversion_count)} with a conversion amount`
@@ -227,7 +231,8 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                 <Kpi
                   icon={Clock}
                   label="Pending"
-                  value={<N count={d?.pending} filters={{ update_status: ["pending"] }} period={period} />}
+                  value={num(d?.pending)}
+                  to={kpiLinks.pending}
                   caption="No update yet"
                   gradient="from-amber-400 to-amber-600"
                   loading={kpiLoading}
@@ -236,7 +241,8 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                   <Kpi
                     icon={AlarmClock}
                     label="Follow-ups due"
-                    value={<N count={d?.follow_ups_due} filters={{ follow_up_due: "true" }} period={all} />}
+                    value={num(d?.follow_ups_due)}
+                    to={kpiLinks.follow_ups_due}
                     caption="Open leads, follow-up today or earlier"
                     gradient="from-rose-500 to-rose-700"
                     loading={kpiLoading}
@@ -246,11 +252,12 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                 <Kpi
                   icon={BadgeCheck}
                   label="Converted"
-                  value={<N count={d?.kpis?.converted ?? d?.converted} filters={{ update_status: ["converted"] }} period={period} />}
+                  value={num(d?.kpis?.converted ?? d?.converted)}
+                  to={kpiLinks.converted}
                   caption={
                     (d?.kpis?.converted_pct ?? d?.converted_pct) != null
-                      ? `${d?.kpis?.converted_pct ?? d?.converted_pct}% of leads received`
-                      : ""
+                      ? `${num(d?.kpis?.converted ?? d?.converted)} · ${d?.kpis?.converted_pct ?? d?.converted_pct}% conversion rate`
+                      : `${num(d?.kpis?.converted ?? d?.converted)} · — conversion rate`
                   }
                   gradient="from-emerald-500 to-brand-700"
                   loading={kpiLoading}
@@ -258,7 +265,8 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                 <Kpi
                   icon={ShoppingBag}
                   label="Purchased with us"
-                  value={<N count={d?.purchased_with_us} filters={{ update_status: ["purchased_with_us"] }} period={period} />}
+                  value={num(d?.purchased_with_us)}
+                  to={kpiLinks.purchased_with_us}
                   caption="Already purchased with us"
                   gradient="from-sky-500 to-sky-700"
                   loading={kpiLoading}

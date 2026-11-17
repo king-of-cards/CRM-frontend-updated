@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Download, Loader2, MessageCircle, Phone, X } from "lucide-react";
+import { MessageCircle, Phone, X } from "lucide-react";
 import { updateKocLead } from "../../api/vendorToKoc.js";
 import { downloadLeadPdf } from "../leads/leadPdf.js";
+import LeadPdfButton from "../leads/LeadPdfButton.jsx";
+import LeadBackButton from "../layout/LeadBackButton.jsx";
 import {
   dateTimeText,
   dayText,
@@ -205,15 +207,8 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                onClick={download}
-                disabled={downloading}
-                className="flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-brand-800 shadow-sm transition hover:bg-brand-50 disabled:opacity-70"
-              >
-                {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-                Download
-              </button>
+              <LeadBackButton inverted />
+              <LeadPdfButton onClick={download} loading={downloading} />
               <button type="button" onClick={close} aria-label="Close" className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white">
                 <X size={18} />
               </button>

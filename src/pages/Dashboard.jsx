@@ -457,7 +457,7 @@ export default function Dashboard() {
             >
               <Kpi
                 icon={Inbox}
-                label="Leads in period"
+                label="Total leads"
                 value={fmt(o?.kpis?.total ?? view?.all)}
                 delta={o?.change_pct?.all ?? null}
                 caption={
@@ -487,12 +487,10 @@ export default function Dashboard() {
               />
               <Kpi
                 icon={IndianRupee}
-                label="Quoted"
+                label="Quoted amount"
                 value={o?.kpis?.quoted_count ? short(o.kpis.quoted_total) : "—"}
                 caption={
-                  o?.kpis?.quoted_count
-                    ? `${fmt(o.kpis.quoted_count)} ${o.kpis.quoted_count === 1 ? "quote" : "quotes"}`
-                    : "No quotes in this period"
+                  `₹ · ${fmt(o?.kpis?.quoted_count ?? 0)} ${o?.kpis?.quoted_count === 1 ? "quote" : "quotes"}`
                 }
                 gradient="from-violet-500 to-violet-700"
                 loading={kpiLoading}
@@ -501,13 +499,13 @@ export default function Dashboard() {
                 icon={BadgeCheck}
                 label="Converted"
                 value={fmt(o?.kpis?.converted)}
-                caption={o?.kpis?.converted_pct != null ? `${o.kpis.converted_pct}% of leads` : ""}
+                caption={`${fmt(o?.kpis?.converted ?? 0)} · ${o?.kpis?.converted_pct == null ? "—" : `${o.kpis.converted_pct}%`} conversion rate`}
                 gradient="from-emerald-500 to-brand-700"
                 loading={kpiLoading}
               />
               <Kpi
                 icon={Wallet}
-                label="Conversion"
+                label="Conversion amount"
                 value={o?.kpis?.conversion_count ? short(o.kpis.conversion_total) : "—"}
                 caption={
                   o?.kpis?.conversion_count

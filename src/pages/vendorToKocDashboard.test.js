@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { funnelRows, inflowPoints, linkFor, num, statusRows, vendorCells } from "./vendorToKocDashboard.js";
+import { dashboardKpiLinks, funnelRows, inflowPoints, linkFor, num, statusRows, vendorCells } from "./vendorToKocDashboard.js";
 import {
   dayText,
   fileDate,
@@ -94,6 +94,26 @@ describe("list helpers", () => {
       source: ["manual"],
     });
     expect(activeCount(f, "vendor_to_koc")).toBe(5); // vendor, update, follow-up, city, source
+  });
+});
+
+describe("dashboard KPI card links", () => {
+  test("matching filters carry the received-date period", () => {
+    const links = dashboardKpiLinks(PERIOD);
+    expect(links.total).toBe("/vendor-to-koc?date_from=2026-10-18&date_to=2026-11-16");
+    expect(links.interested).toContain("update_status=interested");
+    expect(links.interested).toContain("date_from=2026-10-18");
+    expect(links.pending).toContain("update_status=pending");
+    expect(links.converted).toContain("update_status=converted");
+    expect(links.purchased_with_us).toContain("update_status=purchased_with_us");
+  });
+  test("follow-ups due uses its all-time filter because the API excludes the period", () => {
+    expect(dashboardKpiLinks(PERIOD).follow_ups_due).toBe("/vendor-to-koc?follow_up_due=true");
+  });
+  test("quote and conversion amounts have no matching list filter", () => {
+    const links = dashboardKpiLinks(PERIOD);
+    expect(links.quoted_amount).toBeNull();
+    expect(links.conversion_amount).toBeNull();
   });
 });
 

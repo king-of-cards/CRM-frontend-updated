@@ -57,6 +57,14 @@ describe("filter chips use names, never ids", () => {
       "Received: 16 Nov 2026", "Venue: Palace", "Event type: wedding", "Update: Pending", "No phone",
     ]);
   });
+  test("Dhruva dashboard KPI filters appear as removable chips", () => {
+    expect(chips("date_from=2026-11-01&date_to=2026-11-05&quote=has", "dhruva")).toEqual([
+      "Received: 1 – 5 Nov 2026", "Quote: has",
+    ]);
+    expect(chips("upcoming_days=30&update_status=not_interested", "dhruva")).toEqual([
+      "Event: upcoming 30 days", "Update: Not interested",
+    ]);
+  });
   test("each chip knows which keys it removes", () => {
     const [c] = filterChips(readFilters(new URLSearchParams("event_from=2026-12-01"), "wedding"), "wedding", {}, true);
     expect(c.label).toBe("Event: from 1 Dec 2026");

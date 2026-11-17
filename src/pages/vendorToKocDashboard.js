@@ -1,6 +1,6 @@
 // Vendors → KOC dashboard helpers (GET /analytics/vendor-to-koc, docs section 11). Pure.
-// Every number links to the Vendors → KOC list with the matching filters and the period;
-// 0 / null show "—" and aren't links.
+// Available count links open the Vendors → KOC list with matching filters and the period;
+// 0 / null show "—". Quote and conversion amount cards have no list filters.
 import {
   ENGAGED,
   kocListLink,
@@ -14,6 +14,21 @@ export const num = (n) => (n == null || n === 0 ? "—" : Number(n).toLocaleStri
 
 // The list link for a count, or null when it shows "—"
 export const linkFor = (count, filters, period) => (count ? kocListLink(filters, period) : null);
+
+// Filters supported by the Vendor -> KOC list. Quote and conversion amounts have no
+// corresponding list filter, so those cards remain informational.
+export function dashboardKpiLinks(period) {
+  return {
+    total: kocListLink({}, period),
+    interested: kocListLink({ update_status: ["interested"] }, period),
+    quoted_amount: null,
+    conversion_amount: null,
+    pending: kocListLink({ update_status: [PENDING] }, period),
+    follow_ups_due: kocListLink({ follow_up_due: "true" }, { all: true }),
+    converted: kocListLink({ update_status: ["converted"] }, period),
+    purchased_with_us: kocListLink({ update_status: ["purchased_with_us"] }, period),
+  };
+}
 
 // Inflow points for the chart: one key per vendor ("v<id>")
 export function inflowPoints(inflow) {

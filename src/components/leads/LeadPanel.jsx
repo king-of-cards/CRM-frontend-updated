@@ -18,6 +18,7 @@ import { useVendors } from "./InlineCrm.jsx";
 import { downloadLeadPdf } from "./leadPdf.js";
 import { useAuth } from "../../auth/useAuth.js";
 import { assignedText, panelChanges } from "./crmAccess.js";
+import LeadBackButton from "../layout/LeadBackButton.jsx";
 
 // Who edits what: Assigned to = admins (vendors see it as text); Update, Quoted amount/date,
 // Conversion amount and Notes = admins and the assigned vendor. Only changed, allowed fields are sent.
@@ -261,6 +262,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
+              <LeadBackButton inverted />
               <button
                 type="button"
                 onClick={download}

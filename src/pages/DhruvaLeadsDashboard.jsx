@@ -47,7 +47,7 @@ export default function DhruvaLeadsDashboard({ period, refreshKey }) {
   return <>
     {error && <p role="alert" className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">{error}</p>}
     <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Dhruva key numbers">
-      {cards.map((c, i) => <Kpi key={c.label} icon={kpiIcons[i]} label={c.label} value={c.to ? <Link to={c.to} className="hover:underline">{c.value}</Link> : c.value} gradient={i % 2 ? "from-violet-500 to-violet-700" : "from-brand-600 to-brand-800"} loading={kpiLoading} />)}
+      {cards.map((c, i) => <Kpi key={c.label} icon={kpiIcons[i]} label={c.label} value={c.value} to={c.to} caption={c.caption} gradient={i % 2 ? "from-violet-500 to-violet-700" : "from-brand-600 to-brand-800"} loading={kpiLoading} />)}
     </section>
     <section className="mt-6 grid gap-4 xl:grid-cols-2">
       <Panel title="Lead inflow" subtitle="Received during the selected period">

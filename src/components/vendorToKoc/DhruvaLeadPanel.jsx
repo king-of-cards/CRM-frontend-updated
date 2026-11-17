@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
-import { Archive, Download, RotateCcw } from "lucide-react";
+import { Archive, RotateCcw } from "lucide-react";
 import {
   archiveDhruvaLead,
   unarchiveDhruvaLead,
   updateDhruvaLead,
 } from "../../api/dhruva.js";
 import { downloadLeadPdf } from "../leads/leadPdf.js";
+import LeadPdfButton from "../leads/LeadPdfButton.jsx";
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
-import { dateTimeText, dayText, dhruvaErrors, phoneText, rupeesText, statusLabel, STATUSES, PENDING } from "../../pages/dhruvaUtils.js";
+import { dateTimeText, dayText, dhruvaErrors, dhruvaFieldAccess, phoneText, rupeesText, statusLabel, STATUSES, PENDING } from "../../pages/dhruvaUtils.js";
 
 const basicFields = [
   ["name", "Name", "text"],
@@ -51,6 +52,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
   }, [lead?.id]);
 
   if (!lead) return null;
+  const access = dhruvaFieldAccess(isAdmin ? "admin" : "dhruva");
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
   const basicPayload = () => Object.fromEntries(basicFields.map(([key]) => [key, form[key].trim() || null]));
   const adminPayload = () => ({
@@ -120,30 +122,32 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
   async function pdf() {
     setDownloading(true);
     try {
+      const title = lead.name || phoneText(lead.phone);
       await downloadLeadPdf({
-        title: lead.name || phoneText(lead.phone),
+        title,
         subtitle: [lead.venue, lead.event_type].filter(Boolean).join(" · "),
         source: "Dhruva lead",
-        fileName: `dhruva-lead-${lead.id}.pdf`,
+        fileName: `dhruva-lead-${String(title || "lead")
+          .replace(/[^\w]+/g, "-")
+          .toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`,
         sections: [
-          { title: "Lead details", rows: [["Venue", lead.venue], ["Event date", lead.event_date_text || dayText(lead.event_date)], ["Phone", phoneText(lead.phone)], ["Alt phone", phoneText(lead.alt_phone)], ["Event type", lead.event_type], ["Received", dateTimeText(lead.created_at)], ["Added by", lead.created_by_name]] },
-          { title: "Update", rows: [["Status", statusLabel(lead.update_status)], ["Additional comments", lead.additional_comments], ["Follow-up date", dayText(lead.follow_up_date)], ["Quoted amount", rupeesText(lead.quoted_amount)], ["Conversion amount", rupeesText(lead.conversion_amount)], ["Last updated", lead.status_updated_at ? `${lead.status_updated_by_name || "—"} · ${dateTimeText(lead.status_updated_at)}` : null]] },
+          { title: "Lead details", rows: [["Name", lead.name || "—"], ["Venue", lead.venue || "—"], ["Event date", lead.event_date_text || dayText(lead.event_date) || "—"], ["Phone", phoneText(lead.phone) || "—"], ["Alt phone", phoneText(lead.alt_phone) || "—"], ["Event type", lead.event_type || "—"], ["Received", dateTimeText(lead.created_at) || "—"]] },
+          { title: "Update", rows: [["Update", statusLabel(lead.update_status)], ["Additional comments", lead.additional_comments || "—"], ["Quoted amount", rupeesText(lead.quoted_amount)], ["Conversion amount", rupeesText(lead.conversion_amount)], ["Follow-up date", dayText(lead.follow_up_date) || "—"]] },
         ],
       });
     } catch (err) {
-      setError(err.message || "Could not create the PDF.");
+      setError(`Download failed: ${err.message}`);
     } finally {
       setDownloading(false);
     }
   }
 
   return (
-    <Drawer kicker="Dhruva leads" title={lead.name || "Lead details"} onClose={onClose} wide
+    <Drawer kicker="Dhruva leads" title={lead.name || "Lead details"} onClose={onClose} wide headerActions={<LeadPdfButton onClick={pdf} loading={downloading} />}
       footer={<>
-        {isAdmin && <button type="button" onClick={archive} disabled={archiveBusy} className={secondaryBtn}>{lead.archived ? <RotateCcw size={15} className="mr-1 inline" /> : <Archive size={15} className="mr-1 inline" />}{lead.archived ? "Unarchive" : "Archive"}</button>}
-        <button type="button" onClick={pdf} disabled={downloading} className={secondaryBtn}><Download size={15} className="mr-1 inline" />{downloading ? "Preparing…" : "Download PDF"}</button>
+        {access.archive && <button type="button" onClick={archive} disabled={archiveBusy} className={secondaryBtn}>{lead.archived ? <RotateCcw size={15} className="mr-1 inline" /> : <Archive size={15} className="mr-1 inline" />}{lead.archived ? "Unarchive" : "Archive"}</button>}
         <button type="button" onClick={onClose} className={secondaryBtn}>Close</button>
-        <button type="submit" form="dhruva-edit-lead" disabled={busy} className={primaryBtn}>{busy ? "Saving…" : "Save changes"}</button>
+        <button type="submit" form="dhruva-edit-lead" disabled={busy} className={primaryBtn}>{busy ? "Saving…" : isAdmin ? "Save changes" : "Save basic details"}</button>
       </>}
     >
       <form id="dhruva-edit-lead" onSubmit={save} className="space-y-5">
@@ -154,7 +158,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
           {basicFields.map(([key, label, type]) => <label key={key} className="block"><span className="mb-1 block text-xs font-medium text-gray-600">{label}</span><input type={type} value={form[key]} onChange={(e) => { set(key, e.target.value); setFieldErrors((old) => ({ ...old, [key]: undefined })); }} className={`${fieldCls} ${fieldErrors[key] ? "border-red-300" : ""}`} maxLength={key === "venue" ? 300 : 200} />{fieldErrors[key] && <span className="mt-1 block text-xs text-red-600">{fieldErrors[key]}</span>}</label>)}
         </section>
         <p className="text-xs text-gray-500">Received {dateTimeText(lead.created_at)} · Added by {lead.created_by_name || "—"}</p>
-        {isAdmin && <section className="space-y-4 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100">
+        {access.editAdmin && <section className="space-y-4 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100">
           <h3 className="text-sm font-semibold text-gray-900">Admin update</h3>
           <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Update</span><select value={form.update_status} onChange={(e) => set("update_status", e.target.value)} className={fieldCls}><option value={PENDING}>Pending</option>{STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
           <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Additional comments</span><textarea rows={3} value={form.additional_comments} onChange={(e) => set("additional_comments", e.target.value)} className={fieldCls} /></label>
@@ -163,6 +167,18 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
             <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Quoted amount</span><input inputMode="numeric" value={form.quoted_amount} onChange={(e) => set("quoted_amount", e.target.value)} className={fieldCls} /></label>
             <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Conversion amount</span><input inputMode="numeric" value={form.conversion_amount} onChange={(e) => set("conversion_amount", e.target.value)} className={fieldCls} /></label>
           </div>
+        </section>}
+        {!access.editAdmin && <section className="space-y-3 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100" aria-label="Admin updates, read only">
+          <h3 className="text-sm font-semibold text-gray-900">Update details</h3>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <div><dt className="text-xs font-medium text-gray-500">Update</dt><dd className="mt-1 text-sm text-gray-900">{statusLabel(lead.update_status)}</dd></div>
+            <div><dt className="text-xs font-medium text-gray-500">Follow-up date</dt><dd className="mt-1 text-sm text-gray-900">{dayText(lead.follow_up_date)}</dd></div>
+            <div><dt className="text-xs font-medium text-gray-500">Quoted amount</dt><dd className="mt-1 text-sm text-gray-900">{rupeesText(lead.quoted_amount)}</dd></div>
+            <div><dt className="text-xs font-medium text-gray-500">Conversion amount</dt><dd className="mt-1 text-sm text-gray-900">{rupeesText(lead.conversion_amount)}</dd></div>
+            <div className="sm:col-span-2"><dt className="text-xs font-medium text-gray-500">Additional comments</dt><dd className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{lead.additional_comments || "—"}</dd></div>
+            {(lead.status_updated_by_name || lead.status_updated_by != null) && <div><dt className="text-xs font-medium text-gray-500">Status updated by</dt><dd className="mt-1 text-sm text-gray-900">{lead.status_updated_by_name || `User #${lead.status_updated_by}`}</dd></div>}
+            {lead.status_updated_at && <div><dt className="text-xs font-medium text-gray-500">Status updated at</dt><dd className="mt-1 text-sm text-gray-900">{dateTimeText(lead.status_updated_at)}</dd></div>}
+          </dl>
         </section>}
       </form>
     </Drawer>

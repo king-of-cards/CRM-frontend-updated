@@ -1,10 +1,14 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { useLocation } from "react-router";
+import LeadBackButton from "../layout/LeadBackButton.jsx";
+import { isLeadRoute } from "../layout/leadBack.js";
 
 // Right-hand drawer in the same style as the Branches and Vendors forms.
 // Rendered in document.body, so it isn't clipped by the table it may be opened from.
-export default function Drawer({ kicker, title, onClose, wide = false, children, footer }) {
+export default function Drawer({ kicker, title, onClose, wide = false, children, footer, headerActions }) {
+  const { pathname } = useLocation();
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
@@ -27,23 +31,29 @@ export default function Drawer({ kicker, title, onClose, wide = false, children,
       <div
         className={`relative flex h-full w-full flex-col bg-linear-to-b from-white via-white to-brand-50 shadow-2xl ${wide ? "max-w-6xl" : "max-w-lg"}`}
       >
-        <div className="flex items-center justify-between bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-6 py-5 text-white">
+        <div className="flex items-center justify-between gap-3 bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-6 py-5 text-white">
           <div>
             {kicker && (
               <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">{kicker}</p>
             )}
             <h2 className="text-lg font-semibold">{title}</h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-full p-1.5 text-white/80 hover:bg-white/10 hover:text-white"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {isLeadRoute(pathname) && <LeadBackButton inverted />}
+            {headerActions}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="rounded-full p-1.5 text-white/80 hover:bg-white/10 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-6">{children}</div>
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          {children}
+        </div>
         {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">{footer}</div>}
       </div>
     </div>,

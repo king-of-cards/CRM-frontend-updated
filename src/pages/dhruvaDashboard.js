@@ -1,6 +1,6 @@
 // Dhruva dashboard helpers (GET /analytics/dhruva, docs section 13). Pure, no React.
-// Every KPI number links to the Dhruva list with matching filters and the period;
-// 0 / null show "—" and are not links.
+// Every KPI card links to the Dhruva list with matching filters and the period;
+// 0 / null still open the matching filtered list.
 import { PENDING, STATUSES, dhruvaListLink, shortRupees } from "./dhruvaUtils.js";
 
 export const num = (n) => (n == null || n === 0 ? "—" : Number(n).toLocaleString("en-IN"));
@@ -23,50 +23,49 @@ export function statusRows(byStatus) {
   ];
 }
 
-// KPI cards for the dashboard (8 cards; "Total leads" is not clickable)
+// KPI cards link to matching Dhruva lead filters and preserve the received-date period.
 export function dashboardKpiCards(kpis, period) {
   const k = kpis ?? {};
   const link = (filters) => dhruvaListLink(filters, period);
   return [
-    { label: "Total leads", value: num(k.total), to: null },
+    { label: "Total leads", value: num(k.total), to: link({}) },
     {
       label: "Pending",
       value: num(k.pending),
-      to: k.pending ? link({ update_status: [PENDING] }) : null,
+      to: link({ update_status: [PENDING] }),
     },
     {
       label: "Interested",
       value: num(k.interested),
-      to: k.interested ? link({ update_status: ["interested"] }) : null,
+      to: link({ update_status: ["interested"] }),
     },
     {
       label: "Not interested",
       value: num(k.not_interested),
-      to: k.not_interested ? link({ update_status: ["not_interested"] }) : null,
+      to: link({ update_status: ["not_interested"] }),
     },
     {
       label: "Quoted amount",
-      value: k.quoted_count
-        ? `${shortRupees(k.quoted_total)} · ${Number(k.quoted_count).toLocaleString("en-IN")} ${k.quoted_count === 1 ? "quote" : "quotes"}`
-        : "—",
-      to: k.quoted_count ? link({ quote: "has" }) : null,
+      value: k.quoted_count ? shortRupees(k.quoted_total) : "—",
+      caption: `₹ · ${Number(k.quoted_count ?? 0).toLocaleString("en-IN")} ${k.quoted_count === 1 ? "quote" : "quotes"}`,
+      to: link({ quote: "has" }),
     },
     {
       label: "Converted",
-      value: k.converted
-        ? `${num(k.converted)}${k.converted_pct != null ? ` · ${k.converted_pct}%` : ""}`
-        : "—",
-      to: k.converted ? link({ update_status: ["converted"] }) : null,
+      value: num(k.converted),
+      caption: `${Number(k.converted ?? 0).toLocaleString("en-IN")} · ${k.converted_pct == null ? "—" : `${k.converted_pct}%`} conversion rate`,
+      to: link({ update_status: ["converted"] }),
     },
     {
       label: "Conversion amount",
       value: k.conversion_count ? shortRupees(k.conversion_total) : "—",
-      to: k.conversion_count ? link({ conversion: "has" }) : null,
+      caption: k.conversion_count ? `${Number(k.conversion_count).toLocaleString("en-IN")} with conversion amount` : "No conversion amounts",
+      to: link({ update_status: ["converted"] }),
     },
     {
       label: "Upcoming events (30 days)",
       value: num(k.upcoming_30_days),
-      to: k.upcoming_30_days ? link({ upcoming_days: "30" }) : null,
+      to: link({ upcoming_days: "30" }),
     },
   ];
 }

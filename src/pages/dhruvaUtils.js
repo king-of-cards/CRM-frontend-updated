@@ -13,6 +13,11 @@ export const STATUSES = [
   { value: "not_interested", label: "Not interested" },
 ];
 export const PENDING = "pending";
+export const dhruvaFieldAccess = (role) => ({
+  editBasic: role === "admin" || role === "dhruva",
+  editAdmin: role === "admin",
+  archive: role === "admin",
+});
 export const statusLabel = (v) =>
   v == null || v === PENDING ? "Pending" : (STATUSES.find((s) => s.value === v)?.label ?? v);
 

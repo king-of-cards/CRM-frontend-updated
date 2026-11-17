@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { kpiCards } from "./kpiCards.js";
 
-const values = (k) => kpiCards(k).map((c) => [c.label, c.value]);
+const values = (k) => kpiCards(k).map((c) => [c.label, c.value, c.subtitle]);
 
 describe("KPI cards (stats.kpis)", () => {
   test("the six cards, in order, with their formats", () => {
@@ -18,12 +18,12 @@ describe("KPI cards (stats.kpis)", () => {
         conversion_total: 720000,
       }),
     ).toEqual([
-      ["Total leads", "120"],
-      ["Interested", "14"],
-      ["Not interested", "9"],
-      ["Quoted amount", "₹16.5 L · 11 quotes"],
-      ["Converted", "6 · 5%"],
-      ["Conversion amount", "₹7.2 L · 5"],
+      ["Total leads", "120", undefined],
+      ["Interested", "14", undefined],
+      ["Not interested", "9", undefined],
+      ["Quoted amount", "₹16.5 L", "₹ · 11 quotes"],
+      ["Converted", "6", "6 · 5% conversion rate"],
+      ["Conversion amount", "₹7.2 L", "5 with conversion amount"],
     ]);
   });
   test("— for zero or missing values (and while loading)", () => {
@@ -33,12 +33,12 @@ describe("KPI cards (stats.kpis)", () => {
   });
   test("one quote; % hidden when null", () => {
     expect(values({ total: 3, quoted_count: 1, quoted_total: 45000, converted: 1, converted_pct: null })).toEqual([
-      ["Total leads", "3"],
-      ["Interested", "—"],
-      ["Not interested", "—"],
-      ["Quoted amount", "₹45,000 · 1 quote"],
-      ["Converted", "1"],
-      ["Conversion amount", "—"],
+      ["Total leads", "3", undefined],
+      ["Interested", "—", undefined],
+      ["Not interested", "—", undefined],
+      ["Quoted amount", "₹45,000", "₹ · 1 quote"],
+      ["Converted", "1", "1 · — conversion rate"],
+      ["Conversion amount", "—", "No conversion amounts"],
     ]);
   });
 });
