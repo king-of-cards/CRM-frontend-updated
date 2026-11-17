@@ -65,6 +65,19 @@ describe("filter chips use names, never ids", () => {
       "Event: upcoming 30 days", "Update: Not interested",
     ]);
   });
+  test("Update filter chips use the existing labels across every list", () => {
+    for (const source of ["spin", "whatsapp", "wedding", "wedding_planner", "vendor_to_koc", "dhruva"]) {
+      const result = filterChips(
+        readFilters(new URLSearchParams("update_status=interested&update_status=pending"), source),
+        source,
+      );
+      expect(result.find((chip) => chip.id === "update")).toEqual({
+        id: "update",
+        label: "Update: Interested, Pending",
+        keys: ["update_status"],
+      });
+    }
+  });
   test("each chip knows which keys it removes", () => {
     const [c] = filterChips(readFilters(new URLSearchParams("event_from=2026-12-01"), "wedding"), "wedding", {}, true);
     expect(c.label).toBe("Event: from 1 Dec 2026");

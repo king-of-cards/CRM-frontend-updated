@@ -21,7 +21,6 @@ import {
   Inbox,
   MapPin,
   PieChart as PieIcon,
-  ShoppingBag,
   ThumbsUp,
   Wallet,
   IndianRupee,
@@ -170,7 +169,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
         <>
           {/* ── KPIs ── */}
           <section
-            className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+            className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
             aria-label="Key numbers"
           >
             <Kpi
@@ -231,14 +230,6 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                   value={num(d?.kpis?.converted ?? d?.converted)}
                   to={kpiLinks.converted}
                   gradient="from-emerald-500 to-brand-700"
-                  loading={kpiLoading}
-                />
-                <Kpi
-                  icon={ShoppingBag}
-                  label="Purchased with us"
-                  value={num(d?.purchased_with_us)}
-                  to={kpiLinks.purchased_with_us}
-                  gradient="from-sky-500 to-sky-700"
                   loading={kpiLoading}
                 />
               </>

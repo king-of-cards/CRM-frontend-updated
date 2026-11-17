@@ -47,6 +47,17 @@ describe("URL <-> filters", () => {
     );
   });
 
+  test("Update is a repeatable API filter on every lead list and round-trips in the URL", () => {
+    for (const source of ["spin", "whatsapp", "wedding", "wedding_planner", "vendor_to_koc", "dhruva"]) {
+      const filters = readFilters(q("update_status=interested&update_status=pending"), source);
+      expect(filters.update_status).toEqual(["interested", "pending"]);
+      expect(toApiQuery(filters, source).update_status).toEqual(["interested", "pending"]);
+      expect(readFilters(q(toQueryString(toApiQuery(filters, source))), source).update_status).toEqual(["interested", "pending"]);
+      expect(activeCount(filters, source)).toBe(1);
+    }
+    expect(clearedParams(q("update_status=interested&sort=name:asc")).has("update_status")).toBe(false);
+  });
+
   test("no filters: the same URL as the prefetched first page", () => {
     // prefetch.js uses the old wrappers: page, page_size, sort, order
     expect(toQueryString(listQuery({ page: 1, pageSize: 8, filters: {}, sort: "submitted_at", order: "desc" }))).toBe(

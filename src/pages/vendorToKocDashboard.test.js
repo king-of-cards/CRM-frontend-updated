@@ -105,7 +105,7 @@ describe("dashboard KPI card links", () => {
     expect(links.interested).toContain("date_from=2026-10-18");
     expect(links.pending).toContain("update_status=pending");
     expect(links.converted).toContain("update_status=converted");
-    expect(links.purchased_with_us).toContain("update_status=purchased_with_us");
+    expect(links).not.toHaveProperty("purchased_with_us");
   });
   test("follow-ups due uses its all-time filter because the API excludes the period", () => {
     expect(dashboardKpiLinks(PERIOD).follow_ups_due).toBe("/vendor-to-koc?follow_up_due=true");

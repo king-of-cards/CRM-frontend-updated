@@ -26,7 +26,6 @@ export function dashboardKpiLinks(period) {
     pending: kocListLink({ update_status: [PENDING] }, period),
     follow_ups_due: kocListLink({ follow_up_due: "true" }, { all: true }),
     converted: kocListLink({ update_status: ["converted"] }, period),
-    purchased_with_us: kocListLink({ update_status: ["purchased_with_us"] }, period),
   };
 }
 
