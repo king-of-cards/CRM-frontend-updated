@@ -47,19 +47,16 @@ export function dashboardKpiCards(kpis, period) {
     {
       label: "Quoted amount",
       value: k.quoted_count ? shortRupees(k.quoted_total) : "—",
-      caption: `₹ · ${Number(k.quoted_count ?? 0).toLocaleString("en-IN")} ${k.quoted_count === 1 ? "quote" : "quotes"}`,
       to: link({ quote: "has" }),
     },
     {
       label: "Converted",
       value: num(k.converted),
-      caption: `${Number(k.converted ?? 0).toLocaleString("en-IN")} · ${k.converted_pct == null ? "—" : `${k.converted_pct}%`} conversion rate`,
       to: link({ update_status: ["converted"] }),
     },
     {
       label: "Conversion amount",
       value: k.conversion_count ? shortRupees(k.conversion_total) : "—",
-      caption: k.conversion_count ? `${Number(k.conversion_count).toLocaleString("en-IN")} with conversion amount` : "No conversion amounts",
       to: link({ update_status: ["converted"] }),
     },
     {

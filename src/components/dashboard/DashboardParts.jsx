@@ -40,7 +40,7 @@ export function Panel({
   );
 }
 
-export function Kpi({ icon: Icon, label, value, caption, delta, gradient, loading, to }) {
+export function Kpi({ icon: Icon, label, value, delta, gradient, loading, to }) {
   const card = (
     <div className="group relative overflow-hidden rounded-2xl bg-white p-5 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 transition-shadow hover:shadow-lg hover:shadow-gray-200/80">
       {/* Corner glow in the card's colour */}
@@ -81,7 +81,6 @@ export function Kpi({ icon: Icon, label, value, caption, delta, gradient, loadin
           )}
         </div>
       )}
-      <p className="relative mt-1.5 text-xs text-gray-500">{caption}</p>
     </div>
   );
   return to ? <Link to={to} className="block rounded-2xl focus-visible:outline-2 focus-visible:outline-brand-600">{card}</Link> : card;

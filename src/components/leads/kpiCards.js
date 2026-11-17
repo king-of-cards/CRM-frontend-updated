@@ -25,18 +25,15 @@ export function kpiCards(kpis) {
     {
       label: "Quoted amount",
       value: k.quoted_count ? shortRupees(k.quoted_total ?? 0) : "—",
-      subtitle: `₹ · ${count(k.quoted_count)} ${k.quoted_count === 1 ? "quote" : "quotes"}`,
     },
     {
       label: "Converted",
       value: n(k.converted),
-      subtitle: `${count(k.converted)} · ${k.converted_pct == null ? "—" : `${k.converted_pct}%`} conversion rate`,
       tone: k.converted ? "emerald" : undefined,
     },
     {
       label: "Conversion amount",
       value: k.conversion_count ? shortRupees(k.conversion_total ?? 0) : "—",
-      subtitle: k.conversion_count ? `${count(k.conversion_count)} with conversion amount` : "No conversion amounts",
     },
   ];
 }

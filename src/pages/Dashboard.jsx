@@ -15,7 +15,6 @@ import {
   YAxis,
 } from "recharts";
 import {
-  AlertCircle,
   BadgeCheck,
   ThumbsDown,
   ThumbsUp,
@@ -330,12 +329,6 @@ export default function Dashboard() {
     // Leads that arrived in the period (spin is null when its dates couldn't be read)
     const totals = o.totals;
     const all = o.totals.all;
-    const synced = Object.fromEntries(
-      (data?.sources?.sources ?? []).map((s) => [
-        s.source,
-        s.last_success?.finished_at ?? null,
-      ]),
-    );
     const trendKeys = o.spin_available
       ? SOURCE_KEYS
       : SOURCE_KEYS.filter((k) => k !== "spin");
@@ -344,7 +337,6 @@ export default function Dashboard() {
     return {
       totals,
       all,
-      synced,
       trendKeys,
       share: Object.fromEntries(mixAll.map((m) => [m.source, m.pct ?? 0])),
       mix: mixAll
@@ -358,7 +350,7 @@ export default function Dashboard() {
       weekly: o.period?.granularity === "week",
       monthly: o.period?.granularity === "month",
     };
-  }, [o, data]);
+  }, [o]);
 
   const feed = useMemo(() => {
     const items = [
@@ -392,7 +384,6 @@ export default function Dashboard() {
 
   const kpiLoading = loading && !o;
   const label = periodText(period);
-  const prev = o?.period?.previous;
 
   return (
     <>
@@ -452,7 +443,7 @@ export default function Dashboard() {
           <>
             {/* ── KPIs ── */}
             <section
-              className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+              className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6"
               aria-label="Key numbers"
             >
               <Kpi
@@ -460,11 +451,6 @@ export default function Dashboard() {
                 label="Total leads"
                 value={fmt(o?.kpis?.total ?? view?.all)}
                 delta={o?.change_pct?.all ?? null}
-                caption={
-                  prev
-                    ? `${fmt(o?.previous_period?.all)} in ${periodLabel(prev.date_from, prev.date_to)}`
-                    : ""
-                }
                 gradient="from-brand-600 to-brand-800"
                 loading={kpiLoading}
               />
@@ -473,7 +459,6 @@ export default function Dashboard() {
                 icon={ThumbsUp}
                 label="Interested"
                 value={fmt(o?.kpis?.interested)}
-                caption="Update: Interested"
                 gradient="from-emerald-500 to-emerald-700"
                 loading={kpiLoading}
               />
@@ -481,7 +466,6 @@ export default function Dashboard() {
                 icon={ThumbsDown}
                 label="Not interested"
                 value={fmt(o?.kpis?.not_interested)}
-                caption="Update: Not interested"
                 gradient="from-rose-500 to-rose-700"
                 loading={kpiLoading}
               />
@@ -489,9 +473,6 @@ export default function Dashboard() {
                 icon={IndianRupee}
                 label="Quoted amount"
                 value={o?.kpis?.quoted_count ? short(o.kpis.quoted_total) : "—"}
-                caption={
-                  `₹ · ${fmt(o?.kpis?.quoted_count ?? 0)} ${o?.kpis?.quoted_count === 1 ? "quote" : "quotes"}`
-                }
                 gradient="from-violet-500 to-violet-700"
                 loading={kpiLoading}
               />
@@ -499,7 +480,6 @@ export default function Dashboard() {
                 icon={BadgeCheck}
                 label="Converted"
                 value={fmt(o?.kpis?.converted)}
-                caption={`${fmt(o?.kpis?.converted ?? 0)} · ${o?.kpis?.converted_pct == null ? "—" : `${o.kpis.converted_pct}%`} conversion rate`}
                 gradient="from-emerald-500 to-brand-700"
                 loading={kpiLoading}
               />
@@ -507,28 +487,7 @@ export default function Dashboard() {
                 icon={Wallet}
                 label="Conversion amount"
                 value={o?.kpis?.conversion_count ? short(o.kpis.conversion_total) : "—"}
-                caption={
-                  o?.kpis?.conversion_count
-                    ? `${fmt(o.kpis.conversion_count)} with a conversion amount`
-                    : "No conversion amounts in this period"
-                }
                 gradient="from-sky-500 to-brand-700"
-                loading={kpiLoading}
-              />
-              <Kpi
-                icon={Handshake}
-                label="Shared with partners"
-                value={o?.sharing.rate != null ? `${o.sharing.rate}%` : "—"}
-                caption={`${fmt(o?.sharing.shared)} of ${fmt(o?.sharing.shareable)} wedding leads`}
-                gradient="from-sky-500 to-sky-700"
-                loading={kpiLoading}
-              />
-              <Kpi
-                icon={AlertCircle}
-                label="Needs attention"
-                value={fmt(o?.needs_attention?.total)}
-                caption={`${fmt(o?.needs_attention?.not_shared)} not shared · ${fmt(o?.needs_attention?.over_budget)} over budget`}
-                gradient="from-amber-400 to-amber-600"
                 loading={kpiLoading}
               />
             </section>
@@ -596,11 +555,6 @@ export default function Dashboard() {
                           style={{ width: `${share}%`, background: s.color }}
                         />
                       </div>
-                      <p className="mt-1 text-[11px] text-gray-400">
-                        {share}% of leads in period
-                        {isAdmin &&
-                          ` · ${k === "spin" ? "live" : `synced ${timeAgo(view?.synced[k])}`}`}
-                      </p>
                     </div>
                   </Link>
 

@@ -47,21 +47,21 @@ describe("dashboardKpiCards", () => {
     const cards = dashboardKpiCards({ pending: 3 }, null);
     expect(cards[1].to).toContain("update_status=pending");
   });
-  test("Quoted amount shows count and total", () => {
+  test("Quoted amount shows its value and has a matching filter link", () => {
     const cards = dashboardKpiCards({ quoted_count: 2, quoted_total: 90000 }, null);
     const card = cards[4];
     expect(card.label).toBe("Quoted amount");
     expect(card.value).toBe("₹90,000");
-    expect(card.caption).toBe("₹ · 2 quotes");
     expect(card.to).toContain("quote=has");
   });
-  test("the Dhruva KPI labels and captions use the standard names", () => {
+  test("the Dhruva KPI labels use the standard names and no subtitles", () => {
     const cards = dashboardKpiCards({ total: 10, pending: 2, interested: 3, not_interested: 1, quoted_count: 2, quoted_total: 90000, converted: 4, converted_pct: 40, conversion_count: 1, conversion_total: 25000, upcoming_30_days: 5 }, null);
     expect(cards.map((card) => card.label)).toEqual([
       "Total leads", "Pending", "Interested", "Not interested", "Quoted amount", "Converted", "Conversion amount", "Upcoming events (30 days)",
     ]);
-    expect(cards[5]).toMatchObject({ value: "4", caption: "4 · 40% conversion rate" });
-    expect(cards[6]).toMatchObject({ value: "₹25,000", caption: "1 with conversion amount" });
+    expect(cards[5].value).toBe("4");
+    expect(cards[6].value).toBe("₹25,000");
+    expect(cards.every((card) => !Object.hasOwn(card, "caption"))).toBe(true);
     expect(cards[7].label).toBe("Upcoming events (30 days)");
   });
   test("each filtered KPI uses the requested list filter", () => {
