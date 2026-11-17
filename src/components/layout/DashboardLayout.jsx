@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router";
 import {
-  Building2,
   Camera,
   ClipboardList,
   Globe,
@@ -27,7 +26,6 @@ import { isLeadRoute } from "./leadBack.js";
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/users", label: "Team", icon: UserCog, adminOnly: true },
-  { to: "/branches", label: "Branches", icon: Building2, adminOnly: true },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
