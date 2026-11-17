@@ -1,6 +1,6 @@
 // CRM outcomes under each Dashboard source tile (docs/API_REFERENCE.md section 9, `outcomes`).
 // Pure helpers, no React.
-//   INTERESTED  12      CONVERTED  5 · 8.3%      QUOTATION AMOUNT  ₹2.4 L · 6 quotes
+//   INTERESTED  12      CONVERTED  5      QUOTATION AMOUNT  ₹2.4 L · 6 quotes
 //   CONVERSION AMOUNT  ₹1.8 L · 4
 // Each value links to the source's list with the matching filter and the Dashboard's period.
 // A value that is 0, or a source with no outcomes (spin when the workflow DB can't be read),
@@ -36,9 +36,7 @@ export function outcomeCells(outcome) {
     {
       key: "converted",
       label: "CONVERTED",
-      text: converted
-        ? `${count(converted)}${o.converted_pct != null ? ` · ${o.converted_pct}%` : ""}`
-        : "—",
+      text: converted ? count(converted) : "—",
       filter: converted ? { update_status: "converted" } : null,
     },
     {

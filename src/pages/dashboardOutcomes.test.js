@@ -16,7 +16,7 @@ describe("outcome values", () => {
         conversion_count: 4,
         conversion_total: 180000,
       }),
-    ).toEqual(["12", "5 · 8.3%", "₹2.4 L · 6 quotes", "₹1.8 L · 4"]);
+    ).toEqual(["12", "5", "₹2.4 L · 6 quotes", "₹1.8 L · 4"]);
   });
   test("one quote; % hidden when null", () => {
     expect(texts({ interested: 1, converted: 1, converted_pct: null, quoted_count: 1, quoted_total: 45000 })).toEqual([
