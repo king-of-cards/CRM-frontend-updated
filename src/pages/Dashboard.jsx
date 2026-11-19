@@ -28,7 +28,8 @@ import {
   Handshake,
   Inbox,
   IndianRupee,
-  MapPin,
+  Flame,
+  Send,
   RefreshCw,
   Sparkles,
   Target,
@@ -43,8 +44,10 @@ import { prefetchTabs } from "../api/prefetch.js";
 import NotLinkedVendor from "../components/leads/NotLinkedVendor.jsx";
 import PeriodFilter from "../components/dashboard/PeriodFilter.jsx";
 import { BarList, Kpi, Panel, SeriesToggles, toggled } from "../components/dashboard/DashboardParts.jsx";
+import FollowUpsCard from "../components/dashboard/FollowUpsCard.jsx";
+import TopCities from "../components/dashboard/TopCities.jsx";
 import { periodFromSearch, periodLabel, periodText, todayIst } from "./dashboardPeriod.js";
-import { outcomeCells, outcomeLink } from "./dashboardOutcomes.js";
+import { outcomeCells, outcomeLink, sourceKpiDestinations } from "./dashboardOutcomes.js";
 import VendorToKocDashboard from "./VendorToKocDashboard.jsx";
 const DhruvaLeadsDashboard = lazy(() => import("./DhruvaLeadsDashboard.jsx"));
 
@@ -274,6 +277,7 @@ export default function Dashboard() {
   const [refreshKey, setRefreshKey] = useState(0);
   // Lead inflow: unticked sources (not kept in the URL)
   const [hiddenSources, setHiddenSources] = useState(() => new Set());
+  const [kpiChooser, setKpiChooser] = useState(null);
 
   useEffect(() => {
     if (!canSeeLeads && !isDhruva) {
@@ -384,6 +388,13 @@ export default function Dashboard() {
 
   const kpiLoading = loading && !o;
   const label = periodText(period);
+  const quoteChoices = sourceKpiDestinations(o?.outcomes, "quotes", period);
+  const hotChoices = sourceKpiDestinations(o?.outcomes, "hot", period);
+  const chooserAction = (title, choices) => choices.length === 1
+    ? { to: choices[0].to }
+    : choices.length > 1
+      ? { onClick: () => setKpiChooser({ title, choices }) }
+      : {};
 
   return (
     <>
@@ -443,7 +454,7 @@ export default function Dashboard() {
           <>
             {/* ── KPIs ── */}
             <section
-              className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-6"
+              className={`mt-6 grid gap-4 sm:grid-cols-2 ${isAdmin ? "xl:grid-cols-4" : "xl:grid-cols-6"}`}
               aria-label="Key numbers"
             >
               <Kpi
@@ -490,7 +501,27 @@ export default function Dashboard() {
                 gradient="from-sky-500 to-brand-700"
                 loading={kpiLoading}
               />
+              {isAdmin && <Kpi
+                icon={Send}
+                label="Quotes sent"
+                value={fmt(o?.kpis?.quotes_count)}
+                {...chooserAction("Quotes sent", quoteChoices)}
+                gradient="from-indigo-500 to-indigo-700"
+                loading={kpiLoading}
+              />}
+              {isAdmin && <Kpi
+                icon={Flame}
+                label="Hot leads"
+                value={fmt(o?.kpis?.hot_count)}
+                {...chooserAction("Hot leads", hotChoices)}
+                gradient="from-amber-500 to-orange-600"
+                loading={kpiLoading}
+              />}
             </section>
+
+            <div className="mt-6">
+              <FollowUpsCard />
+            </div>
 
             {/* ── Sources ── */}
             <section
@@ -879,13 +910,7 @@ export default function Dashboard() {
 
             {/* ── Where and what ── */}
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <Panel
-                title="Top cities"
-                subtitle="Wedding & Wedding planner leads"
-                icon={MapPin}
-              >
-                <BarList items={o?.top_cities} />
-              </Panel>
+              <TopCities rows={o?.top_cities} subtitle="All sources" />
               <Panel
                 title="Top countries"
                 subtitle="International leads"
@@ -982,6 +1007,17 @@ export default function Dashboard() {
               </p>
             )}
           </>
+        )}
+        {kpiChooser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`${kpiChooser.title} source choices`}>
+            <button type="button" aria-label="Close" onClick={() => setKpiChooser(null)} className="absolute inset-0 bg-gray-900/35 backdrop-blur-sm" />
+            <section className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-gray-200">
+              <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-semibold text-gray-900">{kpiChooser.title}</h2><button type="button" onClick={() => setKpiChooser(null)} className="rounded-full px-2 py-1 text-sm text-gray-500 hover:bg-gray-100">Close</button></div>
+              <ul className="divide-y divide-gray-100">
+                {kpiChooser.choices.map((choice) => <li key={choice.source}><Link onClick={() => setKpiChooser(null)} to={choice.to} className="flex items-center justify-between py-3 text-sm hover:text-brand-700"><span>{choice.label}</span><span className="font-semibold tabular-nums">{fmt(choice.count)}</span></Link></li>)}
+              </ul>
+            </section>
+          </div>
         )}
       </DashboardLayout>
     </>

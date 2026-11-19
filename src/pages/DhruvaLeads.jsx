@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Download, FileUp, Plus, Star } from "lucide-react";
 import { useAuth } from "../auth/useAuth.js";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
@@ -44,6 +45,7 @@ function AdminFollowUp({ lead, onSaved }) {
 
 export default function DhruvaLeads() {
   const { isAdmin } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const { filters, query, queryKey, update, clear, apply, clearFilters, count, pageSize, setPageSize } = useLeadFilters(DHRUVA);
   const sorts = SORTS; const sortValue = sorts.some((s) => s.value === filters.sort) ? filters.sort : SORTS[0].value;
@@ -66,6 +68,16 @@ export default function DhruvaLeads() {
     return () => { cancelled = true; };
   }, [page, pageSize, queryKey, sortValue, reloadKey]);
   const items = data?.items ?? [];
+  useEffect(() => {
+    const target = searchParams.get("notification_lead_id");
+    if (!target) return;
+    const match = items.find((lead) => String(lead.id) === target);
+    if (!match) return;
+    setOpenLead(match);
+    const next = new URLSearchParams(searchParams);
+    next.delete("notification_lead_id");
+    setSearchParams(next, { replace: true });
+  }, [items, searchParams, setSearchParams]);
   const onSaved = (saved) => { setData((d) => d && ({ ...d, items: d.items.map((l) => l.id === saved.id ? { ...l, ...saved } : l) })); getDhruvaStats(query).then(setStats).catch(() => {}); };
   async function runExport(format) {
     setExporting(true); setMessage(null);

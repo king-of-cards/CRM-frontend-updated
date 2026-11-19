@@ -63,3 +63,24 @@ export function outcomeLink(path, filter, period) {
   }
   return `${path}?${params.toString()}`;
 }
+
+const SOURCE_PATHS = {
+  spin: "/leads/spin",
+  whatsapp: "/leads/international",
+  wedding: "/leads/wedding",
+  wedding_planner: "/leads/wedding-planner",
+};
+const SOURCE_LABELS = { spin: "Spin leads", whatsapp: "International", wedding: "Wedding", wedding_planner: "Wedding planner" };
+
+export function sourceKpiDestinations(outcomes, kind, period) {
+  const filter = kind === "quotes" ? { quote: "has" } : { hot: "yes" };
+  const countKey = kind === "quotes" ? "quotes_count" : "hot_count";
+  return Object.entries(SOURCE_PATHS)
+    .filter(([source]) => outcomes?.[source] != null && Number(outcomes[source][countKey] ?? (kind === "quotes" ? outcomes[source].quoted_count : 0)) > 0)
+    .map(([source, path]) => ({
+      source,
+      label: SOURCE_LABELS[source],
+      count: Number(outcomes[source][countKey] ?? (kind === "quotes" ? outcomes[source].quoted_count : 0)),
+      to: outcomeLink(path, filter, period),
+    }));
+}

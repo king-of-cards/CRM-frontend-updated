@@ -33,9 +33,9 @@ describe("statusRows", () => {
 });
 
 describe("dashboardKpiCards", () => {
-  test("produces 8 cards", () => {
+  test("produces 9 cards", () => {
     const cards = dashboardKpiCards({}, null);
-    expect(cards.length).toBe(8);
+    expect(cards.length).toBe(9);
   });
   test("Total leads opens the period list and every filtered card links even at zero", () => {
     const cards = dashboardKpiCards({ total: 10, pending: 0 }, { from: "2026-11-01", to: "2026-11-05" });
@@ -54,15 +54,21 @@ describe("dashboardKpiCards", () => {
     expect(card.value).toBe("₹90,000");
     expect(card.to).toContain("quote=has");
   });
+  test("Quotes sent uses quotes_count and the quote filter", () => {
+    const card = dashboardKpiCards({ quotes_count: 4 }, { from: "2026-11-01", to: "2026-11-05" }).find((item) => item.label === "Quotes sent");
+    expect(card.value).toBe("4");
+    expect(card.to).toContain("quote=has");
+    expect(card.to).toContain("date_from=2026-11-01");
+  });
   test("the Dhruva KPI labels use the standard names and no subtitles", () => {
     const cards = dashboardKpiCards({ total: 10, pending: 2, interested: 3, not_interested: 1, quoted_count: 2, quoted_total: 90000, converted: 4, converted_pct: 40, conversion_count: 1, conversion_total: 25000, upcoming_30_days: 5 }, null);
     expect(cards.map((card) => card.label)).toEqual([
-      "Total leads", "Pending", "Interested", "Not interested", "Quoted amount", "Converted", "Conversion amount", "Upcoming events (30 days)",
+      "Total leads", "Pending", "Interested", "Not interested", "Quoted amount", "Quotes sent", "Converted", "Conversion amount", "Upcoming events (30 days)",
     ]);
-    expect(cards[5].value).toBe("4");
-    expect(cards[6].value).toBe("₹25,000");
+    expect(cards[6].value).toBe("4");
+    expect(cards[7].value).toBe("₹25,000");
     expect(cards.every((card) => !Object.hasOwn(card, "caption"))).toBe(true);
-    expect(cards[7].label).toBe("Upcoming events (30 days)");
+    expect(cards[8].label).toBe("Upcoming events (30 days)");
   });
   test("each filtered KPI uses the requested list filter", () => {
     const cards = dashboardKpiCards({ total: 0, pending: 0, interested: 0, not_interested: 0, quoted_count: 0, converted: 0, conversion_count: 0, upcoming_30_days: 0 }, null);
@@ -72,6 +78,7 @@ describe("dashboardKpiCards", () => {
       "/dhruva-leads?update_status=interested",
       "/dhruva-leads?update_status=not_interested",
       "/dhruva-leads?quote=has",
+      "/dhruva-leads?quote=has",
       "/dhruva-leads?update_status=converted",
       "/dhruva-leads?update_status=converted",
       "/dhruva-leads?upcoming_days=30",
@@ -79,9 +86,9 @@ describe("dashboardKpiCards", () => {
   });
   test("Upcoming events links to list with upcoming_days=30", () => {
     const cards = dashboardKpiCards({ upcoming_30_days: 5 }, { from: "2026-11-01", to: "2026-11-05" });
-    expect(cards[7].to).toContain("upcoming_days=30");
-    expect(cards[7].to).toContain("date_from=2026-11-01");
-    expect(cards[7].to).toContain("date_to=2026-11-05");
+    expect(cards[8].to).toContain("upcoming_days=30");
+    expect(cards[8].to).toContain("date_from=2026-11-01");
+    expect(cards[8].to).toContain("date_to=2026-11-05");
     expect(cards[6].to).toContain("update_status=converted");
   });
 });

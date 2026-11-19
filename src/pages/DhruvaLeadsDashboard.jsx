@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { BadgeCheck, CalendarDays, Clock3, IndianRupee, Inbox, ThumbsUp } from "lucide-react";
+import { BadgeCheck, CalendarDays, Clock3, IndianRupee, Inbox, Send, ThumbsUp } from "lucide-react";
 import { getDhruvaDashboard } from "../api/dhruva.js";
 import { Kpi, Panel } from "../components/dashboard/DashboardParts.jsx";
+import FollowUpsCard from "../components/dashboard/FollowUpsCard.jsx";
 import { dateTimeText, dayText, dhruvaErrors, dhruvaListLink, phoneText, statusLabel } from "./dhruvaUtils.js";
 import { dashboardKpiCards, num, statusRows } from "./dhruvaDashboard.js";
 import { periodLabel } from "./dashboardPeriod.js";
@@ -41,14 +42,15 @@ export default function DhruvaLeadsDashboard({ period, refreshKey }) {
   const venues = (data?.top_venues ?? []).map((x) => ({ ...x, label: x.value, filters: { venue: x.value } }));
   const months = (data?.events_by_month ?? []).map((x) => ({ ...x, label: chartDate(x.month) }));
   const cards = dashboardKpiCards(data?.kpis, period);
-  const kpiIcons = [Inbox, Clock3, ThumbsUp, ThumbsUp, IndianRupee, BadgeCheck, IndianRupee, CalendarDays];
+  const kpiIcons = [Inbox, Clock3, ThumbsUp, ThumbsUp, IndianRupee, Send, BadgeCheck, IndianRupee, CalendarDays];
   const kpiLoading = loading && !data;
   const latest = data?.latest ?? [];
   return <>
     {error && <p role="alert" className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">{error}</p>}
-    <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Dhruva key numbers">
+    <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Dhruva key numbers">
       {cards.map((c, i) => <Kpi key={c.label} icon={kpiIcons[i]} label={c.label} value={c.value} to={c.to} gradient={i % 2 ? "from-violet-500 to-violet-700" : "from-brand-600 to-brand-800"} loading={kpiLoading} />)}
     </section>
+    <div className="mt-6"><FollowUpsCard dhruva /></div>
     <section className="mt-6 grid gap-4 xl:grid-cols-2">
       <Panel title="Lead inflow" subtitle="Received during the selected period">
         <div className="h-72">{inflow.length ? <ResponsiveContainer width="100%" height="100%"><AreaChart data={inflow} margin={{ top: 10, right: 12, left: -18, bottom: 0 }}><defs><linearGradient id="dhruvaInflow" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#0f766e" stopOpacity={0.28} /><stop offset="95%" stopColor="#0f766e" stopOpacity={0.02} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={24} /><YAxis allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip labelFormatter={(_, p) => p?.[0]?.payload?.label} /><Area type="monotone" dataKey="total" stroke="#0f766e" fill="url(#dhruvaInflow)" strokeWidth={2} /></AreaChart></ResponsiveContainer> : <p className="pt-10 text-center text-sm text-gray-500">No leads received in this period.</p>}</div>

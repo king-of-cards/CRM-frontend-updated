@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { outcomeCells, outcomeLink, shortRupees } from "./dashboardOutcomes.js";
+import { outcomeCells, outcomeLink, shortRupees, sourceKpiDestinations } from "./dashboardOutcomes.js";
 
 const texts = (o) => outcomeCells(o).map((c) => c.text);
 
@@ -55,5 +55,19 @@ describe("links", () => {
   });
   test("All time: no dates", () => {
     expect(outcomeLink("/leads/spin", cells[0].filter, { all: true })).toBe("/leads/spin?update_status=interested");
+  });
+});
+
+describe("aggregate KPI source destinations", () => {
+  test("single source opens directly and carries the date period", () => {
+    expect(sourceKpiDestinations({ wedding: { quotes_count: 2 } }, "quotes", { from: "2026-11-01", to: "2026-11-05" })).toEqual([
+      { source: "wedding", label: "Wedding", count: 2, to: "/leads/wedding?quote=has&date_from=2026-11-01&date_to=2026-11-05" },
+    ]);
+  });
+  test("several sources produce chooser links with their supported filters", () => {
+    expect(sourceKpiDestinations({ spin: { hot_count: 1 }, wedding_planner: { hot_count: 3 } }, "hot", { all: true }).map((choice) => choice.to)).toEqual([
+      "/leads/spin?hot=yes",
+      "/leads/wedding-planner?hot=yes",
+    ]);
   });
 });

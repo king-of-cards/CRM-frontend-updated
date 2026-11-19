@@ -113,7 +113,9 @@ describe("dashboard KPI card links", () => {
   test("quote and conversion amounts have no matching list filter", () => {
     const links = dashboardKpiLinks(PERIOD);
     expect(links.quoted_amount).toBeNull();
+    expect(links.quotes_sent).toBeNull();
     expect(links.conversion_amount).toBeNull();
+    expect(links.hot_leads).toBe("/vendor-to-koc?hot=yes&date_from=2026-10-18&date_to=2026-11-16");
   });
 });
 

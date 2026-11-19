@@ -5,6 +5,7 @@ import { downloadLeadPdf } from "../leads/leadPdf.js";
 import LeadPdfButton from "../leads/LeadPdfButton.jsx";
 import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "../leads/HotLeadStar.jsx";
+import LeadActivity from "../leads/LeadActivity.jsx";
 import {
   dateTimeText,
   dayText,
@@ -56,6 +57,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
   const leadId = lead?.id ?? null;
 
   function close() {
@@ -140,6 +142,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
     try {
       const next = await updateKocLead(lead.id, changes);
       setSaved(true);
+      setActivityRefreshKey((key) => key + 1);
       onSaved(next);
     } catch (err) {
       const { fields, message } = kocErrors(err);
@@ -345,6 +348,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
               </section>
             );
           })}
+          <LeadActivity source="vendor_to_koc" leadKey={lead.id} refreshKey={activityRefreshKey} />
         </div>
       </aside>
     </div>

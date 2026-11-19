@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, CheckCheck, Loader2, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router";
+import { useLocation } from "react-router";
 import {
   getNotificationUnreadCount,
   getNotifications,
@@ -14,11 +15,15 @@ import {
   relativeNotificationTime,
   unreadBadge,
 } from "./notificationUtils.js";
+import { getFollowUpReminders } from "../../api/reminders.js";
+import { reminderDashboardDestination } from "../dashboard/reminderUtils.js";
+import { flowOf } from "./leadFlow.js";
 
 const PAGE_SIZE = 10;
 
 export default function NotificationBell({ variant = "default" }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const root = useRef(null);
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(null);
@@ -29,6 +34,8 @@ export default function NotificationBell({ variant = "default" }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
+  const [followUpCounts, setFollowUpCounts] = useState(null);
+  const [followUpError, setFollowUpError] = useState(false);
 
   const refreshCount = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
@@ -57,6 +64,18 @@ export default function NotificationBell({ variant = "default" }) {
     }
   }, []);
 
+  const refreshFollowUps = useCallback(async () => {
+    if (document.visibilityState !== "visible") return;
+    try {
+      const result = await getFollowUpReminders({ days: 7 });
+      setFollowUpCounts(result.counts ?? {});
+      setFollowUpError(false);
+    } catch {
+      setFollowUpCounts(null);
+      setFollowUpError(true);
+    }
+  }, []);
+
   useEffect(() => {
     let timer = null;
     const stop = () => {
@@ -66,9 +85,10 @@ export default function NotificationBell({ variant = "default" }) {
     const start = () => {
       if (document.visibilityState !== "visible" || timer) return;
       refreshCount();
-      timer = setInterval(refreshCount, 30_000);
+      refreshFollowUps();
+      timer = setInterval(() => { refreshCount(); refreshFollowUps(); }, 30_000);
     };
-    const onFocus = () => refreshCount();
+    const onFocus = () => { refreshCount(); refreshFollowUps(); };
     const onVisibility = () => document.visibilityState === "visible" ? start() : stop();
     start();
     window.addEventListener("focus", onFocus);
@@ -78,7 +98,7 @@ export default function NotificationBell({ variant = "default" }) {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [refreshCount]);
+  }, [refreshCount, refreshFollowUps]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -100,6 +120,7 @@ export default function NotificationBell({ variant = "default" }) {
     if (next) {
       loadPage(1);
       refreshCount();
+      refreshFollowUps();
     }
   }
 
@@ -161,6 +182,19 @@ export default function NotificationBell({ variant = "default" }) {
                 {markingAll ? <Loader2 size={13} className="animate-spin" /> : <CheckCheck size={13} />}
                 Mark all as read
               </button>
+            </div>
+          </div>
+
+          <div className="border-b border-gray-100 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-xs font-semibold text-gray-800">Follow-ups</h3>
+              {followUpError ? <button type="button" onClick={refreshFollowUps} className="text-xs font-medium text-brand-700 hover:underline">Retry</button> : (
+                <button type="button" onClick={() => { setOpen(false); navigate(reminderDashboardDestination(flowOf(location.pathname, location.search))); }} className="text-xs font-semibold text-brand-700 hover:underline">View all</button>
+              )}
+            </div>
+            <div className="mt-2 flex gap-2 text-xs">
+              <button type="button" onClick={() => { setOpen(false); navigate(reminderDashboardDestination(flowOf(location.pathname, location.search))); }} className="rounded-full bg-rose-50 px-2.5 py-1 font-medium text-rose-700 hover:bg-rose-100">Overdue {followUpCounts?.overdue ?? "—"}</button>
+              <button type="button" onClick={() => { setOpen(false); navigate(reminderDashboardDestination(flowOf(location.pathname, location.search))); }} className="rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-800 hover:bg-amber-100">Today {followUpCounts?.today ?? "—"}</button>
             </div>
           </div>
 

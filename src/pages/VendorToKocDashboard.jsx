@@ -19,7 +19,8 @@ import {
   Filter as FunnelIcon,
   Handshake,
   Inbox,
-  MapPin,
+  Flame,
+  Send,
   PieChart as PieIcon,
   ThumbsUp,
   Wallet,
@@ -30,6 +31,8 @@ import {
 } from "lucide-react";
 import { getKocDashboard } from "../api/vendorToKoc.js";
 import { Kpi, Panel, SeriesToggles, toggled } from "../components/dashboard/DashboardParts.jsx";
+import FollowUpsCard from "../components/dashboard/FollowUpsCard.jsx";
+import TopCities from "../components/dashboard/TopCities.jsx";
 import { dateTimeText, dayText, kocErrors, kocListLink, phoneText, statusLabel } from "../components/vendorToKoc/kocUtils.js";
 import { periodLabel } from "./dashboardPeriod.js";
 import { shortRupees } from "./dashboardOutcomes.js";
@@ -169,7 +172,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
         <>
           {/* ── KPIs ── */}
           <section
-            className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+            className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
             aria-label="Key numbers"
           >
             <Kpi
@@ -204,6 +207,22 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
               value={d?.kpis?.conversion_count ? shortRupees(d.kpis.conversion_total) : "—"}
               to={kpiLinks.conversion_amount}
               gradient="from-teal-500 to-teal-700"
+              loading={kpiLoading}
+            />
+            <Kpi
+              icon={Send}
+              label="Quotes sent"
+              value={num(d?.kpis?.quotes_count)}
+              to={kpiLinks.quotes_sent}
+              gradient="from-indigo-500 to-indigo-700"
+              loading={kpiLoading}
+            />
+            <Kpi
+              icon={Flame}
+              label="Hot leads"
+              value={num(d?.kpis?.hot_count)}
+              to={kpiLinks.hot_leads}
+              gradient="from-amber-500 to-orange-600"
               loading={kpiLoading}
             />
             {outcomes && (
@@ -366,13 +385,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                 </Panel>
                 {isAdmin && (
                 <>
-                <Panel title="Top cities" subtitle="Leads received in the period" icon={MapPin}>
-                  <LinkedBars
-                    rows={(d?.top_cities ?? []).map((c) => ({ key: c.value, label: c.value, count: c.count, filters: { city: c.value } }))}
-                    period={period}
-                    color="from-violet-400 to-violet-600"
-                  />
-                </Panel>
+                <TopCities rows={d?.top_cities} defaultSource="vendor_to_koc" subtitle="Vendors → KOC leads" />
                 <Panel title="By source" subtitle="How the leads were added" icon={Sparkles}>
                   <LinkedBars rows={sourceRows(d?.by_source)} period={period} color="from-rose-400 to-rose-600" />
                 </Panel>
@@ -429,37 +442,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
 
               {/* ── Follow-ups (everyone) + latest (admins) ── */}
               <div className={`mt-6 grid gap-4 ${isAdmin ? "xl:grid-cols-2" : ""}`}>
-                <Panel
-                  title="Next follow-ups"
-                  subtitle="Open leads, earliest first (overdue included)"
-                  icon={AlarmClock}
-                  right={d?.not_filtered?.includes("next_follow_ups") ? <span className="text-[11px] text-gray-400">Not affected by date filter</span> : null}
-                  flush
-                >
-                  <ul className="divide-y divide-gray-100">
-                    {(d?.next_follow_ups ?? []).map((l) => (
-                      <li key={l.id}>
-                        <Link
-                          to={linkFor(1, { search: l.phone }, all)}
-                          className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-gray-50"
-                        >
-                          <span className="w-24 shrink-0 text-xs font-semibold tabular-nums text-rose-600">
-                            {dayText(l.follow_up_date)}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium text-gray-900">{l.name || phoneText(l.phone)}</span>
-                            <span className="block truncate text-xs text-gray-500">
-                              {[l.vendor_name, statusLabel(l.update_status), l.city].filter(Boolean).join(" · ")}
-                            </span>
-                          </span>
-                        </Link>
-                      </li>
-                    ))}
-                    {!(d?.next_follow_ups ?? []).length && (
-                      <li className="px-5 py-8 text-center text-sm text-gray-500">No follow-ups planned.</li>
-                    )}
-                  </ul>
-                </Panel>
+                <FollowUpsCard />
                 {isAdmin && (
                 <Panel title="Latest leads" subtitle="The newest leads of the period" icon={Inbox} flush>
                   <ul className="divide-y divide-gray-100">

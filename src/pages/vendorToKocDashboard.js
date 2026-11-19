@@ -22,6 +22,8 @@ export function dashboardKpiLinks(period) {
     total: kocListLink({}, period),
     interested: kocListLink({ update_status: ["interested"] }, period),
     quoted_amount: null,
+    quotes_sent: null,
+    hot_leads: kocListLink({ hot: "yes" }, period),
     conversion_amount: null,
     pending: kocListLink({ update_status: [PENDING] }, period),
     follow_ups_due: kocListLink({ follow_up_due: "true" }, { all: true }),

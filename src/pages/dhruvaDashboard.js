@@ -50,6 +50,11 @@ export function dashboardKpiCards(kpis, period) {
       to: link({ quote: "has" }),
     },
     {
+      label: "Quotes sent",
+      value: num(k.quotes_count),
+      to: link({ quote: "has" }),
+    },
+    {
       label: "Converted",
       value: num(k.converted),
       to: link({ update_status: ["converted"] }),

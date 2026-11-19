@@ -20,6 +20,7 @@ import { useAuth } from "../../auth/useAuth.js";
 import { assignedText, panelChanges } from "./crmAccess.js";
 import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "./HotLeadStar.jsx";
+import LeadActivity from "./LeadActivity.jsx";
 
 // Who edits what: Assigned to = admins (vendors see it as text); Update, Quoted amount/date,
 // Conversion amount and Notes = admins and the assigned vendor. Only changed, allowed fields are sent.
@@ -76,6 +77,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [downloading, setDownloading] = useState(false);
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
 
   // Which lead is open (the panel only resets when this changes, not on every refresh)
   const leadId = lead
@@ -152,6 +154,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
       );
       setCrm(next);
       setSaved(true);
+      setActivityRefreshKey((key) => key + 1);
       onSaved?.(crm.lead_key, next);
     } catch (err) {
       setError(err.message);
@@ -543,6 +546,12 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
               </section>
             );
           })}
+          <LeadActivity
+            source={lead.source}
+            leadKey={crm?.lead_key}
+            refreshKey={activityRefreshKey}
+            vendorName={crm?.vendor?.name ?? crm?.suggested_vendor?.name}
+          />
         </div>
       </aside>
     </div>

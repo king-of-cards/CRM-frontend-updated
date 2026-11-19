@@ -9,6 +9,7 @@ import { downloadLeadPdf } from "../leads/leadPdf.js";
 import LeadPdfButton from "../leads/LeadPdfButton.jsx";
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
 import { dateTimeText, dayText, dhruvaErrors, dhruvaFieldAccess, phoneText, rupeesText, statusLabel, STATUSES, PENDING } from "../../pages/dhruvaUtils.js";
+import LeadActivity from "../leads/LeadActivity.jsx";
 
 const basicFields = [
   ["name", "Name", "text"],
@@ -42,6 +43,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
   const [downloading, setDownloading] = useState(false);
   const [archiveBusy, setArchiveBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
 
   useEffect(() => {
     setForm(fieldsOf(lead));
@@ -90,6 +92,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
       const savedLead = await updateDhruvaLead(lead.id, changes);
       setDuplicate(null);
       setSaved(true);
+      setActivityRefreshKey((key) => key + 1);
       onSaved(savedLead);
     } catch (err) {
       const parsed = dhruvaErrors(err);
@@ -111,6 +114,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
     setError("");
     try {
       const res = lead.archived ? await unarchiveDhruvaLead(lead.id) : await archiveDhruvaLead(lead.id);
+      setActivityRefreshKey((key) => key + 1);
       onArchived(res);
     } catch (err) {
       setError(dhruvaErrors(err).message || err.message);
@@ -181,6 +185,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
           </dl>
         </section>}
       </form>
+      <div className="mt-5"><LeadActivity source="dhruva" leadKey={lead.id} refreshKey={activityRefreshKey} /></div>
     </Drawer>
   );
 }
