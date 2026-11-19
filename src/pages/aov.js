@@ -13,15 +13,8 @@ export function aov(count, total) {
   return sum / n;
 }
 
-// { value, count } for an object (or objects) with conversion_amount_count / _total,
-// e.g. kpis, or the Wedding + Wedding planner outcomes summed. null / missing parts are skipped.
-export function aovOf(...parts) {
-  let count = 0;
-  let total = 0;
-  for (const part of parts) {
-    if (!part) continue;
-    count += Number(part.conversion_amount_count) || 0;
-    total += Number(part.conversion_amount_total) || 0;
-  }
-  return { value: aov(count, total), count };
+// { value, count } for a dashboard's kpis (conversion_amount_count / _total); null / missing: no value
+export function aovOf(kpis) {
+  const count = Number(kpis?.conversion_amount_count) || 0;
+  return { value: aov(count, kpis?.conversion_amount_total), count };
 }

@@ -77,11 +77,4 @@ describe("aggregate KPI source destinations", () => {
       { source: "wedding_planner", label: "Wedding planner", count: 1, to: "/leads/wedding-planner?update_status=converted&conversion=has&date_from=2026-11-01&date_to=2026-11-05" },
     ]);
   });
-  test("a source subset limits the choices (Budgets & size: Wedding + Wedding planner)", () => {
-    const outcomes = { spin: { conversion_amount_count: 3 }, wedding: { conversion_amount_count: 2 }, wedding_planner: { conversion_amount_count: 1 } };
-    expect(sourceKpiDestinations(outcomes, "aov", { all: true }, ["wedding", "wedding_planner"]).map((choice) => choice.to)).toEqual([
-      "/leads/wedding?update_status=converted&conversion=has",
-      "/leads/wedding-planner?update_status=converted&conversion=has",
-    ]);
-  });
 });

@@ -21,20 +21,16 @@ describe("aov", () => {
 });
 
 describe("aovOf", () => {
-  test("one kpis object", () => {
+  test("a dashboard's kpis", () => {
     expect(aovOf({ conversion_amount_count: 2, conversion_amount_total: 100000 })).toEqual({ value: 50000, count: 2 });
-  });
-  test("Wedding + Wedding planner outcomes are summed before dividing", () => {
-    const wedding = { conversion_amount_count: 1, conversion_amount_total: 30000 };
-    const planner = { conversion_amount_count: 3, conversion_amount_total: 170000 };
-    expect(aovOf(wedding, planner)).toEqual({ value: 50000, count: 4 });
   });
   test("ignores the older conversion_count / conversion_total", () => {
     expect(aovOf({ conversion_count: 5, conversion_total: 500000 })).toEqual({ value: null, count: 0 });
   });
-  test("missing or null parts", () => {
-    expect(aovOf(null, undefined)).toEqual({ value: null, count: 0 });
-    expect(aovOf(null, { conversion_amount_count: 1, conversion_amount_total: 20000 })).toEqual({ value: 20000, count: 1 });
+  test("missing or null kpis", () => {
+    expect(aovOf(null)).toEqual({ value: null, count: 0 });
+    expect(aovOf(undefined)).toEqual({ value: null, count: 0 });
+    expect(aovOf({})).toEqual({ value: null, count: 0 });
   });
 });
 

@@ -392,8 +392,6 @@ export default function Dashboard() {
   const hotChoices = sourceKpiDestinations(o?.outcomes, "hot", period);
   const kpiAov = aovOf(o?.kpis);
   const aovChoices = sourceKpiDestinations(o?.outcomes, "aov", period);
-  // Budgets & size: AOV over the Wedding + Wedding planner outcomes only
-  const weddingAov = aovOf(o?.outcomes?.wedding, o?.outcomes?.wedding_planner);
   const chooserAction = (title, choices) => choices.length === 1
     ? { to: choices[0].to }
     : choices.length > 1
@@ -782,8 +780,8 @@ export default function Dashboard() {
               </Panel>
             </div>
 
-            {/* ── Upcoming + budgets ── */}
-            <div className="mt-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
+            {/* ── Upcoming (full width) ── */}
+            <div className="mt-6">
               <Panel
                 title="Upcoming events by month"
                 subtitle="When your leads' weddings and events happen"
@@ -843,81 +841,6 @@ export default function Dashboard() {
                     </ResponsiveContainer>
                   )}
                 </div>
-              </Panel>
-
-              <Panel
-                title="Budgets & size"
-                subtitle="Wedding and Wedding planner leads"
-                icon={IndianRupee}
-              >
-                <dl className="grid grid-cols-2 gap-3">
-                  {[
-                    {
-                      label: "AOV",
-                      value: weddingAov.value == null ? "—" : short(Math.round(weddingAov.value)),
-                      sub: `${fmt(weddingAov.count)} converted with an amount`,
-                    },
-                    {
-                      // wedding_budget is no longer returned; budget_fit is
-                      label: "Plans over budget",
-                      value: fmt(o?.budget_fit?.over ?? null),
-                      sub: `of ${fmt((o?.budget_fit?.fits ?? 0) + (o?.budget_fit?.over ?? 0))} estimated plans`,
-                    },
-                    {
-                      label: "Avg guests per wedding",
-                      value: fmt(o?.guests?.average ?? null),
-                      sub: `${fmt(o?.guests.total)} guests in all`,
-                    },
-                    {
-                      label: "Repeat enquiries",
-                      value: fmt(o?.repeats),
-                      sub: "Same contact again",
-                    },
-                  ].map((x) => (
-                    <div
-                      key={x.label}
-                      className="rounded-xl bg-gray-50 px-3 py-3"
-                    >
-                      <dt className="text-[11px] text-gray-500">{x.label}</dt>
-                      <dd className="mt-1 text-lg font-bold tabular-nums text-gray-900">
-                        {x.value}
-                      </dd>
-                      <dd className="text-[11px] text-gray-400">{x.sub}</dd>
-                    </div>
-                  ))}
-                </dl>
-                {o && (o.budget_fit.fits || o.budget_fit.over) ? (
-                  <div className="mt-4">
-                    <p className="text-xs font-medium text-gray-600">
-                      Plans vs budget
-                    </p>
-                    <div className="mt-2 flex h-2.5 overflow-hidden rounded-full bg-gray-100">
-                      <div
-                        className="bg-emerald-500"
-                        style={{ flex: o.budget_fit.fits ?? 0 }}
-                      />
-                      <div
-                        className="bg-rose-500"
-                        style={{ flex: o.budget_fit.over ?? 0 }}
-                      />
-                      <div
-                        className="bg-gray-200"
-                        style={{ flex: o.budget_fit.unknown ?? 0 }}
-                      />
-                    </div>
-                    <p className="mt-1.5 flex gap-4 text-[11px] text-gray-500">
-                      <span className="text-emerald-600">
-                        {fmt(o.budget_fit.fits ?? 0)} fit
-                      </span>
-                      <span className="text-rose-600">
-                        {fmt(o.budget_fit.over ?? 0)} over
-                      </span>
-                      {o.budget_fit.unknown ? (
-                        <span>{fmt(o.budget_fit.unknown)} not estimated</span>
-                      ) : null}
-                    </p>
-                  </div>
-                ) : null}
               </Panel>
             </div>
 

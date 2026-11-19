@@ -82,14 +82,14 @@ const KPI_KINDS = {
   aov: { filter: AOV_FILTERS, count: (o) => o.conversion_amount_count ?? 0 },
 };
 
-export function sourceKpiDestinations(outcomes, kind, period, sources = Object.keys(SOURCE_PATHS)) {
+export function sourceKpiDestinations(outcomes, kind, period) {
   const { filter, count: countOf } = KPI_KINDS[kind] ?? KPI_KINDS.hot;
-  return sources
-    .filter((source) => SOURCE_PATHS[source] && outcomes?.[source] != null && Number(countOf(outcomes[source])) > 0)
-    .map((source) => ({
+  return Object.entries(SOURCE_PATHS)
+    .filter(([source]) => outcomes?.[source] != null && Number(countOf(outcomes[source])) > 0)
+    .map(([source, path]) => ({
       source,
       label: SOURCE_LABELS[source],
       count: Number(countOf(outcomes[source])),
-      to: outcomeLink(SOURCE_PATHS[source], filter, period),
+      to: outcomeLink(path, filter, period),
     }));
 }
