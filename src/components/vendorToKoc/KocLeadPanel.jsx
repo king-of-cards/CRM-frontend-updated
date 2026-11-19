@@ -1,3 +1,4 @@
+import DateInput from "../shared/DateInput.jsx";
 import { useEffect, useState } from "react";
 import { MessageCircle, Phone, X } from "lucide-react";
 import { updateKocLead } from "../../api/vendorToKoc.js";
@@ -284,7 +285,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
               </label>
               <label className="mt-4 block">
                 <span className="text-xs font-medium text-gray-600">Follow-up date</span>
-                <input type="date" value={form.follow_up_date} onChange={(e) => set("follow_up_date", e.target.value)} className={`mt-1.5 ${fieldCls}`} />
+                <DateInput type="date" value={form.follow_up_date} onChange={(e) => set("follow_up_date", e.target.value)} className={`mt-1.5 ${fieldCls}`} />
               </label>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <label className="block">

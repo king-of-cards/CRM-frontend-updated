@@ -8,6 +8,7 @@ import {
   periodLabel,
   periodText,
   presetPeriod,
+  pickRangeDate,
   todayIst,
 } from "./dashboardPeriod.js";
 
@@ -33,6 +34,17 @@ describe("presets", () => {
     expect(presetPeriod("7", TODAY)).toEqual({ from: "2026-11-10", to: TODAY });
     expect(presetPeriod("15", TODAY)).toEqual({ from: "2026-11-02", to: TODAY });
     expect(presetPeriod("30", TODAY)).toEqual({ from: "2026-10-18", to: TODAY });
+  });
+  test("calendar presets and legacy period=15 links", () => {
+    expect(presetPeriod("today", TODAY)).toEqual({ from: TODAY, to: TODAY });
+    expect(presetPeriod("this_month", TODAY)).toEqual({ from: "2026-11-01", to: TODAY });
+    expect(presetPeriod("last_month", TODAY)).toEqual({ from: "2026-10-01", to: "2026-10-31" });
+    expect(periodFromSearch(q("period=15"), TODAY)).toEqual({ from: "2026-11-02", to: TODAY });
+  });
+  test("range calendar picks start, end, same day, and restarts before start", () => {
+    expect(pickRangeDate(null, "2026-11-03")).toEqual({ range: { from: "2026-11-03", to: "" }, complete: false });
+    expect(pickRangeDate({ from: "2026-11-03", to: "" }, "2026-11-03")).toEqual({ range: { from: "2026-11-03", to: "2026-11-03" }, complete: true });
+    expect(pickRangeDate({ from: "2026-11-03", to: "" }, "2026-11-01")).toEqual({ range: { from: "2026-11-01", to: "" }, complete: false });
   });
 });
 
@@ -79,6 +91,7 @@ describe("validation", () => {
     expect(periodError({ from: "2025-11-15", to: TODAY }, TODAY)).toBe("The period can be at most 1 year."); // 367 days
     expect(periodError({ from: "16-11-2026", to: TODAY }, TODAY)).toBe("Pick a valid date.");
     expect(periodError({ from: "", to: TODAY }, TODAY)).toBe("Pick a valid date.");
+    expect(periodError({ from: "2026-02-31", to: TODAY }, TODAY)).toBe("Pick a valid date.");
   });
 });
 

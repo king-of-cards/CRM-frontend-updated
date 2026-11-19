@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { addKocLead } from "../../api/vendorToKoc.js";
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
+import DateInput from "../shared/DateInput.jsx";
 import { kocErrors } from "./kocUtils.js";
 
 // Add one Vendors → KOC lead (vendor logins only; the lead goes to the login's vendor):
@@ -72,7 +73,7 @@ export default function KocAddLeadDialog({ onClose, onAdded }) {
               {f.label}
               {f.required && <span className="ml-0.5 text-red-600">*</span>}
             </label>
-            <input
+            {f.type === "date" ? <DateInput
               id={`koc-${f.key}`}
               type={f.type}
               value={form[f.key]}
@@ -80,7 +81,15 @@ export default function KocAddLeadDialog({ onClose, onAdded }) {
               onChange={(e) => set(f.key, e.target.value)}
               aria-invalid={Boolean(errors[f.key])}
               className={`mt-1.5 ${fieldCls} ${errors[f.key] ? "border-red-300" : ""}`}
-            />
+            /> : <input
+              id={`koc-${f.key}`}
+              type={f.type}
+              value={form[f.key]}
+              maxLength={f.max}
+              onChange={(e) => set(f.key, e.target.value)}
+              aria-invalid={Boolean(errors[f.key])}
+              className={`mt-1.5 ${fieldCls} ${errors[f.key] ? "border-red-300" : ""}`}
+            />}
             {errors[f.key] ? (
               <p className="mt-1 text-[11px] text-red-600">{errors[f.key]}</p>
             ) : (

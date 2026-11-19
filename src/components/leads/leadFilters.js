@@ -16,6 +16,7 @@ export const COMMON_KEYS = [
   "conversion",
   "origin",
   "hot",
+  "also_in",
 ];
 export const SOURCE_KEYS = {
   spin: ["branch", "pincode", "budget"],
@@ -54,6 +55,7 @@ export const KOC_KEYS = [
   "follow_up_from",
   "follow_up_to",
   "follow_up_due",
+  "also_in",
   "city",
   "source",
 ];
@@ -76,6 +78,10 @@ export function pageSizeOf(params) {
 
 export const keysFor = (source) =>
   source === KOC ? KOC_KEYS : source === DHRUVA ? DHRUVA_KEYS : [...COMMON_KEYS, ...(SOURCE_KEYS[source] ?? [])];
+
+export const hasFilterValue = (filters, keys) => keys.some((key) =>
+  Array.isArray(filters[key]) ? filters[key].length > 0 : Boolean(filters[key]),
+);
 
 // URLSearchParams -> { key: "" | "value" | ["v", …], sort }
 export function readFilters(params, source) {
@@ -121,6 +127,7 @@ export function activeCount(filters, source) {
       ["follow_up_from", "follow_up_to", "follow_up_due"],
       ["city"],
       ["source"],
+      ["also_in"],
     ].filter((g) => g.some(has)).length;
   }
   if (source === DHRUVA) {
@@ -139,6 +146,7 @@ export function activeCount(filters, source) {
     ["quote"],
     ["conversion"],
     ["origin"],
+    ["also_in"],
   ];
   const own = SOURCE_KEYS[source] ?? [];
   const ranges = [

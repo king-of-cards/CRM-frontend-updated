@@ -1,3 +1,4 @@
+import DateInput from "../shared/DateInput.jsx";
 import { useEffect, useState } from "react";
 import {
   BadgeCheck,
@@ -453,7 +454,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   <span className="text-xs font-medium text-gray-600">
                     Quoted date
                   </span>
-                  <input
+                  <DateInput
                     type="date"
                     value={form.quoted_date}
                     onChange={(e) => set("quoted_date", e.target.value)}

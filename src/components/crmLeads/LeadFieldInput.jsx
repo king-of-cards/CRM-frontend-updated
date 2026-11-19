@@ -1,3 +1,4 @@
+import DateInput from "../shared/DateInput.jsx";
 import { fieldCls } from "./Drawer.jsx";
 import { useVendors } from "../leads/InlineCrm.jsx";
 
@@ -20,6 +21,7 @@ export default function LeadFieldInput({ field, value, onChange, error, branches
   const cls = `mt-1.5 ${fieldCls} ${invalid ? "border-red-300 focus:border-red-500 focus:ring-red-500/20" : ""}`;
 
   let input;
+  const InputComponent = field.type === "date" || field.type === "datetime" ? DateInput : "input";
   if (field.type === "branch") {
     input = (
       <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={cls} aria-invalid={invalid}>
@@ -54,7 +56,7 @@ export default function LeadFieldInput({ field, value, onChange, error, branches
     );
   } else {
     input = (
-      <input
+      <InputComponent
         id={id}
         type={INPUT_TYPE[field.type] ?? "text"}
         inputMode={field.type === "int" || field.type === "pincode" ? "numeric" : undefined}

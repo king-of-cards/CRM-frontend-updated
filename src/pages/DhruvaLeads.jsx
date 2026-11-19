@@ -1,3 +1,4 @@
+import DateInput from "../components/shared/DateInput.jsx";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Download, FileUp, Plus, Star } from "lucide-react";
@@ -40,7 +41,7 @@ function AdminComments({ lead, onSaved }) {
 }
 function AdminFollowUp({ lead, onSaved }) {
   const { busy, error, save } = useSave(lead, onSaved);
-  return <div><input aria-label="Follow-up date" type="date" value={lead.follow_up_date ?? ""} disabled={busy} onChange={(e) => save({ follow_up_date: e.target.value || null })} className={`${fieldCls} w-36 py-1.5 text-xs`} /><InlineError text={error} /></div>;
+  return <div><DateInput aria-label="Follow-up date" type="date" value={lead.follow_up_date ?? ""} disabled={busy} onChange={(e) => save({ follow_up_date: e.target.value || null })} className={`${fieldCls} w-36 py-1.5 text-xs`} /><InlineError text={error} /></div>;
 }
 
 export default function DhruvaLeads() {

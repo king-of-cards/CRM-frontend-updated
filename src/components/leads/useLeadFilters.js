@@ -16,9 +16,8 @@ import {
 //   query:    the API query for the list, stats and export (no paging / sort)
 //   queryKey: the same as a string, for effect dependencies (changes reset the page to 1)
 //   update({ key: value }): change filters ("" / [] removes one); clear(): all but the sort
-//   apply(draft): replace the panel's filters with its draft (URLSearchParams), keeping the search,
-//     the sort and the date (those three are in the row, not the panel)
-//   clearFilters(): remove the panel's filters, keeping the search, the sort and the date
+//   apply(draft): compatibility helper for callers that still provide a URL draft
+//   clearFilters(): clear every filter, preserving sort and page size
 //   pageSize / setPageSize(n): rows per page, kept in the URL (?page_size=25; 10 = not written)
 export function useLeadFilters(source) {
   const [params, setParams] = useSearchParams();
@@ -49,10 +48,7 @@ export function useLeadFilters(source) {
     (draft) => setParams((prev) => keepSearchAndSort(prev, new URLSearchParams(draft)), { replace: true }),
     [setParams],
   );
-  const clearFilters = useCallback(
-    () => setParams((prev) => keepSearchAndSort(prev, new URLSearchParams()), { replace: true }),
-    [setParams],
-  );
+  const clearFilters = clear;
   const pageSize = pageSizeOf(new URLSearchParams(raw));
   const setPageSize = useCallback(
     (n) =>

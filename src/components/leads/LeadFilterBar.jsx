@@ -1,750 +1,123 @@
-import { useEffect, useRef, useState } from "react";
-import { Filter, SlidersHorizontal, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import FilterSelect from "../dashboard/FilterSelect.jsx";
 import PeriodFilter from "../dashboard/PeriodFilter.jsx";
+import DateInput from "../shared/DateInput.jsx";
 import { todayIst } from "../../pages/dashboardPeriod.js";
-import { SearchBox, useDebounced } from "./LeadKit.jsx";
-import MultiSelect from "./MultiSelect.jsx";
-import PincodePicker from "./PincodePicker.jsx";
-import { PENDING, SOURCES as KOC_SOURCES, STATUSES } from "../vendorToKoc/kocUtils.js";
-import {
-  branchName,
-  buildQuote,
-  DHRUVA,
-  filtersOfPeriod,
-  KOC,
-  NOT_SHARED,
-  ORIGIN_LABELS,
-  UPDATE_LABELS,
-  parseQuote,
-  periodOfFilters,
-  readFilters,
-  toApiQuery,
-  UPCOMING_DAYS,
-  withCount,
-  withFilters,
-} from "./leadFilters.js";
-import { filterChips } from "./filterChips.js";
+import { SearchBox } from "./LeadKit.jsx";
+import { SOURCES as KOC_SOURCES } from "../vendorToKoc/kocUtils.js";
+import FilterDropdown from "./FilterDropdown.jsx";
+import { buildFilterButtons } from "./filterButtons.js";
+import { DHRUVA, KOC, NOT_SHARED, ORIGIN_LABELS, UPDATE_LABELS } from "./leadFilters.js";
 
-// One filter bar for the lead lists (docs/API_REFERENCE.md sections 10 and 11): a row with the
-// search box, the date control (as on the Dashboard), a "Filters" button (count of the panel's
-// filters) and Sort; the button opens a panel with the other filter options, edited as a draft
-// until Apply (Clear removes them; the date stays). Active filters
-// show as removable chips under the row. All values live in the URL (useLeadFilters).
-// Names are shown for choices, never ids.
-//   options:     GET /{list}/filter-options
-//   sorts:       the page's sort options; sortValue: the current one
-//   renderSearch({ value, onChange }): a custom search box (Spin's suggestions)
-// source "vendor_to_koc" (Vendors → KOC, docs section 11) shows its own filters instead of the
-// CRM ones: Received date, Lead date, Vendor / Update / Follow-up (admins), City, Source.
+const input = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20";
+const text = (v) => String(v ?? "");
+const updateLabel = (key, update) => (value) => update({ [key]: value });
+const dateKeys = {
+  event: ["event_from", "event_to"], lead_date: ["lead_date_from", "lead_date_to"], follow_up: ["follow_up_from", "follow_up_to"],
+};
 
-const labelCls = "mb-1 block text-[11px] font-semibold uppercase tracking-wider text-gray-500";
-const inputCls =
-  "w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 disabled:bg-gray-50 disabled:text-gray-400";
-
-// A text box that writes normalize(text) to the panel's draft as you type (no requests are
-// made until Apply). It follows outside changes without undoing what's being typed.
-const trimText = (v) => v.trim();
-function DebouncedInput({ value, onCommit, normalize = trimText, ...props }) {
-  const [text, setText] = useState(value ?? "");
-  const settled = useDebounced(text, 0);
-  useEffect(() => {
-    if (normalize(text) !== (value ?? "")) setText(value ?? "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-  useEffect(() => {
-    if (normalize(settled) !== (value ?? "")) onCommit(normalize(settled));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settled]);
-  return <input value={text} onChange={(e) => setText(e.target.value)} {...props} />;
-}
-const digitsOnly = (v) => v.replace(/\D/g, "");
-
-function Field({ label, children, wide = false, hint }) {
-  return (
-    <div className={`block ${wide ? "sm:col-span-2" : ""}`}>
-      <span className={labelCls}>{label}</span>
-      {children}
-      {hint && <span className="mt-1 block text-[11px] leading-tight text-gray-400">{hint}</span>}
+function ChoiceList({ options, value, onChange, multi = false, search = false }) {
+  const [query, setQuery] = useState("");
+  const selected = Array.isArray(value) ? value : value ? [value] : [];
+  const filtered = options.filter((option) => option.label.toLowerCase().includes(query.toLowerCase()));
+  return <div className="min-w-52">
+    {search && <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search…" aria-label="Search filter options" className={`${input} mb-2`} />}
+    <div className="max-h-64 overflow-y-auto">
+      {options.length > 0 && !multi && <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-gray-50"><input type="radio" checked={!selected.length} onChange={() => onChange("")} />Any</label>}
+      {filtered.map((option) => <label key={option.value} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-gray-50">
+        <input type={multi ? "checkbox" : "radio"} checked={selected.includes(String(option.value))} onChange={() => onChange(multi ? (selected.includes(String(option.value)) ? selected.filter((v) => v !== String(option.value)) : [...selected, String(option.value)]) : String(option.value))} />
+        <span className="min-w-0 flex-1 truncate">{option.label}</span>
+      </label>)}
+      {!filtered.length && <p className="px-2 py-3 text-sm text-gray-400">No options</p>}
     </div>
-  );
+  </div>;
 }
 
-function Select({ value, onChange, options, label }) {
-  return (
-    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className={inputCls}>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>
-          {o.label}
-        </option>
-      ))}
-    </select>
-  );
+function RangeDates({ fromKey, toKey, filters, update, maxDate }) {
+  return <div className="flex items-center gap-2">
+    <DateInput type="date" aria-label="From date" value={filters[fromKey] || ""} max={filters[toKey] || maxDate || undefined} onChange={(e) => update({ [fromKey]: e.target.value })} className={`${input} min-w-0`} />
+    <span className="text-gray-400">–</span>
+    <DateInput type="date" aria-label="To date" value={filters[toKey] || ""} min={filters[fromKey] || undefined} max={maxDate || undefined} onChange={(e) => update({ [toKey]: e.target.value })} className={`${input} min-w-0`} />
+  </div>;
 }
 
-function Range({ label, min, max, onMin, onMax, rupees = false }) {
-  const box = (value, onCommit, placeholder) => (
-    <span className="relative block min-w-0 flex-1">
-      {rupees && (
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">₹</span>
-      )}
-      <DebouncedInput
-        value={value}
-        normalize={digitsOnly}
-        onCommit={onCommit}
-        inputMode="numeric"
-        placeholder={placeholder}
-        aria-label={`${label} ${placeholder.toLowerCase()}`}
-        className={`${inputCls} ${rupees ? "pl-7" : ""}`}
-      />
-    </span>
-  );
-  return (
-    <Field label={label}>
-      <div className="flex items-center gap-2">
-        {box(min, onMin, "Min")}
-        <span className="text-gray-400">–</span>
-        {box(max, onMax, "Max")}
-      </div>
-    </Field>
-  );
+function FilterContents({ button, source, filters, update, options, isAdmin }) {
+  const k = button.kind;
+  const countOptions = (items = [], name = (v) => String(v)) => items.map((o) => ({ value: String(o.value), label: `${name(o.value)}${o.count == null ? "" : ` (${o.count})`}` }));
+  const single = (key, opts, searchable = false) => <ChoiceList options={opts} value={filters[key]} onChange={updateLabel(key, update)} search={searchable || opts.length > 10} />;
+  const multi = (key, opts, searchable = false) => <ChoiceList options={opts} value={filters[key] ?? []} onChange={updateLabel(key, update)} multi search={searchable || opts.length > 10} />;
+  if (dateKeys[k]) return <RangeDates fromKey={dateKeys[k][0]} toKey={dateKeys[k][1]} filters={filters} update={update} />;
+  if (k === "event") return <div className="space-y-2"><button type="button" onClick={() => update({ upcoming_days: filters.upcoming_days ? "" : "30", event_from: "", event_to: "" })} className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-gray-50">{filters.upcoming_days ? "Any event date" : "Upcoming 30 days"}</button><RangeDates fromKey="event_from" toKey="event_to" filters={filters} update={(u) => update({ ...u, upcoming_days: "" })} /></div>;
+  if (k === "follow_up") return <div className="space-y-2"><RangeDates fromKey="follow_up_from" toKey="follow_up_to" filters={filters} update={update} /><button type="button" onClick={() => update({ follow_up_due: filters.follow_up_due ? "" : "true" })} className={`w-full rounded-lg px-2 py-2 text-left text-sm ${filters.follow_up_due ? "bg-brand-50 text-brand-800" : "hover:bg-gray-50"}`}>{filters.follow_up_due ? "✓ Due" : "Due"}</button></div>;
+  if (["venue", "city", "country", "pincode", "last_step", "occasion", "budget"].includes(k)) {
+    const key = k === "occasion" ? "occasion" : k;
+    let opts = [];
+    if (k === "venue") opts = countOptions(options.venues);
+    if (k === "city") opts = countOptions(options.cities);
+    if (k === "country") opts = countOptions(options.countries);
+    if (k === "pincode") opts = countOptions(options.pincodes, (v) => String(v));
+    if (k === "last_step") opts = countOptions(options.last_steps);
+    if (k === "occasion") opts = countOptions(options.occasions);
+    if (k === "budget") opts = countOptions(options.budgets);
+    const active = text(filters[key]);
+    const freeText = ["venue", "city", "pincode"].includes(k);
+    return <div className="space-y-2">{freeText && <input value={active} onChange={(e) => update({ [key]: e.target.value })} aria-label={button.label} placeholder={`Filter ${button.label.toLowerCase()}`} className={input} />}{opts.length > 0 && single(key, opts, true)}{!freeText && !opts.length && single(key, opts, true)}</div>;
+  }
+  if (k === "event_type") return multi("event_type", countOptions(options.event_types), true);
+  if (k === "source") return multi("source", (options.sources ?? KOC_SOURCES).map((o) => ({ value: String(o.value), label: o.label ?? String(o.value) })));
+  if (k === "update") {
+    const opts = source === KOC ? [{ value: "pending", label: "Pending" }, ...Object.entries(UPDATE_LABELS).filter(([v]) => v !== "pending").map(([value, label]) => ({ value, label }))] : countOptions(options.updates, (v) => UPDATE_LABELS[v] ?? v);
+    return multi("update_status", opts);
+  }
+  if (k === "vendor") return multi("vendor_id", (options.vendors ?? []).map((v) => ({ value: String(v.id), label: v.name })), true);
+  if (k === "assigned") {
+    const values = [...(filters.unassigned ? ["unassigned"] : []), ...(filters.vendor_id ?? [])];
+    const opts = [{ value: "unassigned", label: "Unassigned" }, ...(options.vendors ?? []).map((v) => ({ value: String(v.id), label: v.name }))];
+    return <ChoiceList options={opts} value={values} multi search onChange={(next) => update({ vendor_id: next.filter((v) => v !== "unassigned"), unassigned: next.includes("unassigned") ? "true" : "" })} />;
+  }
+  if (k === "branch") return single("branch", (options.branches ?? []).map((b) => ({ value: String(b.id), label: `${b.name || `Branch #${b.id}`}${b.count == null ? "" : ` (${b.count})`}` })), true);
+  if (k === "origin") return multi("origin", countOptions(options.origins, (v) => ORIGIN_LABELS[v] ?? v));
+  if (k === "shared_with") return single("shared_with", [{ value: NOT_SHARED, label: "Not shared yet" }, ...(options.shared_with ?? []).map((o) => ({ value: String(o.value), label: String(o.value) }))], true);
+  if (k === "hot" || k === "hide_repeats") return <button type="button" onClick={() => update({ [k]: filters[k] ? "" : "true" })} className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-gray-50">{filters[k] ? "✓ " : ""}{button.label}</button>;
+  if (k === "has_phone" || k === "also_in" || k === "fits_budget") {
+    const opts = k === "has_phone" ? [{ value: "yes", label: "Has phone" }, { value: "no", label: "No phone" }] : k === "also_in" ? [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] : [{ value: "true", label: "Fits budget" }, { value: "false", label: "Over budget" }];
+    return single(k, opts);
+  }
+  if (k === "quote" || k === "conversion") {
+    const value = filters[k] || "";
+    const match = /^(gt|lt):(\d+)$/.exec(value);
+    const op = match?.[1] ?? value;
+    const amount = match?.[2] ?? "";
+    const set = (nextOp, nextAmount = amount) => update({ [k]: nextOp === "gt" || nextOp === "lt" ? nextAmount ? `${nextOp}:${nextAmount}` : "" : nextOp });
+    return <div className="space-y-2"><select aria-label={button.label} value={op} onChange={(e) => set(e.target.value)} className={input}><option value="">Any</option><option value="has">Has amount</option><option value="none">No amount</option><option value="gt">More than</option><option value="lt">Less than</option></select>{(op === "gt" || op === "lt") && <input value={amount} onChange={(e) => set(op, e.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Amount" aria-label={`${button.label} amount`} className={input} />}</div>;
+  }
+  if (k === "budget_range" || k === "guests") {
+    const prefix = k === "guests" ? "guests" : "budget";
+    return <div className="grid grid-cols-2 gap-2"><input value={filters[`${prefix}_min`] || ""} onChange={(e) => update({ [`${prefix}_min`]: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder="Min" aria-label={`${button.label} minimum`} className={input} /><input value={filters[`${prefix}_max`] || ""} onChange={(e) => update({ [`${prefix}_max`]: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder="Max" aria-label={`${button.label} maximum`} className={input} /></div>;
+  }
+  return <input value={text(filters[k])} onChange={(e) => update({ [k]: e.target.value })} placeholder={`Filter ${button.label.toLowerCase()}`} aria-label={button.label} className={input} />;
 }
 
-const counted = (list, label = (v) => v) =>
-  (list ?? []).map((o) => ({ value: String(o.value), label: withCount(label(o.value), o.count), name: label(o.value) }));
-const partnerLabel = (v) => (v === NOT_SHARED ? "Not shared yet" : v);
-const budgetLabel = (v) => (/^\d/.test(String(v)) ? `₹${String(v).replace(/[-_]/g, "–")}` : String(v));
-
-
-// An amount filter (quote / conversion): Any | Has | None | More than | Less than (+ ₹ amount).
-// value: "has" | "none" | "gt:<amount>" | "lt:<amount>" | "".
-function AmountFilter({ label, value, onChange, anyLabel, hasLabel, noneLabel }) {
-  const parsed = parseQuote(value);
-  const [op, setOp] = useState(parsed.op);
-  // Follow the value, except right after this control cleared it itself ("More than" with no
-  // amount yet stays chosen)
-  const skipSync = useRef(false);
-  useEffect(() => {
-    if (skipSync.current) {
-      skipSync.current = false;
-      return;
-    }
-    setOp(parsed.op);
-  }, [parsed.op]);
-  const needsAmount = op === "gt" || op === "lt";
-  return (
-    <Field label={label} wide>
-      <div className="flex gap-2">
-        <select
-          aria-label={label}
-          value={op}
-          onChange={(e) => {
-            const nextOp = e.target.value;
-            setOp(nextOp);
-            const next = buildQuote(nextOp, parsed.amount);
-            const resulting = parseQuote(next).op;
-            if (resulting !== parsed.op && resulting !== nextOp) skipSync.current = true;
-            onChange(next);
-          }}
-          className={`${inputCls} w-48 flex-none`}
-        >
-          <option value="">{anyLabel}</option>
-          <option value="has">{hasLabel}</option>
-          <option value="none">{noneLabel}</option>
-          <option value="gt">More than</option>
-          <option value="lt">Less than</option>
-        </select>
-        <span className="relative block min-w-0 flex-1">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">₹</span>
-          <DebouncedInput
-            value={parsed.amount}
-            normalize={digitsOnly}
-            onCommit={(v) => onChange(buildQuote(op, v))}
-            disabled={!needsAmount}
-            inputMode="numeric"
-            placeholder={needsAmount ? "Amount" : "Pick an option"}
-            aria-label={`${label} value`}
-            className={`${inputCls} pl-7`}
-          />
-        </span>
-      </div>
-    </Field>
-  );
-}
-
-// Every filter option, for the panel. filters / update are the panel's draft.
-function FilterControls({ source, filters, update, options, isAdmin, today }) {
-  const o = options ?? {};
-  const isKoc = source === KOC;
-
-  // Event date: Any | Upcoming 30 days | Date range
-  const eventChosen = filters.upcoming_days ? "upcoming" : filters.event_from || filters.event_to ? "range" : "";
-  const [eventMode, setEventMode] = useState(eventChosen);
-  // Follow the URL, except right after this control cleared it itself (e.g. Upcoming -> Date
-  // range with no dates yet), so the choice doesn't jump back to "Any"
-  const skipEventSync = useRef(false);
-  useEffect(() => {
-    if (skipEventSync.current) {
-      skipEventSync.current = false;
-      return;
-    }
-    setEventMode(eventChosen);
-  }, [eventChosen]);
-
-  // Assigned to: Unassigned + vendors (admins only)
-  const assigned = [...(filters.unassigned ? ["unassigned"] : []), ...filters.vendor_id];
-  const vendorOptions = [
-    { value: "unassigned", label: "Unassigned", name: "Unassigned" },
-    ...(o.vendors ?? []).map((v) => ({ value: String(v.id), label: v.name, name: v.name })),
-  ];
-  // Update: from filter-options.updates (pending first, then the 7 values, with counts)
-  const updateOptions = o.updates
-    ? counted(o.updates, (v) => UPDATE_LABELS[v] ?? v)
-    : Object.entries(UPDATE_LABELS).map(([value, label]) => ({ value, label, name: label }));
-  const originOptions = counted(o.origins, (v) => ORIGIN_LABELS[v] ?? v);
-  const partnerOptions = [
-    { value: "", label: "Anyone" },
-    ...counted(o.shared_with, partnerLabel).map((x) => ({ value: x.value, label: x.label })),
-  ];
-
-  if (source === DHRUVA) return (
-    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      <Field label="Event date" wide>
-        <div className="flex flex-wrap items-center gap-2">
-          <input type="date" aria-label="Event from" value={filters.event_from} max={filters.event_to || undefined} onChange={(e) => update({ event_from: e.target.value, upcoming_days: "" })} className={`${inputCls} w-auto`} />
-          <span className="text-gray-400">–</span>
-          <input type="date" aria-label="Event to" value={filters.event_to} min={filters.event_from || undefined} onChange={(e) => update({ event_to: e.target.value, upcoming_days: "" })} className={`${inputCls} w-auto`} />
-          <button type="button" onClick={() => update({ event_from: "", event_to: "", upcoming_days: filters.upcoming_days ? "" : UPCOMING_DAYS })} className="rounded-full px-3 py-1.5 text-xs ring-1 ring-gray-200">{filters.upcoming_days ? "Any event date" : "Upcoming 30 days"}</button>
-        </div>
-      </Field>
-      <Field label="Venue"><DebouncedInput value={filters.venue} onCommit={(v) => update({ venue: v })} list="dhruva-venues" placeholder="Any venue" aria-label="Venue" className={inputCls} /><datalist id="dhruva-venues">{(o.venues ?? []).map((v) => <option key={v.value} value={v.value} />)}</datalist></Field>
-      <Field label="Event type"><MultiSelect label="Event type" options={counted(o.event_types)} value={filters.event_type} onChange={(vals) => update({ event_type: vals })} /></Field>
-      <Field label="Update"><MultiSelect label="Update" options={updateOptions} value={filters.update_status} onChange={(vals) => update({ update_status: vals })} /></Field>
-      <AmountFilter label="Quoted amount" value={filters.quote} onChange={(v) => update({ quote: v })} anyLabel="Any quote" hasLabel="Has a quote" noneLabel="No quote yet" />
-      <AmountFilter label="Conversion amount" value={filters.conversion} onChange={(v) => update({ conversion: v })} anyLabel="Any" hasLabel="Has a conversion amount" noneLabel="No conversion amount" />
-      <Field label="Follow-up" wide><div className="flex flex-wrap items-center gap-2"><input type="date" aria-label="Follow-up from" value={filters.follow_up_from} max={filters.follow_up_to || undefined} onChange={(e) => update({ follow_up_from: e.target.value })} className={`${inputCls} w-auto`} /><span className="text-gray-400">–</span><input type="date" aria-label="Follow-up to" value={filters.follow_up_to} min={filters.follow_up_from || undefined} onChange={(e) => update({ follow_up_to: e.target.value })} className={`${inputCls} w-auto`} /><label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={filters.follow_up_due === "true"} onChange={(e) => update({ follow_up_due: e.target.checked ? "true" : "" })} className="h-4 w-4 accent-brand-600" />Due</label></div></Field>
-      <Field label="Phone"><Select label="Phone" value={filters.has_phone} onChange={(v) => update({ has_phone: v })} options={[{ value: "", label: "Any" }, { value: "yes", label: "Has phone" }, { value: "no", label: "No phone" }]} /></Field>
-      {isAdmin && <Field label="Also in another section"><Select label="Also in another section" value={filters.also_in} onChange={(v) => update({ also_in: v })} options={[{ value: "", label: "Any" }, { value: "yes", label: "Yes" }, { value: "no", label: "No" }]} /></Field>}
+export default function LeadFilterBar({ source, filters, update, clear, apply, clearFilters, count, options, isAdmin, sorts, sortValue, placeholder, renderSearch }) {
+  const [search, setSearch] = useState(filters.search ?? "");
+  useEffect(() => setSearch(filters.search ?? ""), [filters.search]);
+  useEffect(() => { const timer = setTimeout(() => { if (search.trim() !== (filters.search ?? "")) update({ search: search.trim() }); }, 250); return () => clearTimeout(timer); }, [search]);
+  const buttons = buildFilterButtons(source, filters, options, isAdmin);
+  const searchBox = renderSearch ? renderSearch({ value: search, onChange: setSearch }) : <SearchBox value={search} onChange={setSearch} placeholder={placeholder} />;
+  const clearAll = () => { setSearch(""); clear?.(); };
+  return <div className="w-full rounded-2xl bg-gray-50/80 p-3 ring-1 ring-gray-100">
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="min-w-[15rem] flex-1">{searchBox}</div>
+      <PeriodFilter alignStart period={{ all: !filters.date_from && !filters.date_to, from: filters.date_from || filters.date_to, to: filters.date_to || filters.date_from }} today={todayIst()} onChange={(p) => update(p.all ? { date_from: "", date_to: "" } : { date_from: p.from, date_to: p.to })} />
+      <FilterSelect label="Sort" value={sortValue} onChange={(v) => update({ sort: v })} options={sorts} />
     </div>
-  );
-
-  return (
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {!isKoc && (
-        <Field
-          label="Event date"
-          wide
-          hint="Leads with an approximate event date, like 'April 2027', aren't included"
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              aria-label="Event date"
-              value={eventMode}
-              onChange={(e) => {
-                const v = e.target.value;
-                setEventMode(v);
-                if (v === "upcoming") update({ upcoming_days: UPCOMING_DAYS, event_from: "", event_to: "" });
-                else if (v === "") update({ upcoming_days: "", event_from: "", event_to: "" });
-                else {
-                  if (eventChosen === "upcoming") skipEventSync.current = true; // becomes "" in the URL
-                  update({ upcoming_days: "" });
-                }
-              }}
-              className={`${inputCls} w-auto`}
-            >
-              <option value="">Any</option>
-              <option value="upcoming">Upcoming 30 days</option>
-              <option value="range">Date range</option>
-            </select>
-            {eventMode === "range" && (
-              <>
-                <input
-                  type="date"
-                  aria-label="Event from"
-                  value={filters.event_from}
-                  max={filters.event_to || undefined}
-                  onChange={(e) => update({ event_from: e.target.value })}
-                  className={`${inputCls} w-auto`}
-                />
-                <span className="text-gray-400">–</span>
-                <input
-                  type="date"
-                  aria-label="Event to"
-                  value={filters.event_to}
-                  min={filters.event_from || undefined}
-                  onChange={(e) => update({ event_to: e.target.value })}
-                  className={`${inputCls} w-auto`}
-                />
-              </>
-            )}
-          </div>
-        </Field>
-        )}
-
-        {/* Vendors → KOC */}
-        {isKoc && (
-          <>
-            <Field label="Lead date" wide>
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="date"
-                  aria-label="Lead date from"
-                  value={filters.lead_date_from}
-                  max={filters.lead_date_to || undefined}
-                  onChange={(e) => update({ lead_date_from: e.target.value })}
-                  className={`${inputCls} w-auto`}
-                />
-                <span className="text-gray-400">–</span>
-                <input
-                  type="date"
-                  aria-label="Lead date to"
-                  value={filters.lead_date_to}
-                  min={filters.lead_date_from || undefined}
-                  onChange={(e) => update({ lead_date_to: e.target.value })}
-                  className={`${inputCls} w-auto`}
-                />
-              </div>
-            </Field>
-            {/* Vendor: admins only; Update and Follow-up: everyone */}
-            {isAdmin && (
-                <Field label="Vendor">
-                  <MultiSelect
-                    label="Vendor"
-                    anyLabel="All vendors"
-                    options={(o.vendors ?? []).map((v) => ({ value: String(v.id), label: v.name, name: v.name }))}
-                    value={filters.vendor_id}
-                    onChange={(vals) => update({ vendor_id: vals })}
-                  />
-                </Field>
-            )}
-              <>
-                <Field label="Update">
-                  <MultiSelect
-                    label="Update"
-                    options={[{ value: PENDING, label: "Pending", name: "Pending" }, ...STATUSES.map((x) => ({ ...x, name: x.label }))]}
-                    value={filters.update_status}
-                    onChange={(vals) => update({ update_status: vals })}
-                  />
-                </Field>
-                <Field label="Hot leads">
-                  <Select label="Hot leads" value={filters.hot} onChange={(v) => update({ hot: v })} options={[{ value: "", label: "Any" }, { value: "yes", label: "Hot only" }]} />
-                </Field>
-                {/* Quoted / conversion amount: the same controls and values as the other lists */}
-                <AmountFilter
-                  label="Quoted amount"
-                  value={filters.quote}
-                  onChange={(v) => update({ quote: v })}
-                  anyLabel="Any quote"
-                  hasLabel="Has a quote"
-                  noneLabel="No quote yet"
-                />
-                <AmountFilter
-                  label="Conversion amount"
-                  value={filters.conversion}
-                  onChange={(v) => update({ conversion: v })}
-                  anyLabel="Any"
-                  hasLabel="Has a conversion amount"
-                  noneLabel="No conversion amount"
-                />
-                <Field label="Follow-up" wide>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      type="date"
-                      aria-label="Follow-up from"
-                      value={filters.follow_up_from}
-                      max={filters.follow_up_to || undefined}
-                      onChange={(e) => update({ follow_up_from: e.target.value })}
-                      className={`${inputCls} w-auto`}
-                    />
-                    <span className="text-gray-400">–</span>
-                    <input
-                      type="date"
-                      aria-label="Follow-up to"
-                      value={filters.follow_up_to}
-                      min={filters.follow_up_from || undefined}
-                      onChange={(e) => update({ follow_up_to: e.target.value })}
-                      className={`${inputCls} w-auto`}
-                    />
-                    <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
-                      <input
-                        type="checkbox"
-                        checked={filters.follow_up_due === "true"}
-                        onChange={(e) => update({ follow_up_due: e.target.checked ? "true" : "" })}
-                        className="h-4 w-4 accent-brand-600"
-                      />
-                      Due
-                    </label>
-                  </div>
-                </Field>
-              </>
-            <Field label="City">
-              <DebouncedInput
-                value={filters.city}
-                onCommit={(v) => update({ city: v })}
-                placeholder="Any city"
-                aria-label="City"
-                className={inputCls}
-              />
-            </Field>
-            <Field label="Source">
-              <MultiSelect
-                label="Source"
-                options={KOC_SOURCES.map((x) => ({ ...x, name: x.label }))}
-                value={filters.source}
-                onChange={(vals) => update({ source: vals })}
-              />
-            </Field>
-          </>
-        )}
-
-        {/* Per source */}
-        {source === "spin" && (
-          <>
-            <Field label="Branch">
-              <Select
-                label="Branch"
-                value={filters.branch}
-                onChange={(v) => update({ branch: v })}
-                options={[
-                  { value: "", label: "All branches" },
-                  ...(o.branches ?? []).map((b) => ({ value: String(b.id), label: withCount(branchName(b), b.count) })),
-                ]}
-              />
-            </Field>
-            <Field label="Pincode">
-              <PincodePicker value={filters.pincode} onChange={(v) => update({ pincode: v })} options={o.pincodes ?? []} />
-            </Field>
-            <Field label="Budget">
-              <Select
-                label="Budget"
-                value={filters.budget}
-                onChange={(v) => update({ budget: v })}
-                options={[{ value: "", label: "Any budget" }, ...counted(o.budgets, budgetLabel)]}
-              />
-            </Field>
-          </>
-        )}
-        {source === "whatsapp" && (
-          <Field label="Country">
-            <Select
-              label="Country"
-              value={filters.country}
-              onChange={(v) => update({ country: v })}
-              options={[{ value: "", label: "All countries" }, ...counted(o.countries)]}
-            />
-          </Field>
-        )}
-        {source === "wedding" && (
-          <Field label="Occasion">
-            <Select
-              label="Occasion"
-              value={filters.occasion}
-              onChange={(v) => update({ occasion: v })}
-              options={[{ value: "", label: "All occasions" }, ...counted(o.occasions)]}
-            />
-          </Field>
-        )}
-        {(source === "wedding" || source === "wedding_planner") && (
-          <Field label={source === "wedding" ? "City" : "Wedding city"}>
-            <DebouncedInput
-              value={filters.city}
-              onCommit={(v) => update({ city: v })}
-              list={`cities-${source}`}
-              placeholder="Any city"
-              aria-label="City"
-              className={inputCls}
-            />
-            <datalist id={`cities-${source}`}>
-              {(o.cities ?? []).map((c) => (
-                <option key={c.value} value={c.value} />
-              ))}
-            </datalist>
-          </Field>
-        )}
-        {source === "wedding_planner" && (
-          <Range
-            label="Guests"
-            min={filters.guests_min}
-            max={filters.guests_max}
-            onMin={(v) => update({ guests_min: v })}
-            onMax={(v) => update({ guests_max: v })}
-          />
-        )}
-        {(source === "wedding" || source === "wedding_planner") && (
-          <Range
-            label="Budget"
-            rupees
-            min={filters.budget_min}
-            max={filters.budget_max}
-            onMin={(v) => update({ budget_min: v })}
-            onMax={(v) => update({ budget_max: v })}
-          />
-        )}
-        {source === "wedding_planner" && (
-          <>
-            <Field label="Fits budget">
-              <Select
-                label="Fits budget"
-                value={filters.fits_budget}
-                onChange={(v) => update({ fits_budget: v })}
-                options={[
-                  { value: "", label: "Any" },
-                  { value: "true", label: "Fits budget" },
-                  { value: "false", label: "Over budget" },
-                ]}
-              />
-            </Field>
-            <Field label="Step">
-              <Select
-                label="Step"
-                value={filters.last_step}
-                onChange={(v) => update({ last_step: v })}
-                options={[{ value: "", label: "Any" }, ...counted(o.last_steps)]}
-              />
-            </Field>
-          </>
-        )}
-        {(source === "wedding" || source === "wedding_planner") && (
-          <Field label="Sheet partner">
-            <Select
-              label="Sheet partner"
-              value={filters.shared_with}
-              onChange={(v) => update({ shared_with: v })}
-              options={partnerOptions}
-            />
-          </Field>
-        )}
-
-        {/* Common CRM filters (not for Vendors → KOC) */}
-        {!isKoc && isAdmin && (
-          <Field label="Assigned to">
-            <MultiSelect
-              label="Assigned to"
-              anyLabel="Anyone"
-              options={vendorOptions}
-              value={assigned}
-              onChange={(vals) =>
-                update({
-                  vendor_id: vals.filter((v) => v !== "unassigned"),
-                  unassigned: vals.includes("unassigned") ? "true" : "",
-                })
-              }
-            />
-          </Field>
-        )}
-        {!isKoc && (
-        <>
-        <Field label="Update">
-          <MultiSelect
-            label="Update"
-            options={updateOptions}
-            value={filters.update_status}
-            onChange={(vals) => update({ update_status: vals })}
-          />
-        </Field>
-        <Field label="Hot leads">
-          <Select label="Hot leads" value={filters.hot} onChange={(v) => update({ hot: v })} options={[{ value: "", label: "Any" }, { value: "yes", label: "Hot only" }]} />
-        </Field>
-        <AmountFilter
-          label="Quoted amount"
-          value={filters.quote}
-          onChange={(v) => update({ quote: v })}
-          anyLabel="Any quote"
-          hasLabel="Has a quote"
-          noneLabel="No quote yet"
-        />
-        <AmountFilter
-          label="Conversion amount"
-          value={filters.conversion}
-          onChange={(v) => update({ conversion: v })}
-          anyLabel="Any"
-          hasLabel="Has a conversion amount"
-          noneLabel="No conversion amount"
-        />
-        <Field label="Origin">
-          <MultiSelect
-            label="Origin"
-            options={originOptions}
-            value={filters.origin}
-            onChange={(vals) => update({ origin: vals })}
-          />
-        </Field>
-        </>
-        )}
-        {source === "wedding" && (
-          <Field label="Repeats">
-            <label className="flex h-[38px] cursor-pointer items-center gap-2 text-sm text-gray-600">
-              <input
-                type="checkbox"
-                checked={filters.hide_repeats === "true"}
-                onChange={(e) => update({ hide_repeats: e.target.checked ? "true" : "" })}
-                className="h-4 w-4 accent-brand-600"
-              />
-              Hide repeats
-            </label>
-          </Field>
-        )}
-      </div>
-  );
-}
-
-export default function LeadFilterBar({
-  source,
-  filters,
-  update,
-  clear,
-  apply,
-  clearFilters,
-  count,
-  options,
-  isAdmin,
-  sorts,
-  sortValue,
-  placeholder = "Search…",
-  renderSearch,
-}) {
-  const today = todayIst();
-
-  // Search (in the row): typed text goes to the URL after a pause
-  const [searchText, setSearchText] = useState(filters.search);
-  const settledSearch = useDebounced(searchText.trim());
-  useEffect(() => {
-    if (searchText.trim() !== filters.search) setSearchText(filters.search);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.search]);
-  useEffect(() => {
-    if (settledSearch !== filters.search) update({ search: settledSearch });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settledSearch]);
-
-  // The panel edits a draft (URL-style params) until Apply
-  const [draft, setDraft] = useState(null);
-  const open = draft !== null;
-  const openPanel = () => setDraft(withFilters(new URLSearchParams(), toApiQuery({ ...filters, search: "" }, source)));
-  const draftFilters = open ? readFilters(draft, source) : filters;
-  const draftUpdate = (updates) => setDraft((d) => withFilters(d, updates));
-
-  const chips = filterChips(filters, source, options, isAdmin);
-  // The Filters badge counts the panel's filters (the date has its own control in the row)
-  const panelCount = count - (filters.date_from || filters.date_to ? 1 : 0);
-  // Removing a chip (or Clear all) closes the panel, so an open draft can't bring it back
-  const removeChip = (keys) => {
-    setDraft(null);
-    update(Object.fromEntries(keys.map((k) => [k, ""])));
-  };
-
-  const searchBox = renderSearch ? (
-    renderSearch({ value: searchText, onChange: setSearchText })
-  ) : (
-    <SearchBox value={searchText} onChange={setSearchText} placeholder={placeholder} />
-  );
-
-  return (
-    <div className="w-full rounded-2xl bg-gray-50/80 p-4 ring-1 ring-gray-100">
-      <div className="flex flex-wrap items-start gap-3">
-        {searchBox}
-        {/* Arrival (lists) / received (Vendors → KOC) date, as on the Dashboard; applies at once */}
-        <div title={source === KOC || source === DHRUVA ? "Received date" : "Arrival date"}>
-          <PeriodFilter
-            alignStart
-            period={periodOfFilters(filters)}
-            today={today}
-            onChange={(p) => {
-              setDraft(null);
-              update(filtersOfPeriod(p));
-            }}
-          />
-        </div>
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => (open ? setDraft(null) : openPanel())}
-          className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium ring-1 transition ${
-            open || panelCount > 0
-              ? "bg-white text-brand-800 ring-brand-200"
-              : "bg-white text-gray-700 ring-gray-200 hover:bg-gray-50"
-          }`}
-        >
-          <SlidersHorizontal size={15} aria-hidden="true" />
-          Filters
-          {panelCount > 0 && (
-            <span className="rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-semibold text-white">{panelCount}</span>
-          )}
-        </button>
-        <div className="ml-auto">
-          <FilterSelect label="Sort" value={sortValue} onChange={(v) => update({ sort: v })} options={sorts} />
-        </div>
-      </div>
-
-      {chips.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {chips.map((c) => (
-            <span
-              key={c.id}
-              className="inline-flex items-center gap-1 rounded-full bg-white py-1 pl-3 pr-1.5 text-xs font-medium text-gray-700 ring-1 ring-gray-200"
-            >
-              {c.label}
-              <button
-                type="button"
-                onClick={() => removeChip(c.keys)}
-                aria-label={`Remove filter ${c.label}`}
-                className="rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-              >
-                <X size={12} />
-              </button>
-            </span>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              setDraft(null);
-              setSearchText("");
-              clear();
-            }}
-            className="px-1.5 text-xs font-medium text-gray-500 hover:text-gray-900 hover:underline"
-          >
-            Clear all
-          </button>
-        </div>
-      )}
-
-      {open && (
-        <div className="mt-3 rounded-2xl bg-white p-4 ring-1 ring-gray-100">
-          <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
-            <Filter size={15} className="text-brand-600" aria-hidden="true" /> Filters
-          </p>
-          <FilterControls
-            source={source}
-            filters={draftFilters}
-            update={draftUpdate}
-            options={options}
-            isAdmin={isAdmin}
-            today={today}
-          />
-          <div className="mt-4 flex justify-end gap-2 border-t border-gray-100 pt-4">
-            <button
-              type="button"
-              onClick={() => {
-                clearFilters();
-                setDraft(null);
-              }}
-              className="rounded-full px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
-            >
-              Clear
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                apply(draft);
-                setDraft(null);
-              }}
-              className="rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-6 py-2 text-sm font-semibold text-white shadow-md shadow-brand-700/25"
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-      )}
+    <div className="mt-2 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
+      {buttons.map((button) => {
+        const activeLabel = button.active ? `${button.activeLabel || button.label}${button.count || ""}` : button.label;
+        if (["hot", "hide_repeats"].includes(button.kind)) return <button key={button.kind} type="button" aria-pressed={button.active} onClick={() => update({ [button.keys[0]]: button.active ? "" : button.kind === "hot" ? "yes" : "true" })} className={`h-9 whitespace-nowrap rounded-full border px-3 text-sm ${button.active ? "border-brand-300 bg-brand-50 text-brand-800" : "border-gray-200 bg-white text-gray-700"}`}>{button.label}</button>;
+        return <FilterDropdown key={button.kind} label={button.label} activeLabel={activeLabel} active={button.active}><FilterContents button={button} source={source} filters={filters} update={update} options={options ?? {}} isAdmin={isAdmin} /></FilterDropdown>;
+      })}
     </div>
-  );
+    {(count > 0 || filters.search) && <div className="mt-2 flex justify-end"><button type="button" onClick={clearAll} className="text-xs font-medium text-gray-500 hover:text-gray-900 hover:underline">Clear all</button></div>}
+  </div>;
 }

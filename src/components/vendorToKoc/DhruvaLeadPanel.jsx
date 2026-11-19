@@ -1,3 +1,4 @@
+import DateInput from "../shared/DateInput.jsx";
 import { useEffect, useState } from "react";
 import { Archive, RotateCcw } from "lucide-react";
 import {
@@ -167,7 +168,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
           <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Update</span><select value={form.update_status} onChange={(e) => set("update_status", e.target.value)} className={fieldCls}><option value={PENDING}>Pending</option>{STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
           <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Additional comments</span><textarea rows={3} value={form.additional_comments} onChange={(e) => set("additional_comments", e.target.value)} className={fieldCls} /></label>
           <div className="grid gap-4 sm:grid-cols-3">
-            <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Follow-up date</span><input type="date" value={form.follow_up_date} onChange={(e) => set("follow_up_date", e.target.value)} className={fieldCls} /></label>
+            <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Follow-up date</span><DateInput type="date" value={form.follow_up_date} onChange={(e) => set("follow_up_date", e.target.value)} className={fieldCls} /></label>
             <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Quoted amount</span><input inputMode="numeric" value={form.quoted_amount} onChange={(e) => set("quoted_amount", e.target.value)} className={fieldCls} /></label>
             <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Conversion amount</span><input inputMode="numeric" value={form.conversion_amount} onChange={(e) => set("conversion_amount", e.target.value)} className={fieldCls} /></label>
           </div>

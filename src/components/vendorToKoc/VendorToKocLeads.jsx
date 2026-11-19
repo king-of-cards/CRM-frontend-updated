@@ -1,3 +1,4 @@
+import DateInput from "../shared/DateInput.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { ChevronDown, Download, FileUp, Handshake, Loader2, Plus } from "lucide-react";
@@ -123,7 +124,7 @@ function FollowUpCell({ lead, onSaved }) {
   const { busy, error, save } = useSave(lead, onSaved);
   return (
     <div className="flex items-center gap-1">
-      <input
+      <DateInput
         type="date"
         aria-label="Follow-up date"
         value={lead.follow_up_date ?? ""}

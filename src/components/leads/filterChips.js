@@ -1,6 +1,5 @@
-// Active filters as small removable chips under the filter row. Names, never ids
-// (vendor and branch names from the filter options). Pure, no React.
-//   -> [{ id, label, keys }]: removing a chip clears its keys
+// Legacy pure label helper retained for consumers and tests. The active toolbar now renders
+// filter values in each dropdown button and clears those keys directly, so no chips row is shown.
 import { periodLabel, periodText } from "../../pages/dashboardPeriod.js";
 import { sourceLabel, statusLabel } from "../vendorToKoc/kocUtils.js";
 import {

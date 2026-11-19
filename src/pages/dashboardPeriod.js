@@ -4,15 +4,12 @@
 // lead lists, no date at all).
 
 export const PRESETS = [
+  { value: "today", label: "Today" },
   { value: "7", label: "Last 7 days", days: 7 },
   { value: "15", label: "Last 15 days", days: 15 },
   { value: "30", label: "Last 30 days", days: 30 },
-];
-export const MODES = [
-  { value: "all", label: "All time" },
-  ...PRESETS,
-  { value: "single", label: "Single date" },
-  { value: "range", label: "Date range" },
+  { value: "this_month", label: "This month" },
+  { value: "last_month", label: "Last month" },
 ];
 export const DEFAULT_PRESET = "30";
 export const MAX_DAYS = 366; // the API's limit, both ends counted ("max range 1 year")
@@ -37,6 +34,13 @@ export function addDays(iso, n) {
 export const daysInclusive = (from, to) => Math.round((toUtc(to) - toUtc(from)) / 86400000) + 1;
 
 export function presetPeriod(value, today) {
+  if (value === "today") return { from: today, to: today };
+  if (value === "this_month") return { from: `${today.slice(0, 7)}-01`, to: today };
+  if (value === "last_month") {
+    const first = `${today.slice(0, 7)}-01`;
+    const to = addDays(first, -1);
+    return { from: `${to.slice(0, 7)}-01`, to };
+  }
   const p = PRESETS.find((x) => x.value === value) ?? PRESETS.find((x) => x.value === DEFAULT_PRESET);
   return { from: addDays(today, -(p.days - 1)), to: today };
 }
@@ -46,6 +50,10 @@ export function presetPeriod(value, today) {
 // rejects bad ones (400).
 export function periodFromSearch(params, today) {
   if (params.get("period") === "all") return { all: true };
+  if ([...PRESETS.map((p) => p.value), "all"].includes(params.get("period"))) {
+    const selected = params.get("period");
+    return selected === "all" ? { all: true } : presetPeriod(selected, today);
+  }
   const from = params.get("from") || "";
   const to = params.get("to") || "";
   if (!from && !to) return { all: true };
@@ -55,22 +63,36 @@ export function periodFromSearch(params, today) {
 // What the dropdown shows: a preset ending today, else "single" (from = to) or "range"
 export function modeOf({ all, from, to }, today) {
   if (all) return "all";
+  if (from === to) return "single";
   if (to === today) {
-    const p = PRESETS.find((x) => presetPeriod(x.value, today).from === from);
+    const p = PRESETS.filter((x) => ["7", "15", "30"].includes(x.value)).find((x) => presetPeriod(x.value, today).from === from);
     if (p) return p.value;
   }
-  return from === to ? "single" : "range";
+  return "range";
 }
 
 // A reason the period can't be sent, or null (the same rules as the API)
 export function periodError({ all, from, to }, today) {
   if (all) return null;
-  if (!ISO_DATE.test(from) || !ISO_DATE.test(to) || Number.isNaN(toUtc(from).getTime()) || Number.isNaN(toUtc(to).getTime()))
+  const valid = (value) => {
+    if (!ISO_DATE.test(value) || Number.isNaN(toUtc(value).getTime())) return false;
+    return toUtc(value).toISOString().slice(0, 10) === value;
+  };
+  if (!valid(from) || !valid(to))
     return "Pick a valid date.";
   if (from > today || to > today) return "Dates can't be in the future.";
   if (from > to) return "The start date must be on or before the end date.";
   if (daysInclusive(from, to) > MAX_DAYS) return "The period can be at most 1 year.";
   return null;
+}
+
+// Select the first date, then the end date. Starting after an existing range begins a new
+// range; selecting before the start also restarts it. Same-day picks complete a single day.
+export function pickRangeDate(range, date) {
+  if (!range?.from || range?.to || date < range.from) {
+    return { range: { from: date, to: "" }, complete: false };
+  }
+  return { range: { from: range.from, to: date }, complete: true };
 }
 
 function parts(iso) {
