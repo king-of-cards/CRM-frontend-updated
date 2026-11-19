@@ -78,6 +78,13 @@ describe("filter chips use names, never ids", () => {
       });
     }
   });
+  test("Hot only chip is removable on all five supported lists and absent for Dhruva", () => {
+    for (const source of ["spin", "whatsapp", "wedding", "wedding_planner", "vendor_to_koc"]) {
+      const chip = filterChips(readFilters(new URLSearchParams("hot=yes"), source), source).find((item) => item.id === "hot");
+      expect(chip).toEqual({ id: "hot", label: "Hot only", keys: ["hot"] });
+    }
+    expect(filterChips(readFilters(new URLSearchParams("hot=yes"), "dhruva"), "dhruva")).toEqual([]);
+  });
   test("each chip knows which keys it removes", () => {
     const [c] = filterChips(readFilters(new URLSearchParams("event_from=2026-12-01"), "wedding"), "wedding", {}, true);
     expect(c.label).toBe("Event: from 1 Dec 2026");

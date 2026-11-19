@@ -4,6 +4,7 @@ import { updateKocLead } from "../../api/vendorToKoc.js";
 import { downloadLeadPdf } from "../leads/leadPdf.js";
 import LeadPdfButton from "../leads/LeadPdfButton.jsx";
 import LeadBackButton from "../layout/LeadBackButton.jsx";
+import HotLeadStar from "../leads/HotLeadStar.jsx";
 import {
   dateTimeText,
   dayText,
@@ -48,7 +49,7 @@ const amountOf = (text) => {
   return digits ? Number(digits) : null;
 };
 
-export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }) {
+export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, isHot, hotPending, onToggleHot }) {
   const [shown, setShown] = useState(false);
   const [form, setForm] = useState(() => formOf(lead));
   const [saving, setSaving] = useState(false);
@@ -207,6 +208,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved }
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
+              {onToggleHot && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}
               <LeadBackButton inverted />
               <LeadPdfButton onClick={download} loading={downloading} />
               <button type="button" onClick={close} aria-label="Close" className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white">

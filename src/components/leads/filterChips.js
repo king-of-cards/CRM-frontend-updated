@@ -44,6 +44,7 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
       add("lead_date", `Lead date: ${rangeText(filters.lead_date_from, filters.lead_date_to)}`, ["lead_date_from", "lead_date_to"]);
     if (isAdmin && has("vendor_id")) add("vendor", `Vendor: ${list(filters.vendor_id, vendorName)}`, ["vendor_id"]);
     if (has("update_status")) add("update", `Update: ${list(filters.update_status, statusLabel)}`, ["update_status"]);
+    if (has("hot")) add("hot", "Hot only", ["hot"]);
     if (has("follow_up_from") || has("follow_up_to"))
       add("follow_up", `Follow-up: ${rangeText(filters.follow_up_from, filters.follow_up_to)}`, ["follow_up_from", "follow_up_to"]);
     if (has("follow_up_due")) add("due", "Follow-up due", ["follow_up_due"]);
@@ -99,6 +100,7 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
   }
   if (has("update_status"))
     add("update", `Update: ${list(filters.update_status, (v) => UPDATE_LABELS[v] ?? v)}`, ["update_status"]);
+  if (has("hot")) add("hot", "Hot only", ["hot"]);
   // Amount filters: "has" | "none" | "gt:<n>" | "lt:<n>"
   const amountChip = (key, has_, none, noun) => {
     const q = parseQuote(filters[key]);

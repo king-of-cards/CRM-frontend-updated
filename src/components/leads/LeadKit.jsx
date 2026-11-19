@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import {
   ChevronLeft,
   ChevronRight,
@@ -14,6 +15,10 @@ import { saveLeadCrm } from "../../api/leadCrm.js";
 import { CrmHeaderCells, InlineCrmCells } from "./InlineCrm.jsx";
 import LeadPanel from "./LeadPanel.jsx";
 import { PAGE_SIZES } from "./leadFilters.js";
+import { useAuth } from "../../auth/useAuth.js";
+import { setSourceLeadHot } from "../../api/hotLeads.js";
+import HotLeadStar from "./HotLeadStar.jsx";
+import { toggleHotOptimistically } from "./hotLeadToggle.js";
 
 // One design for every lead section (Spin, International, Wedding, Wedding planner):
 // the section frame, stat chips, toolbar, the table with contact buttons + CRM columns,
@@ -539,6 +544,22 @@ export function LeadTable({
   onOpened,
 }) {
   const [openRow, setOpenRow] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { isAdmin, isVendor } = useAuth();
+  const [hotOverrides, setHotOverrides] = useState({});
+  const [hotPending, setHotPending] = useState({});
+
+  useEffect(() => {
+    const target = searchParams.get("notification_lead_key");
+    if (target == null) return;
+    const row = rows.find((r) => String(crm(r)?.lead_key ?? (crmKey ? crmKey(r) : null) ?? r.lead_key ?? "") === target);
+    if (row) {
+      setOpenRow(rowKey(row));
+      const next = new URLSearchParams(searchParams);
+      next.delete("notification_lead_key");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams, rows, rowKey, crm, crmKey]);
 
   // Open a lead chosen elsewhere (e.g. a search suggestion) once it's in the rows
   useEffect(() => {
@@ -559,8 +580,19 @@ export function LeadTable({
     if (key == null) return null;
     return saved[String(key)] ?? fromApi ?? emptyCrm(key);
   };
+  const hotKey = (row) => String(crmOf(row)?.lead_key ?? crmKey?.(row) ?? row.lead_key ?? row.id);
+  const isHot = (row) => hotOverrides[hotKey(row)] ?? Boolean(row.is_hot ?? crmOf(row)?.is_hot);
+  const canToggleHot = isAdmin || isVendor;
+  const toggleHot = (row) => {
+    const key = hotKey(row);
+    if (hotPending[key]) return;
+    setHotPending((current) => ({ ...current, [key]: true }));
+    toggleHotOptimistically(isHot(row), (next) => setSourceLeadHot(source, key, next), (next) => setHotOverrides((current) => ({ ...current, [key]: next })))
+      .catch(() => {})
+      .finally(() => setHotPending((current) => ({ ...current, [key]: false })));
+  };
   const all = [...columns, ...trailing];
-  const colSpan = 2 + all.length + 4;
+  const colSpan = 2 + all.length + 4 + (canToggleHot ? 1 : 0);
   const th =
     "whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500";
 
@@ -602,6 +634,9 @@ export function LeadTable({
       email: c.email || null,
       sections: p.sections ?? [],
       extra: p.extra,
+      isHot: isHot(row),
+      hotPending: Boolean(hotPending[hotKey(row)]),
+      onToggleHot: canToggleHot ? () => toggleHot(row) : null,
     };
   })();
 
@@ -612,6 +647,7 @@ export function LeadTable({
       >
         <thead className="border-y border-gray-100 bg-gray-50/80">
           <tr>
+            {canToggleHot && <th className={th} aria-label="Hot lead" />}
             <th className={`${th} sticky left-0 z-10 bg-gray-50`}>Lead</th>
             <th className={th}>Contact</th>
             {columns.map((c) => (
@@ -660,6 +696,7 @@ export function LeadTable({
                   onClick={() => setOpenRow(k)}
                   className={`group cursor-pointer border-b border-gray-50 transition-colors hover:bg-brand-50/40 ${isOpen ? "bg-brand-50/60" : ""}`}
                 >
+                  {canToggleHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(row)} pending={Boolean(hotPending[hotKey(row)])} onToggle={() => toggleHot(row)} /></td>}
                   <td
                     className={`sticky left-0 z-10 px-4 py-3 transition-colors group-hover:bg-brand-50 ${isOpen ? "bg-brand-50" : "bg-white"}`}
                   >

@@ -15,6 +15,7 @@ export const COMMON_KEYS = [
   "quote",
   "conversion",
   "origin",
+  "hot",
 ];
 export const SOURCE_KEYS = {
   spin: ["branch", "pincode", "budget"],
@@ -47,6 +48,7 @@ export const KOC_KEYS = [
   "lead_date_to",
   "vendor_id",
   "update_status",
+  "hot",
   "follow_up_from",
   "follow_up_to",
   "follow_up_due",
@@ -111,6 +113,7 @@ export function activeCount(filters, source) {
       ["lead_date_from", "lead_date_to"],
       ["vendor_id"],
       ["update_status"],
+      ["hot"],
       ["follow_up_from", "follow_up_to", "follow_up_due"],
       ["city"],
       ["source"],
@@ -128,6 +131,7 @@ export function activeCount(filters, source) {
     ["event_from", "event_to", "upcoming_days"],
     ["vendor_id", "unassigned"],
     ["update_status"],
+    ["hot"],
     ["quote"],
     ["conversion"],
     ["origin"],

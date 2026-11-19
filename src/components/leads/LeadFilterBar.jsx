@@ -326,6 +326,9 @@ function FilterControls({ source, filters, update, options, isAdmin, today }) {
                     onChange={(vals) => update({ update_status: vals })}
                   />
                 </Field>
+                <Field label="Hot leads">
+                  <Select label="Hot leads" value={filters.hot} onChange={(v) => update({ hot: v })} options={[{ value: "", label: "Any" }, { value: "yes", label: "Hot only" }]} />
+                </Field>
                 <Field label="Follow-up" wide>
                   <div className="flex flex-wrap items-center gap-2">
                     <input
@@ -521,6 +524,9 @@ function FilterControls({ source, filters, update, options, isAdmin, today }) {
             value={filters.update_status}
             onChange={(vals) => update({ update_status: vals })}
           />
+        </Field>
+        <Field label="Hot leads">
+          <Select label="Hot leads" value={filters.hot} onChange={(v) => update({ hot: v })} options={[{ value: "", label: "Any" }, { value: "yes", label: "Hot only" }]} />
         </Field>
         <AmountFilter
           label="Quoted amount"

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import { ChevronDown, Download, FileUp, Handshake, Loader2, Plus } from "lucide-react";
 import { useAuth } from "../../auth/useAuth.js";
 import {
@@ -21,6 +22,9 @@ import { listUsers } from "../../api/users.js";
 import { AmountCell } from "../leads/InlineCrm.jsx";
 import { kpiCards } from "../leads/kpiCards.js";
 import { dateTimeText, dayText, kocErrors, PENDING, phoneText, statusLabel, STATUSES } from "./kocUtils.js";
+import { setKocLeadHot } from "../../api/hotLeads.js";
+import HotLeadStar from "../leads/HotLeadStar.jsx";
+import { toggleHotOptimistically } from "../leads/hotLeadToggle.js";
 
 // Vendors → KOC leads (docs/API_REFERENCE.md section 11). Admins see every vendor's leads and
 // edit Update, Additional comments and Follow-up date in the table; vendor logins see only
@@ -181,6 +185,7 @@ function ExportMenu({ onExport, busy }) {
 
 export default function VendorToKocLeads() {
   const { isAdmin, canSeeLeads, user: me } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   // Rows per page live in the URL too (?page_size=25)
   const { filters, query, queryKey, update, clear, apply, clearFilters, count, pageSize, setPageSize } =
@@ -201,6 +206,8 @@ export default function VendorToKocLeads() {
   const [dialog, setDialog] = useState(null); // "single" | "bulk"
   const [exporting, setExporting] = useState(false);
   const [openId, setOpenId] = useState(null); // the lead shown in the details panel
+  const [hotOverrides, setHotOverrides] = useState({});
+  const [hotPending, setHotPending] = useState({});
   const [userNames, setUserNames] = useState({}); // admins: login id -> name ("Added by")
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
@@ -241,8 +248,29 @@ export default function VendorToKocLeads() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canSeeLeads, isAdmin, page, pageSize, queryKey, sortValue, reloadKey]);
 
-  if (!canSeeLeads) return null;
   const items = data?.items ?? [];
+  useEffect(() => {
+    const target = searchParams.get("notification_lead_id");
+    if (target == null) return;
+    const lead = items.find((item) => String(item.id) === target);
+    if (lead) {
+      setOpenId(lead.id);
+      const next = new URLSearchParams(searchParams);
+      next.delete("notification_lead_id");
+      setSearchParams(next, { replace: true });
+    }
+  }, [items, searchParams, setSearchParams]);
+  const canToggleHot = isAdmin || Boolean(me?.vendor);
+  const isHot = (lead) => hotOverrides[String(lead.id)] ?? Boolean(lead.is_hot);
+  const toggleHot = (lead) => {
+    const key = String(lead.id);
+    if (hotPending[key]) return;
+    setHotPending((current) => ({ ...current, [key]: true }));
+    toggleHotOptimistically(isHot(lead), (next) => setKocLeadHot(lead.id, next), (next) => setHotOverrides((current) => ({ ...current, [key]: next })))
+      .catch(() => {})
+      .finally(() => setHotPending((current) => ({ ...current, [key]: false })));
+  };
+  if (!canSeeLeads) return null;
 
   // An inline edit: put the saved lead in its row (keeping its Sl. No) and refresh the numbers
   const onSaved = (saved) => {
@@ -284,7 +312,7 @@ export default function VendorToKocLeads() {
     { label: "Pending", value: stats?.by_status?.pending ? fmt(stats.by_status.pending) : "—", tone: stats?.by_status?.pending ? "amber" : undefined },
     { label: "Follow-ups due", value: stats?.follow_ups_due ? fmt(stats.follow_ups_due) : "—", tone: stats?.follow_ups_due ? "rose" : undefined },
   ];
-  const colCount = isAdmin ? 11 : 10;
+  const colCount = (isAdmin ? 11 : 10) + (canToggleHot ? 1 : 0);
   const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
   // An admin's amount edit (PATCH), for AmountCell: errors are shown under the cell
   const saveAmount = (lead) => async (changes) => onSaved(await updateKocLead(lead.id, changes));
@@ -352,6 +380,7 @@ export default function VendorToKocLeads() {
         <table className={`w-full text-sm transition-opacity ${loading && data ? "opacity-50" : ""}`}>
           <thead className="border-y border-gray-100 bg-gray-50/80">
             <tr>
+              {canToggleHot && <th className={th} aria-label="Hot lead" />}
               <th className={th}>Sl. No</th>
               {isAdmin && <th className={th}>Vendor</th>}
               <th className={th}>Date</th>
@@ -380,6 +409,7 @@ export default function VendorToKocLeads() {
                 onClick={() => setOpenId(l.id)}
                 className={`cursor-pointer border-b border-gray-50 align-top transition-colors hover:bg-brand-50/40 ${openId === l.id ? "bg-brand-50/60" : ""}`}
               >
+                {canToggleHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(l)} pending={Boolean(hotPending[String(l.id)])} onToggle={() => toggleHot(l)} /></td>}
                 <td className="px-4 py-3 tabular-nums text-gray-500">{l.sl_no ?? "—"}</td>
                 {isAdmin && <td className="whitespace-nowrap px-4 py-3 text-gray-800">{l.vendor_name ?? "—"}</td>}
                 <td className="whitespace-nowrap px-4 py-3 text-gray-800">{dayText(l.lead_date)}</td>
@@ -442,6 +472,9 @@ export default function VendorToKocLeads() {
       <KocLeadPanel
         lead={openLead}
         isAdmin={isAdmin}
+        isHot={openLead ? isHot(openLead) : false}
+        hotPending={openLead ? Boolean(hotPending[String(openLead.id)]) : false}
+        onToggleHot={canToggleHot && openLead ? () => toggleHot(openLead) : null}
         people={people}
         onClose={() => setOpenId(null)}
         onSaved={onSaved}

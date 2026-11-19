@@ -58,6 +58,17 @@ describe("URL <-> filters", () => {
     expect(clearedParams(q("update_status=interested&sort=name:asc")).has("update_status")).toBe(false);
   });
 
+  test("Hot only is kept as a scalar API filter on the five supported lists", () => {
+    for (const source of ["spin", "whatsapp", "wedding", "wedding_planner", "vendor_to_koc"]) {
+      const filters = readFilters(q("hot=yes"), source);
+      expect(filters.hot).toBe("yes");
+      expect(toApiQuery(filters, source).hot).toBe("yes");
+      expect(readFilters(q(toQueryString(toApiQuery(filters, source))), source).hot).toBe("yes");
+      expect(activeCount(filters, source)).toBe(1);
+    }
+    expect(readFilters(q("hot=yes"), "dhruva").hot).toBeUndefined();
+  });
+
   test("no filters: the same URL as the prefetched first page", () => {
     // prefetch.js uses the old wrappers: page, page_size, sort, order
     expect(toQueryString(listQuery({ page: 1, pageSize: 8, filters: {}, sort: "submitted_at", order: "desc" }))).toBe(

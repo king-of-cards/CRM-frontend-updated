@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../auth/useAuth.js";
 import LeadFlowToggle from "../dashboard/LeadFlowToggle.jsx";
+import NotificationBell from "./NotificationBell.jsx";
 import { flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
 import LeadBackButton from "./LeadBackButton.jsx";
 import { isLeadRoute } from "./leadBack.js";
@@ -54,7 +55,7 @@ export default function DashboardLayout({
   children,
 }) {
   const navigate = useNavigate();
-  const { user, isAdmin, isDhruva, canSeeLeads, logout } = useAuth();
+  const { user, isAdmin, isVendor, isDhruva, canSeeLeads, logout } = useAuth();
 
   // Dhruva logins have a minimal sidebar; vendors/admins have the full one
   const visibleNav = isDhruva
@@ -211,12 +212,11 @@ export default function DashboardLayout({
             topBarExtra ? "flex-col items-center gap-3 lg:flex-row lg:items-center" : ""
           }`}
         >
-          <div className={`relative flex w-full max-w-4xl items-center gap-2 overflow-hidden rounded-full ${topBarExtra ? "lg:min-w-0 lg:flex-1" : ""} bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 p-1.5 shadow-xl shadow-brand-800/25 ring-1 ring-white/10`}>
+          <div className={`relative flex w-full max-w-4xl items-center gap-2 rounded-full ${topBarExtra ? "lg:min-w-0 lg:flex-1" : ""} bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 p-1.5 shadow-xl shadow-brand-800/25 ring-1 ring-white/10`}>
             {/* Soft light sweep across the bar */}
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-linear-to-r from-white/0 via-white/10 to-white/0"
-            />
+            <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-full">
+              <span className="absolute inset-0 bg-linear-to-r from-white/0 via-white/10 to-white/0" />
+            </span>
             <nav
               ref={navRef}
               aria-label="Sections"
@@ -259,6 +259,7 @@ export default function DashboardLayout({
                     {user.vendor.name}
                   </span>
                 )}
+                {!isDhruva && (isAdmin || (isVendor && user.vendor)) && <NotificationBell />}
                 <span
                   title={`${user.name} · ${user.email}`}
                   className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white ring-1 ring-white/30"
