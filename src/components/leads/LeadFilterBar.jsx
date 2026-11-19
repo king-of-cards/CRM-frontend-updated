@@ -329,6 +329,23 @@ function FilterControls({ source, filters, update, options, isAdmin, today }) {
                 <Field label="Hot leads">
                   <Select label="Hot leads" value={filters.hot} onChange={(v) => update({ hot: v })} options={[{ value: "", label: "Any" }, { value: "yes", label: "Hot only" }]} />
                 </Field>
+                {/* Quoted / conversion amount: the same controls and values as the other lists */}
+                <AmountFilter
+                  label="Quoted amount"
+                  value={filters.quote}
+                  onChange={(v) => update({ quote: v })}
+                  anyLabel="Any quote"
+                  hasLabel="Has a quote"
+                  noneLabel="No quote yet"
+                />
+                <AmountFilter
+                  label="Conversion amount"
+                  value={filters.conversion}
+                  onChange={(v) => update({ conversion: v })}
+                  anyLabel="Any"
+                  hasLabel="Has a conversion amount"
+                  noneLabel="No conversion amount"
+                />
                 <Field label="Follow-up" wide>
                   <div className="flex flex-wrap items-center gap-2">
                     <input

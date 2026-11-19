@@ -1,4 +1,5 @@
 const SOURCE_LABELS = {
+  spin: "Spin",
   wedding: "Wedding",
   wedding_planner: "Wedding planner",
   vendor_to_koc: "Vendors → KOC",
@@ -10,6 +11,13 @@ export function topCityTooltipData(row, defaultSource = null) {
     .filter(([source, count]) => SOURCE_LABELS[source] && Number(count) > 0)
     .map(([source, count]) => ({ source, label: SOURCE_LABELS[source], count: Number(count) }))
     .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+// The card's subtitle from the API's top_cities_sources, in its order
+// (e.g. "Spin, Wedding, Wedding planner, Vendors → KOC"); the fallback when there's no list
+export function topCitiesSubtitle(sources, fallback = "All sources") {
+  const labels = (sources ?? []).map((source) => SOURCE_LABELS[source] ?? source);
+  return labels.length ? labels.join(", ") : fallback;
 }
 
 export function topCityRows(rows, defaultSource = null) {

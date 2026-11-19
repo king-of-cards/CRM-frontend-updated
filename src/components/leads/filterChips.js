@@ -35,6 +35,21 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
   const vendorName = (id) => (o.vendors ?? []).find((v) => String(v.id) === String(id))?.name ?? "Unknown vendor";
   const chips = [];
   const add = (id, label, keys) => chips.push({ id, label, keys });
+  // Amount filters: "has" | "none" | "gt:<n>" | "lt:<n>" (the lead sources and Vendors → KOC)
+  const amountChip = (key, has_, none, noun) => {
+    const q = parseQuote(filters[key]);
+    const text =
+      q.op === "has"
+        ? has_
+        : q.op === "none"
+          ? none
+          : q.op === "gt"
+            ? `${noun} more than ${inr.format(Number(q.amount))}`
+            : q.op === "lt"
+              ? `${noun} less than ${inr.format(Number(q.amount))}`
+              : `${noun}: ${filters[key]}`;
+    add(key, text, [key]);
+  };
 
   if (has("date_from") || has("date_to"))
     add("date", `${source === KOC || source === DHRUVA ? "Received" : "Arrived"}: ${periodText(periodOfFilters(filters))}`, ["date_from", "date_to"]);
@@ -45,6 +60,8 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
     if (isAdmin && has("vendor_id")) add("vendor", `Vendor: ${list(filters.vendor_id, vendorName)}`, ["vendor_id"]);
     if (has("update_status")) add("update", `Update: ${list(filters.update_status, statusLabel)}`, ["update_status"]);
     if (has("hot")) add("hot", "Hot only", ["hot"]);
+    if (has("quote")) amountChip("quote", "Has a quote", "No quote yet", "Quote");
+    if (has("conversion")) amountChip("conversion", "Has a conversion amount", "No conversion amount", "Conversion");
     if (has("follow_up_from") || has("follow_up_to"))
       add("follow_up", `Follow-up: ${rangeText(filters.follow_up_from, filters.follow_up_to)}`, ["follow_up_from", "follow_up_to"]);
     if (has("follow_up_due")) add("due", "Follow-up due", ["follow_up_due"]);
@@ -101,21 +118,6 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
   if (has("update_status"))
     add("update", `Update: ${list(filters.update_status, (v) => UPDATE_LABELS[v] ?? v)}`, ["update_status"]);
   if (has("hot")) add("hot", "Hot only", ["hot"]);
-  // Amount filters: "has" | "none" | "gt:<n>" | "lt:<n>"
-  const amountChip = (key, has_, none, noun) => {
-    const q = parseQuote(filters[key]);
-    const text =
-      q.op === "has"
-        ? has_
-        : q.op === "none"
-          ? none
-          : q.op === "gt"
-            ? `${noun} more than ${inr.format(Number(q.amount))}`
-            : q.op === "lt"
-              ? `${noun} less than ${inr.format(Number(q.amount))}`
-              : `${noun}: ${filters[key]}`;
-    add(key, text, [key]);
-  };
   if (has("quote")) amountChip("quote", "Has a quote", "No quote yet", "Quote");
   if (has("conversion")) amountChip("conversion", "Has a conversion amount", "No conversion amount", "Conversion");
   if (has("origin")) add("origin", `Origin: ${list(filters.origin, (v) => ORIGIN_LABELS[v] ?? v)}`, ["origin"]);

@@ -1,6 +1,6 @@
 // Vendors → KOC dashboard helpers (GET /analytics/vendor-to-koc, docs section 11). Pure.
 // Available count links open the Vendors → KOC list with matching filters and the period;
-// 0 / null show "—". Quote and conversion amount cards have no list filters.
+// 0 / null show "—". Quoted amount and Quotes sent open quote=has; Conversion amount conversion=has.
 import {
   ENGAGED,
   kocListLink,
@@ -15,16 +15,16 @@ export const num = (n) => (n == null || n === 0 ? "—" : Number(n).toLocaleStri
 // The list link for a count, or null when it shows "—"
 export const linkFor = (count, filters, period) => (count ? kocListLink(filters, period) : null);
 
-// Filters supported by the Vendor -> KOC list. Quote and conversion amounts have no
-// corresponding list filter, so those cards remain informational.
+// The KPI cards' links: the Vendor -> KOC list with the matching filter and the dashboard period
+// (the list's quote / conversion filters, docs section 11)
 export function dashboardKpiLinks(period) {
   return {
     total: kocListLink({}, period),
     interested: kocListLink({ update_status: ["interested"] }, period),
-    quoted_amount: null,
-    quotes_sent: null,
+    quoted_amount: kocListLink({ quote: "has" }, period),
+    quotes_sent: kocListLink({ quote: "has" }, period),
     hot_leads: kocListLink({ hot: "yes" }, period),
-    conversion_amount: null,
+    conversion_amount: kocListLink({ conversion: "has" }, period),
     pending: kocListLink({ update_status: [PENDING] }, period),
     follow_ups_due: kocListLink({ follow_up_due: "true" }, { all: true }),
     converted: kocListLink({ update_status: ["converted"] }, period),

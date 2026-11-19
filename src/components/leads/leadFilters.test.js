@@ -150,3 +150,13 @@ describe("rows per page in the URL", () => {
     );
   });
 });
+
+describe("Vendors → KOC quote and conversion filters", () => {
+  test("kept in the URL and sent to the list, stats and export", () => {
+    const f = readFilters(q("quote=has&conversion=gt:50000&city=Goa"), "vendor_to_koc");
+    expect(toApiQuery(f, "vendor_to_koc")).toEqual({ quote: "has", conversion: "gt:50000", city: "Goa" });
+  });
+  test("each counts once on the Filters badge", () => {
+    expect(activeCount(readFilters(q("quote=has&conversion=none"), "vendor_to_koc"), "vendor_to_koc")).toBe(2);
+  });
+});

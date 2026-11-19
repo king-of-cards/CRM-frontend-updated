@@ -910,7 +910,7 @@ export default function Dashboard() {
 
             {/* ── Where and what ── */}
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <TopCities rows={o?.top_cities} subtitle="All sources" />
+              <TopCities rows={o?.top_cities} sources={o?.top_cities_sources} />
               <Panel
                 title="Top countries"
                 subtitle="International leads"

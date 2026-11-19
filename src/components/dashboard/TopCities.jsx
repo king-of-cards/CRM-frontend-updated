@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { Info, MapPin } from "lucide-react";
 import { Panel } from "./DashboardParts.jsx";
-import { topCityRows } from "../../pages/topCities.js";
+import { topCitiesSubtitle, topCityRows } from "../../pages/topCities.js";
 
-export default function TopCities({ rows, defaultSource = null, subtitle = "All sources" }) {
+// sources: the API's top_cities_sources (the subtitle lists them); subtitle: shown without that list
+export default function TopCities({ rows, sources, defaultSource = null, subtitle = "All sources" }) {
   const [open, setOpen] = useState(null);
   const cities = topCityRows(rows, defaultSource);
   const max = Math.max(1, ...cities.map((city) => city.count));
   return (
-    <Panel title="Top cities" subtitle={subtitle} icon={MapPin}>
+    <Panel title="Top cities" subtitle={topCitiesSubtitle(sources, subtitle)} icon={MapPin}>
       {cities.length ? <ul className="space-y-3">
         {cities.map((city) => (
           <li key={city.city}>

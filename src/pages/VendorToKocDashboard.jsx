@@ -385,7 +385,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                 </Panel>
                 {isAdmin && (
                 <>
-                <TopCities rows={d?.top_cities} defaultSource="vendor_to_koc" subtitle="Vendors → KOC leads" />
+                <TopCities rows={d?.top_cities} sources={d?.top_cities_sources} defaultSource="vendor_to_koc" />
                 <Panel title="By source" subtitle="How the leads were added" icon={Sparkles}>
                   <LinkedBars rows={sourceRows(d?.by_source)} period={period} color="from-rose-400 to-rose-600" />
                 </Panel>

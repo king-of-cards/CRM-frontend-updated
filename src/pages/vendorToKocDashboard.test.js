@@ -110,12 +110,18 @@ describe("dashboard KPI card links", () => {
   test("follow-ups due uses its all-time filter because the API excludes the period", () => {
     expect(dashboardKpiLinks(PERIOD).follow_ups_due).toBe("/vendor-to-koc?follow_up_due=true");
   });
-  test("quote and conversion amounts have no matching list filter", () => {
+  test("quote and conversion cards open the list's quote / conversion filters with the period", () => {
     const links = dashboardKpiLinks(PERIOD);
-    expect(links.quoted_amount).toBeNull();
-    expect(links.quotes_sent).toBeNull();
-    expect(links.conversion_amount).toBeNull();
+    expect(links.quotes_sent).toBe("/vendor-to-koc?quote=has&date_from=2026-10-18&date_to=2026-11-16");
+    expect(links.quoted_amount).toBe("/vendor-to-koc?quote=has&date_from=2026-10-18&date_to=2026-11-16");
+    expect(links.conversion_amount).toBe("/vendor-to-koc?conversion=has&date_from=2026-10-18&date_to=2026-11-16");
     expect(links.hot_leads).toBe("/vendor-to-koc?hot=yes&date_from=2026-10-18&date_to=2026-11-16");
+  });
+  test("All time: the quote / conversion links carry no dates", () => {
+    const links = dashboardKpiLinks({ all: true });
+    expect(links.quotes_sent).toBe("/vendor-to-koc?quote=has");
+    expect(links.quoted_amount).toBe("/vendor-to-koc?quote=has");
+    expect(links.conversion_amount).toBe("/vendor-to-koc?conversion=has");
   });
 });
 

@@ -52,6 +52,18 @@ describe("filter chips use names, never ids", () => {
       "Source: Bulk upload",
     ]);
   });
+  test("Vendors → KOC: quote and conversion chips read like the other lists", () => {
+    expect(chips("quote=has&conversion=gt:50000", "vendor_to_koc", {}, false)).toEqual([
+      "Has a quote",
+      "Conversion more than ₹50,000",
+    ]);
+    expect(chips("quote=lt:10000&conversion=none", "vendor_to_koc", {}, true)).toEqual([
+      "Quote less than ₹10,000",
+      "No conversion amount",
+    ]);
+    const [quote] = filterChips(readFilters(new URLSearchParams("quote=has"), "vendor_to_koc"), "vendor_to_koc", {}, true);
+    expect(quote.keys).toEqual(["quote"]);
+  });
   test("Dhruva chips show received date, venue, event type and update labels", () => {
     expect(chips("date_from=2026-11-16&venue=Palace&event_type=wedding&update_status=pending&has_phone=no", "dhruva")).toEqual([
       "Received: 16 Nov 2026", "Venue: Palace", "Event type: wedding", "Update: Pending", "No phone",
