@@ -16,6 +16,7 @@ import {
 } from "recharts";
 import {
   BadgeCheck,
+  Calculator,
   ThumbsDown,
   ThumbsUp,
   Wallet,
@@ -48,6 +49,7 @@ import FollowUpsCard from "../components/dashboard/FollowUpsCard.jsx";
 import TopCities from "../components/dashboard/TopCities.jsx";
 import { periodFromSearch, periodLabel, periodText, todayIst } from "./dashboardPeriod.js";
 import { outcomeCells, outcomeLink, sourceKpiDestinations } from "./dashboardOutcomes.js";
+import { aovOf } from "./aov.js";
 import VendorToKocDashboard from "./VendorToKocDashboard.jsx";
 const DhruvaLeadsDashboard = lazy(() => import("./DhruvaLeadsDashboard.jsx"));
 
@@ -106,8 +108,6 @@ function short(amount) {
 
 // Leads per day (1 decimal from the API)
 
-// A money figure only when the period has values for it, else "—" (not ₹0)
-const money = (stats, key) => (stats?.count ? short(stats[key]) : "—");
 
 function greeting() {
   const h = new Date().getHours();
@@ -390,6 +390,10 @@ export default function Dashboard() {
   const label = periodText(period);
   const quoteChoices = sourceKpiDestinations(o?.outcomes, "quotes", period);
   const hotChoices = sourceKpiDestinations(o?.outcomes, "hot", period);
+  const kpiAov = aovOf(o?.kpis);
+  const aovChoices = sourceKpiDestinations(o?.outcomes, "aov", period);
+  // Budgets & size: AOV over the Wedding + Wedding planner outcomes only
+  const weddingAov = aovOf(o?.outcomes?.wedding, o?.outcomes?.wedding_planner);
   const chooserAction = (title, choices) => choices.length === 1
     ? { to: choices[0].to }
     : choices.length > 1
@@ -501,6 +505,15 @@ export default function Dashboard() {
                 gradient="from-sky-500 to-brand-700"
                 loading={kpiLoading}
               />
+              {/* AOV: conversion_amount_total ÷ conversion_amount_count; opens exactly those leads */}
+              <Kpi
+                icon={Calculator}
+                label="AOV"
+                value={kpiAov.value == null ? "—" : short(Math.round(kpiAov.value))}
+                {...chooserAction("AOV", aovChoices)}
+                gradient="from-cyan-500 to-brand-700"
+                loading={kpiLoading}
+              />
               {isAdmin && <Kpi
                 icon={Send}
                 label="Quotes sent"
@@ -520,7 +533,7 @@ export default function Dashboard() {
             </section>
 
             <div className="mt-6">
-              <FollowUpsCard />
+              <FollowUpsCard flow="" />
             </div>
 
             {/* ── Sources ── */}
@@ -840,9 +853,9 @@ export default function Dashboard() {
                 <dl className="grid grid-cols-2 gap-3">
                   {[
                     {
-                      label: "Avg photography budget",
-                      value: money(o?.photography_budget, "average"),
-                      sub: `${fmt(o?.photography_budget.count)} leads gave one`,
+                      label: "AOV",
+                      value: weddingAov.value == null ? "—" : short(Math.round(weddingAov.value)),
+                      sub: `${fmt(weddingAov.count)} converted with an amount`,
                     },
                     {
                       // wedding_budget is no longer returned; budget_fit is
@@ -910,7 +923,7 @@ export default function Dashboard() {
 
             {/* ── Where and what ── */}
             <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <TopCities rows={o?.top_cities} sources={o?.top_cities_sources} />
+              <TopCities rows={o?.top_cities} sources={o?.top_cities_sources} flow="" />
               <Panel
                 title="Top countries"
                 subtitle="International leads"

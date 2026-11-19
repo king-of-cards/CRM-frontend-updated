@@ -16,7 +16,7 @@ import {
   unreadBadge,
 } from "./notificationUtils.js";
 import { getFollowUpReminders } from "../../api/reminders.js";
-import { reminderDashboardDestination } from "../dashboard/reminderUtils.js";
+import { reminderDashboardDestination, reminderRequestFor } from "../dashboard/reminderUtils.js";
 import { flowOf } from "./leadFlow.js";
 
 const PAGE_SIZE = 10;
@@ -34,8 +34,19 @@ export default function NotificationBell({ variant = "default" }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
-  const [followUpCounts, setFollowUpCounts] = useState(null);
-  const [followUpError, setFollowUpError] = useState(false);
+  // Follow-ups follow the current Lead flow (?flow): KOC → Vendors, Vendors → KOC or Dhruva.
+  // Counts are kept with their flow, so another flow's counts show as "—", never as this one's.
+  const flow = flowOf(location.pathname, location.search);
+  const followUpRequest = reminderRequestFor(flow);
+  const followUpDhruva = followUpRequest.dhruva;
+  const followUpSources = followUpRequest.sources.join(",");
+  const [followUps, setFollowUps] = useState({ flow: null, counts: null, error: false });
+  const followUpCounts = followUps.flow === flow ? followUps.counts : null;
+  const followUpError = followUps.flow === flow && followUps.error;
+  const followUpKey = useRef(flow);
+  useEffect(() => {
+    followUpKey.current = flow;
+  }, [flow]);
 
   const refreshCount = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
@@ -66,15 +77,20 @@ export default function NotificationBell({ variant = "default" }) {
 
   const refreshFollowUps = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
+    const key = flow;
     try {
-      const result = await getFollowUpReminders({ days: 7 });
-      setFollowUpCounts(result.counts ?? {});
-      setFollowUpError(false);
+      const result = await getFollowUpReminders({
+        days: 7,
+        dhruva: followUpDhruva,
+        sources: followUpSources ? followUpSources.split(",") : [],
+      });
+      if (followUpKey.current !== key) return; // a late answer for another flow
+      setFollowUps({ flow: key, counts: result.counts ?? {}, error: false });
     } catch {
-      setFollowUpCounts(null);
-      setFollowUpError(true);
+      if (followUpKey.current !== key) return;
+      setFollowUps({ flow: key, counts: null, error: true });
     }
-  }, []);
+  }, [flow, followUpDhruva, followUpSources]);
 
   useEffect(() => {
     let timer = null;
@@ -189,12 +205,12 @@ export default function NotificationBell({ variant = "default" }) {
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-xs font-semibold text-gray-800">Follow-ups</h3>
               {followUpError ? <button type="button" onClick={refreshFollowUps} className="text-xs font-medium text-brand-700 hover:underline">Retry</button> : (
-                <button type="button" onClick={() => { setOpen(false); navigate(reminderDashboardDestination(flowOf(location.pathname, location.search))); }} className="text-xs font-semibold text-brand-700 hover:underline">View all</button>
+                <button type="button" onClick={() => { setOpen(false); navigate(reminderDashboardDestination(flow)); }} className="text-xs font-semibold text-brand-700 hover:underline">View all</button>
               )}
             </div>
             <div className="mt-2 flex gap-2 text-xs">
-              <button type="button" onClick={() => { setOpen(false); navigate(reminderDashboardDestination(flowOf(location.pathname, location.search))); }} className="rounded-full bg-rose-50 px-2.5 py-1 font-medium text-rose-700 hover:bg-rose-100">Overdue {followUpCounts?.overdue ?? "—"}</button>
-              <button type="button" onClick={() => { setOpen(false); navigate(reminderDashboardDestination(flowOf(location.pathname, location.search))); }} className="rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-800 hover:bg-amber-100">Today {followUpCounts?.today ?? "—"}</button>
+              <button type="button" onClick={() => { setOpen(false); navigate(reminderDashboardDestination(flow)); }} className="rounded-full bg-rose-50 px-2.5 py-1 font-medium text-rose-700 hover:bg-rose-100">Overdue {followUpCounts?.overdue ?? "—"}</button>
+              <button type="button" onClick={() => { setOpen(false); navigate(reminderDashboardDestination(flow)); }} className="rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-800 hover:bg-amber-100">Today {followUpCounts?.today ?? "—"}</button>
             </div>
           </div>
 

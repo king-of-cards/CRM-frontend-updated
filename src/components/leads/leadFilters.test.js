@@ -59,14 +59,13 @@ describe("URL <-> filters", () => {
   });
 
   test("Hot only is kept as a scalar API filter on the five supported lists", () => {
-    for (const source of ["spin", "whatsapp", "wedding", "wedding_planner", "vendor_to_koc"]) {
+    for (const source of ["spin", "whatsapp", "wedding", "wedding_planner", "vendor_to_koc", "dhruva"]) {
       const filters = readFilters(q("hot=yes"), source);
       expect(filters.hot).toBe("yes");
       expect(toApiQuery(filters, source).hot).toBe("yes");
       expect(readFilters(q(toQueryString(toApiQuery(filters, source))), source).hot).toBe("yes");
       expect(activeCount(filters, source)).toBe(1);
     }
-    expect(readFilters(q("hot=yes"), "dhruva").hot).toBeUndefined();
   });
 
   test("no filters: the same URL as the prefetched first page", () => {

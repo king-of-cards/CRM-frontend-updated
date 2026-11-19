@@ -9,6 +9,19 @@ export const REMINDER_SOURCES = {
   dhruva: { label: "Dhruva", path: "/dhruva-leads" },
 };
 
+// Each Lead flow's follow-ups, kept separate: "" = KOC → Vendors, "vendors" = Vendors → KOC,
+// "dhruva" = the Dhruva endpoint. sources goes to GET /reminders/follow-ups?sources=…
+export const FLOW_REMINDERS = {
+  "": { dhruva: false, sources: ["spin", "whatsapp", "wedding", "wedding_planner"], label: "KOC → Vendors leads" },
+  vendors: { dhruva: false, sources: ["vendor_to_koc"], label: "Vendors → KOC leads" },
+  dhruva: { dhruva: true, sources: [], label: "Dhruva leads" },
+};
+
+// The request and card subtitle for a flow (unknown flows: KOC → Vendors)
+export function reminderRequestFor(flow = "") {
+  return FLOW_REMINDERS[flow] ?? FLOW_REMINDERS[""];
+}
+
 export function reminderTag(daysOverdue) {
   const days = Number(daysOverdue);
   if (days > 0) return { label: `${days} ${days === 1 ? "day" : "days"} overdue`, tone: "red" };

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { topCitiesSubtitle, topCityRows, topCityTooltipData } from "./topCities.js";
+import { TOP_CITIES_DEFAULTS, topCitiesSubtitle, topCitiesSubtitleFor, topCityRows, topCityTooltipData } from "./topCities.js";
 
 describe("Top cities tooltip data", () => {
   test("keeps the API per-source counts and labels", () => {
@@ -33,5 +33,21 @@ describe("Top cities subtitle (top_cities_sources)", () => {
   test("falls back when there's no list", () => {
     expect(topCitiesSubtitle(undefined)).toBe("All sources");
     expect(topCitiesSubtitle([], "Vendors → KOC leads")).toBe("Vendors → KOC leads");
+  });
+});
+
+describe("Top cities per Lead flow (API defaults)", () => {
+  test("the defaults match the API's per-flow defaults", () => {
+    expect(TOP_CITIES_DEFAULTS[""]).toEqual(["spin", "wedding", "wedding_planner"]);
+    expect(TOP_CITIES_DEFAULTS.vendors).toEqual(["vendor_to_koc"]);
+  });
+  test("top_cities_sources wins when the API sends it", () => {
+    expect(topCitiesSubtitleFor(["wedding", "wedding_planner"], "")).toBe("Wedding, Wedding planner");
+    expect(topCitiesSubtitleFor(["vendor_to_koc"], "vendors")).toBe("Vendors → KOC");
+  });
+  test("without a list the flow's own defaults are named, never 'All sources'", () => {
+    expect(topCitiesSubtitleFor(undefined, "")).toBe("Spin, Wedding, Wedding planner");
+    expect(topCitiesSubtitleFor([], "vendors")).toBe("Vendors → KOC");
+    expect(topCitiesSubtitleFor(null)).toBe("Spin, Wedding, Wedding planner");
   });
 });

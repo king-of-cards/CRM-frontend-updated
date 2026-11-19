@@ -2,6 +2,7 @@
 // Every KPI card links to the Dhruva list with matching filters and the period;
 // 0 / null still open the matching filtered list.
 import { PENDING, STATUSES, dhruvaListLink, shortRupees } from "./dhruvaUtils.js";
+import { AOV_FILTERS, aovOf } from "./aov.js";
 
 export const num = (n) => (n == null || n === 0 ? "—" : Number(n).toLocaleString("en-IN"));
 
@@ -69,7 +70,24 @@ export function dashboardKpiCards(kpis, period) {
       value: num(k.upcoming_30_days),
       to: link({ upcoming_days: "30" }),
     },
+    {
+      label: "Hot leads",
+      value: num(k.hot_count),
+      to: link({ hot: "yes" }),
+    },
+    {
+      // Average of the converted leads with an amount; the link opens exactly those leads
+      label: "AOV",
+      value: aovText(k),
+      to: link(AOV_FILTERS),
+    },
   ];
+}
+
+// AOV in short rupees, or "—" when no converted lead has an amount
+export function aovText(kpis) {
+  const { value } = aovOf(kpis);
+  return value == null ? "—" : shortRupees(Math.round(value));
 }
 
 export const pctText = (p) => (p == null ? "—" : `${p}%`);

@@ -39,7 +39,7 @@ export const DHRUVA = "dhruva";
 export const DHRUVA_KEYS = [
   "search", "date_from", "date_to", "event_from", "event_to", "upcoming_days",
   "venue", "event_type", "update_status", "quote", "conversion",
-  "follow_up_from", "follow_up_to", "follow_up_due", "has_phone", "also_in",
+  "follow_up_from", "follow_up_to", "follow_up_due", "has_phone", "hot", "also_in",
 ];
 export const KOC_KEYS = [
   "search",
@@ -134,7 +134,7 @@ export function activeCount(filters, source) {
     return [
       ["date_from", "date_to"], ["event_from", "event_to", "upcoming_days"], ["venue"],
       ["event_type"], ["update_status"], ["quote"], ["conversion"],
-      ["follow_up_from", "follow_up_to", "follow_up_due"], ["has_phone"], ["also_in"],
+      ["follow_up_from", "follow_up_to", "follow_up_due"], ["has_phone"], ["hot"], ["also_in"],
     ].filter((group) => group.some(has)).length;
   }
   const groups = [

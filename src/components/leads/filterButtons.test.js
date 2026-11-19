@@ -5,6 +5,11 @@ import { keysFor, readFilters, withFilters } from "./leadFilters.js";
 const byKind = (buttons, kind) => buttons.find((button) => button.kind === kind);
 
 describe("buildFilterButtons", () => {
+  test("Dhruva has a Hot only toggle for everyone, kept in the URL as hot=yes", () => {
+    expect(buildFilterButtons("dhruva", {}, {}, false).map((x) => x.kind)).toContain("hot");
+    const hot = buildFilterButtons("dhruva", readFilters(new URLSearchParams("hot=yes"), "dhruva"), {}, false).find((x) => x.kind === "hot");
+    expect(hot).toMatchObject({ active: true, keys: ["hot"], value: ["Hot only"] });
+  });
   test("shows source-specific buttons for admins and vendor logins", () => {
     const admin = buildFilterButtons("spin", {}, {}, true).map((item) => item.kind);
     const vendor = buildFilterButtons("spin", {}, {}, false).map((item) => item.kind);
@@ -23,7 +28,7 @@ describe("buildFilterButtons", () => {
       ["wedding", ["occasion", "city", "budget_range", "shared_with", "hide_repeats"], ["assigned", "also_in"]],
       ["wedding_planner", ["city", "guests", "budget_range", "fits_budget", "last_step", "shared_with"], ["assigned", "also_in"]],
       ["vendor_to_koc", ["lead_date", "vendor", "city", "source"], ["vendor", "also_in"]],
-      ["dhruva", ["venue", "event_type", "has_phone"], ["also_in"]],
+      ["dhruva", ["venue", "event_type", "has_phone", "hot"], ["also_in"]],
     ];
     for (const [source, required, adminOnly] of cases) {
       const admin = buildFilterButtons(source, {}, {}, true).map((item) => item.kind);

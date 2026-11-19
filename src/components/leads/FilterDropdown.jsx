@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown } from "lucide-react";
+import useHoverOpen from "../shared/useHoverOpen.js";
 
 export default function FilterDropdown({ label, activeLabel, active = false, children, className = "" }) {
   const anchor = useRef(null);
   const panel = useRef(null);
   const [open, setOpen] = useState(false);
   const [rect, setRect] = useState(null);
+  // Hover devices: opens on hover, stays open while a field inside has focus (see hoverOpen.js)
+  const hover = useHoverOpen({ open, setOpen, panelRef: panel });
   useEffect(() => {
     if (!open) return undefined;
     const place = () => {
@@ -30,9 +33,9 @@ export default function FilterDropdown({ label, activeLabel, active = false, chi
     };
   }, [open]);
   return <>
-    <button ref={anchor} type="button" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen((value) => !value)} className={`inline-flex h-9 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm transition ${active || open ? "border-brand-300 bg-brand-50 text-brand-800" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"} ${className}`}>
+    <button ref={anchor} type="button" aria-haspopup="dialog" aria-expanded={open} {...hover.anchorProps} onClick={() => hover.click(() => setOpen((value) => !value))} className={`inline-flex h-9 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm transition ${active || open ? "border-brand-300 bg-brand-50 text-brand-800" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"} ${className}`}>
       <span className="truncate">{active ? activeLabel || label : label}</span><ChevronDown size={14} className="shrink-0" />
     </button>
-    {open && rect && createPortal(<div ref={panel} role="dialog" aria-label={`${label} filter`} style={{ position: "fixed", top: rect.top, left: rect.left, width: rect.width }} className="z-[1000] max-h-[min(70vh,32rem)] overflow-y-auto rounded-xl bg-white p-3 shadow-xl ring-1 ring-black/10">{children}</div>, document.body)}
+    {open && rect && createPortal(<div ref={panel} role="dialog" aria-label={`${label} filter`} {...hover.panelProps} style={{ position: "fixed", top: rect.top, left: rect.left, width: rect.width }} className="z-[1000] max-h-[min(70vh,32rem)] overflow-y-auto rounded-xl bg-white p-3 shadow-xl ring-1 ring-black/10">{children}</div>, document.body)}
   </>;
 }

@@ -8,6 +8,7 @@ import {
 } from "../../api/dhruva.js";
 import { downloadLeadPdf } from "../leads/leadPdf.js";
 import LeadPdfButton from "../leads/LeadPdfButton.jsx";
+import HotLeadStar from "../leads/HotLeadStar.jsx";
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
 import { dateTimeText, dayText, dhruvaErrors, dhruvaFieldAccess, phoneText, rupeesText, statusLabel, STATUSES, PENDING } from "../../pages/dhruvaUtils.js";
 import LeadActivity from "../leads/LeadActivity.jsx";
@@ -35,7 +36,7 @@ const fieldsOf = (lead) => ({
 });
 const amountValue = (v) => (String(v).trim() ? Number(String(v).replace(/,/g, "")) : null);
 
-export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArchived }) {
+export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArchived, isHot = false, hotPending = false, onToggleHot = null }) {
   const [form, setForm] = useState(() => fieldsOf(lead));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -148,7 +149,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
   }
 
   return (
-    <Drawer kicker="Dhruva leads" title={lead.name || "Lead details"} onClose={onClose} wide headerActions={<LeadPdfButton onClick={pdf} loading={downloading} />}
+    <Drawer kicker="Dhruva leads" title={lead.name || "Lead details"} onClose={onClose} wide headerActions={<>{onToggleHot && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}<LeadPdfButton onClick={pdf} loading={downloading} /></>}
       footer={<>
         {access.archive && <button type="button" onClick={archive} disabled={archiveBusy} className={secondaryBtn}>{lead.archived ? <RotateCcw size={15} className="mr-1 inline" /> : <Archive size={15} className="mr-1 inline" />}{lead.archived ? "Unarchive" : "Archive"}</button>}
         <button type="button" onClick={onClose} className={secondaryBtn}>Close</button>

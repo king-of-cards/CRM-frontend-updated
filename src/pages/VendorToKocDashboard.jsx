@@ -15,6 +15,7 @@ import {
 import {
   AlarmClock,
   BadgeCheck,
+  Calculator,
   Clock,
   Filter as FunnelIcon,
   Handshake,
@@ -36,6 +37,7 @@ import TopCities from "../components/dashboard/TopCities.jsx";
 import { dateTimeText, dayText, kocErrors, kocListLink, phoneText, statusLabel } from "../components/vendorToKoc/kocUtils.js";
 import { periodLabel } from "./dashboardPeriod.js";
 import { shortRupees } from "./dashboardOutcomes.js";
+import { aovOf } from "./aov.js";
 import {
   daysText,
   dashboardKpiLinks,
@@ -158,6 +160,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
   const statuses = statusRows(d?.by_status);
   const all = { all: true };
   const kpiLinks = dashboardKpiLinks(period);
+  const aovValue = aovOf(d?.kpis).value;
   // The outcome cards: admins, and vendor logins once the API sends them (pending, funnel…)
   const outcomes = isAdmin || d?.pending !== undefined;
 
@@ -207,6 +210,14 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
               value={d?.kpis?.conversion_count ? shortRupees(d.kpis.conversion_total) : "—"}
               to={kpiLinks.conversion_amount}
               gradient="from-teal-500 to-teal-700"
+              loading={kpiLoading}
+            />
+            <Kpi
+              icon={Calculator}
+              label="AOV"
+              value={aovValue == null ? "—" : shortRupees(Math.round(aovValue))}
+              to={kpiLinks.aov}
+              gradient="from-sky-500 to-brand-700"
               loading={kpiLoading}
             />
             <Kpi
@@ -385,7 +396,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                 </Panel>
                 {isAdmin && (
                 <>
-                <TopCities rows={d?.top_cities} sources={d?.top_cities_sources} defaultSource="vendor_to_koc" />
+                <TopCities rows={d?.top_cities} sources={d?.top_cities_sources} defaultSource="vendor_to_koc" flow="vendors" />
                 <Panel title="By source" subtitle="How the leads were added" icon={Sparkles}>
                   <LinkedBars rows={sourceRows(d?.by_source)} period={period} color="from-rose-400 to-rose-600" />
                 </Panel>
@@ -442,7 +453,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
 
               {/* ── Follow-ups (everyone) + latest (admins) ── */}
               <div className={`mt-6 grid gap-4 ${isAdmin ? "xl:grid-cols-2" : ""}`}>
-                <FollowUpsCard />
+                <FollowUpsCard flow="vendors" />
                 {isAdmin && (
                 <Panel title="Latest leads" subtitle="The newest leads of the period" icon={Inbox} flush>
                   <ul className="divide-y divide-gray-100">

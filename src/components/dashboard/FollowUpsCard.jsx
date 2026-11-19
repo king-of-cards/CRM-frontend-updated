@@ -3,20 +3,23 @@ import { Link } from "react-router";
 import { useState } from "react";
 import { Panel } from "./DashboardParts.jsx";
 import useFollowUpReminders from "./useFollowUpReminders.js";
-import { reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
+import { reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderRequestFor, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
 
 const tones = { red: "bg-rose-50 text-rose-700 ring-rose-200", amber: "bg-amber-50 text-amber-800 ring-amber-200", neutral: "bg-gray-100 text-gray-600 ring-gray-200" };
 
-export default function FollowUpsCard({ dhruva = false }) {
-  const { data, loading, error, refresh } = useFollowUpReminders({ dhruva });
+// One Lead flow's follow-ups only: flow "" = KOC → Vendors, "vendors" = Vendors → KOC, "dhruva"
+export default function FollowUpsCard({ flow = "" }) {
+  const { data, loading, error, refresh } = useFollowUpReminders({ flow });
   const [showSources, setShowSources] = useState(false);
+  const request = reminderRequestFor(flow);
   const rows = (data?.items ?? []).slice(0, 8);
   const counts = data?.counts ?? {};
   const sources = [...new Set((data?.items ?? []).map((item) => item.source))];
-  const summary = dhruva ? "Dhruva leads" : "All visible lead sources";
+  // A flow with a single list (Vendors → KOC, Dhruva): "View all" opens it directly
+  const singleList = request.dhruva ? "dhruva" : request.sources.length === 1 ? request.sources[0] : null;
   return (
-    <Panel title="Follow-ups" subtitle={summary} icon={AlarmClock} right={
-      dhruva ? <Link id="follow-ups-view-all" to={reminderListDestination("dhruva")} className="text-xs font-semibold text-brand-700 hover:underline">View all</Link> : (
+    <Panel title="Follow-ups" subtitle={request.label} icon={AlarmClock} right={
+      singleList ? <Link id="follow-ups-view-all" to={reminderListDestination(singleList)} className="text-xs font-semibold text-brand-700 hover:underline">View all</Link> : (
         <div className="relative">
           <button type="button" aria-expanded={showSources} onClick={() => setShowSources((open) => !open)} disabled={!sources.length} className="text-xs font-semibold text-brand-700 hover:underline disabled:text-gray-400">View all</button>
           {showSources && <div className="absolute right-0 top-full z-20 mt-2 w-52 rounded-xl bg-white p-2 shadow-xl ring-1 ring-gray-200">

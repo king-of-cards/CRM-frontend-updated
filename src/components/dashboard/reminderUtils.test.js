@@ -1,5 +1,32 @@
 import { describe, expect, test } from "bun:test";
-import { reminderDashboardDestination, reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
+import { FLOW_REMINDERS, reminderDashboardDestination, reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderRequestFor, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
+
+describe("follow-ups per Lead flow", () => {
+  test("KOC → Vendors asks for its four sources only", () => {
+    expect(reminderRequestFor("")).toMatchObject({ dhruva: false, sources: ["spin", "whatsapp", "wedding", "wedding_planner"] });
+  });
+  test("Vendors → KOC asks for vendor_to_koc only", () => {
+    expect(reminderRequestFor("vendors")).toMatchObject({ dhruva: false, sources: ["vendor_to_koc"] });
+  });
+  test("Dhruva uses the Dhruva endpoint", () => {
+    expect(reminderRequestFor("dhruva")).toMatchObject({ dhruva: true, sources: [] });
+  });
+  test("an unknown flow falls back to KOC → Vendors", () => {
+    expect(reminderRequestFor()).toBe(FLOW_REMINDERS[""]);
+    expect(reminderRequestFor("other")).toBe(FLOW_REMINDERS[""]);
+  });
+  test("no flow mixes in another flow's sources", () => {
+    const koc = reminderRequestFor("").sources;
+    expect(koc).not.toContain("vendor_to_koc");
+    expect(koc).not.toContain("dhruva");
+    expect(reminderRequestFor("vendors").sources).not.toContain("dhruva");
+  });
+  test("each flow names its own leads", () => {
+    expect(reminderRequestFor("").label).toBe("KOC → Vendors leads");
+    expect(reminderRequestFor("vendors").label).toBe("Vendors → KOC leads");
+    expect(reminderRequestFor("dhruva").label).toBe("Dhruva leads");
+  });
+});
 
 describe("follow-up reminder helpers", () => {
   test("tags and formats use the reminder day offset", () => {

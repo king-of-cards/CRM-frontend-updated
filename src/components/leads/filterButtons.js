@@ -13,7 +13,7 @@ const plural = (label, values) => values.length === 1 ? `${label}: ${values[0]}`
 // button inventory and active labels can be verified without rendering React.
 export function buildFilterButtons(source, filters = {}, options = {}, isAdmin = false) {
   const specs = source === DHRUVA
-    ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["venue", "Venue", ["venue"]], ["event_type", "Event type", ["event_type"]], ["update", "Update", ["update_status"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["has_phone", "Has phone", ["has_phone"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
+    ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["venue", "Venue", ["venue"]], ["event_type", "Event type", ["event_type"]], ["update", "Update", ["update_status"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["has_phone", "Has phone", ["has_phone"]], ["hot", "Hot only", ["hot"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
     : source === KOC
       ? [["lead_date", "Lead date", ["lead_date_from", "lead_date_to"]], ...(isAdmin ? [["vendor", "Vendor", ["vendor_id"]], ["also_in", "In other sources", ["also_in"]]] : []), ["update", "Update", ["update_status"]], ["hot", "Hot only", ["hot"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["city", "City", ["city"]], ["source", "Source", ["source"]]]
       : [

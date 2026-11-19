@@ -1,22 +1,30 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getFollowUpReminders } from "../../api/reminders.js";
+import { reminderRequestFor } from "./reminderUtils.js";
 
-export default function useFollowUpReminders({ dhruva = false, days = 7 } = {}) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+// Follow-ups of one Lead flow only ("" = KOC → Vendors, "vendors", "dhruva"); see reminderUtils.js.
+// Each answer is kept with the request it belongs to, so another flow's items never show.
+export default function useFollowUpReminders({ flow = "", days = 7 } = {}) {
+  const { dhruva, sources } = reminderRequestFor(flow);
+  const sourcesKey = sources.join(",");
+  const requestKey = `${dhruva ? "dhruva" : "general"}:${sourcesKey}:${days}`;
+  const [result, setResult] = useState({ key: null, data: null, error: false });
+  const currentKey = useRef(requestKey);
+  useEffect(() => {
+    currentKey.current = requestKey;
+  }, [requestKey]);
+
   const refresh = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
     try {
-      const result = await getFollowUpReminders({ dhruva, days });
-      setData(result);
-      setError(false);
+      const data = await getFollowUpReminders({ dhruva, days, sources: sourcesKey ? sourcesKey.split(",") : [] });
+      if (currentKey.current !== requestKey) return; // a late answer for another flow
+      setResult({ key: requestKey, data, error: false });
     } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
+      if (currentKey.current !== requestKey) return;
+      setResult((prev) => ({ key: requestKey, data: prev.key === requestKey ? prev.data : null, error: true }));
     }
-  }, [dhruva, days]);
+  }, [dhruva, sourcesKey, days, requestKey]);
 
   useEffect(() => {
     let timer = null;
@@ -34,5 +42,6 @@ export default function useFollowUpReminders({ dhruva = false, days = 7 } = {}) 
     return () => { stop(); window.removeEventListener("focus", onFocus); document.removeEventListener("visibilitychange", onVisibility); };
   }, [refresh]);
 
-  return { data, loading, error, refresh };
+  const current = result.key === requestKey;
+  return { data: current ? result.data : null, loading: !current, error: current && result.error, refresh };
 }

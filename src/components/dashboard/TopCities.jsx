@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { Info, MapPin } from "lucide-react";
 import { Panel } from "./DashboardParts.jsx";
-import { topCitiesSubtitle, topCityRows } from "../../pages/topCities.js";
+import { topCitiesSubtitleFor, topCityRows } from "../../pages/topCities.js";
 
-// sources: the API's top_cities_sources (the subtitle lists them); subtitle: shown without that list
-export default function TopCities({ rows, sources, defaultSource = null, subtitle = "All sources" }) {
+// sources: the API's top_cities_sources (the subtitle lists them); without that list the
+// subtitle names the flow's default sources ("" = KOC → Vendors, "vendors" = Vendors → KOC)
+export default function TopCities({ rows, sources, defaultSource = null, flow = "" }) {
   const [open, setOpen] = useState(null);
   const cities = topCityRows(rows, defaultSource);
   const max = Math.max(1, ...cities.map((city) => city.count));
   return (
-    <Panel title="Top cities" subtitle={topCitiesSubtitle(sources, subtitle)} icon={MapPin}>
+    <Panel title="Top cities" subtitle={topCitiesSubtitleFor(sources, flow)} icon={MapPin}>
       {cities.length ? <ul className="space-y-3">
         {cities.map((city) => (
           <li key={city.city}>

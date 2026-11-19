@@ -107,6 +107,10 @@ describe("dashboard KPI card links", () => {
     expect(links.converted).toContain("update_status=converted");
     expect(links).not.toHaveProperty("purchased_with_us");
   });
+  test("AOV opens exactly the converted leads with a conversion amount, with the period", () => {
+    expect(dashboardKpiLinks(PERIOD).aov).toBe("/vendor-to-koc?update_status=converted&conversion=has&date_from=2026-10-18&date_to=2026-11-16");
+    expect(dashboardKpiLinks({ all: true }).aov).toBe("/vendor-to-koc?update_status=converted&conversion=has");
+  });
   test("follow-ups due uses its all-time filter because the API excludes the period", () => {
     expect(dashboardKpiLinks(PERIOD).follow_ups_due).toBe("/vendor-to-koc?follow_up_due=true");
   });

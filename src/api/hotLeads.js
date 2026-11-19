@@ -12,3 +12,10 @@ export function setKocLeadHot(id, isHot) {
     method: isHot ? "POST" : "DELETE",
   });
 }
+
+// Dhruva leads (docs section 13): admins and Dhruva logins
+export function setDhruvaLeadHot(id, isHot) {
+  return apiRequest(`/dhruva/leads/${encodeURIComponent(id)}/hot`, {
+    method: isHot ? "POST" : "DELETE",
+  });
+}

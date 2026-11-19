@@ -6,6 +6,8 @@
 // A value that is 0, or a source with no outcomes (spin when the workflow DB can't be read),
 // shows "—" and isn't a link.
 
+import { AOV_FILTERS } from "./aov.js";
+
 const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
 // ₹45,000 · ₹1.5 L · ₹1.2 Cr
@@ -72,15 +74,22 @@ const SOURCE_PATHS = {
 };
 const SOURCE_LABELS = { spin: "Spin leads", whatsapp: "International", wedding: "Wedding", wedding_planner: "Wedding planner" };
 
-export function sourceKpiDestinations(outcomes, kind, period) {
-  const filter = kind === "quotes" ? { quote: "has" } : { hot: "yes" };
-  const countKey = kind === "quotes" ? "quotes_count" : "hot_count";
-  return Object.entries(SOURCE_PATHS)
-    .filter(([source]) => outcomes?.[source] != null && Number(outcomes[source][countKey] ?? (kind === "quotes" ? outcomes[source].quoted_count : 0)) > 0)
-    .map(([source, path]) => ({
+// The list filter and the count behind each chooser KPI. "aov": exactly the leads AOV averages
+// (converted, with a conversion amount).
+const KPI_KINDS = {
+  quotes: { filter: { quote: "has" }, count: (o) => o.quotes_count ?? o.quoted_count },
+  hot: { filter: { hot: "yes" }, count: (o) => o.hot_count ?? 0 },
+  aov: { filter: AOV_FILTERS, count: (o) => o.conversion_amount_count ?? 0 },
+};
+
+export function sourceKpiDestinations(outcomes, kind, period, sources = Object.keys(SOURCE_PATHS)) {
+  const { filter, count: countOf } = KPI_KINDS[kind] ?? KPI_KINDS.hot;
+  return sources
+    .filter((source) => SOURCE_PATHS[source] && outcomes?.[source] != null && Number(countOf(outcomes[source])) > 0)
+    .map((source) => ({
       source,
       label: SOURCE_LABELS[source],
-      count: Number(outcomes[source][countKey] ?? (kind === "quotes" ? outcomes[source].quoted_count : 0)),
-      to: outcomeLink(path, filter, period),
+      count: Number(countOf(outcomes[source])),
+      to: outcomeLink(SOURCE_PATHS[source], filter, period),
     }));
 }

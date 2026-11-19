@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import useHoverOpen from "../shared/useHoverOpen.js";
 import { MAX_DAYS, PRESETS, addDays, daysInclusive, periodError, periodLabel, presetPeriod } from "../../pages/dashboardPeriod.js";
 
 const monthStart = (iso) => `${iso.slice(0, 7)}-01`;
@@ -25,6 +26,17 @@ export default function PeriodFilter({ period, today, onChange, disabled, alignS
   const [month, setMonth] = useState(monthStart(period.all ? today : period.from));
   const [selection, setSelection] = useState(null);
   const [error, setError] = useState("");
+  // Hover devices: opens on hover (fresh, like a click), and stays open while a range is
+  // half-picked or an invalid range is shown, so moving the pointer away loses nothing
+  const reset = () => { setMonth(monthStart(period.all ? today : period.from)); setSelection(null); setError(""); };
+  const hover = useHoverOpen({
+    open,
+    setOpen,
+    onHoverOpen: reset,
+    keepOpen: Boolean(selection?.from && !selection?.to) || Boolean(error),
+    disabled,
+    panelRef: panel,
+  });
   useEffect(() => {
     if (!open) return undefined;
     const place = () => {
@@ -39,7 +51,7 @@ export default function PeriodFilter({ period, today, onChange, disabled, alignS
   }, [open, alignStart]);
   const label = period.all ? "All time" : periodLabel(period.from, period.to);
   function begin() {
-    setMonth(monthStart(period.all ? today : period.from)); setSelection(null); setError(""); setOpen((value) => !value);
+    hover.click(() => { reset(); setOpen((value) => !value); });
   }
   function pickPreset(value) {
     if (value === "all") onChange({ all: true });
@@ -58,10 +70,10 @@ export default function PeriodFilter({ period, today, onChange, disabled, alignS
     }
   }
   return <>
-    <button ref={anchor} type="button" onClick={begin} disabled={disabled} aria-haspopup="dialog" aria-expanded={open} className={`inline-flex h-9 items-center gap-2 rounded-full border px-3 text-sm transition ${open || !period.all ? "border-brand-300 bg-brand-50 text-brand-800" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"} disabled:opacity-50`}>
+    <button ref={anchor} type="button" {...hover.anchorProps} onClick={begin} disabled={disabled} aria-haspopup="dialog" aria-expanded={open} className={`inline-flex h-9 items-center gap-2 rounded-full border px-3 text-sm transition ${open || !period.all ? "border-brand-300 bg-brand-50 text-brand-800" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"} disabled:opacity-50`}>
       <CalendarDays size={15} aria-hidden="true" /><span>{label}</span>
     </button>
-    {open && rect && createPortal(<div ref={panel} role="dialog" aria-label="Date range" style={{ position: "fixed", top: rect.top, left: rect.left, width: rect.width }} className="z-[1000] rounded-2xl bg-white p-3 shadow-xl ring-1 ring-black/10">
+    {open && rect && createPortal(<div ref={panel} role="dialog" aria-label="Date range" {...hover.panelProps} style={{ position: "fixed", top: rect.top, left: rect.left, width: rect.width }} className="z-[1000] rounded-2xl bg-white p-3 shadow-xl ring-1 ring-black/10">
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="grid shrink-0 grid-cols-2 gap-2 sm:w-36 sm:grid-cols-1">
           <button type="button" onClick={() => pickPreset("all")} className="rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-50">All time</button>

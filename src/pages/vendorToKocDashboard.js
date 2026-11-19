@@ -9,6 +9,7 @@ import {
   STATUSES,
   UPDATED,
 } from "../components/vendorToKoc/kocUtils.js";
+import { AOV_FILTERS } from "./aov.js";
 
 export const num = (n) => (n == null || n === 0 ? "—" : Number(n).toLocaleString("en-IN"));
 
@@ -28,6 +29,8 @@ export function dashboardKpiLinks(period) {
     pending: kocListLink({ update_status: [PENDING] }, period),
     follow_ups_due: kocListLink({ follow_up_due: "true" }, { all: true }),
     converted: kocListLink({ update_status: ["converted"] }, period),
+    // AOV: exactly the leads it averages (converted, with a conversion amount)
+    aov: kocListLink(AOV_FILTERS, period),
   };
 }
 

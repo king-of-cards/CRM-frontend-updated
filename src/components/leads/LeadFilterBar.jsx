@@ -78,7 +78,7 @@ function FilterContents({ button, source, filters, update, options, isAdmin }) {
   if (k === "branch") return single("branch", (options.branches ?? []).map((b) => ({ value: String(b.id), label: `${b.name || `Branch #${b.id}`}${b.count == null ? "" : ` (${b.count})`}` })), true);
   if (k === "origin") return multi("origin", countOptions(options.origins, (v) => ORIGIN_LABELS[v] ?? v));
   if (k === "shared_with") return single("shared_with", [{ value: NOT_SHARED, label: "Not shared yet" }, ...(options.shared_with ?? []).map((o) => ({ value: String(o.value), label: String(o.value) }))], true);
-  if (k === "hot" || k === "hide_repeats") return <button type="button" onClick={() => update({ [k]: filters[k] ? "" : "true" })} className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-gray-50">{filters[k] ? "✓ " : ""}{button.label}</button>;
+  if (k === "hot" || k === "hide_repeats") return <button type="button" onClick={() => update({ [k]: filters[k] ? "" : k === "hot" ? "yes" : "true" })} className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-gray-50">{filters[k] ? "✓ " : ""}{button.label}</button>;
   if (k === "has_phone" || k === "also_in" || k === "fits_budget") {
     const opts = k === "has_phone" ? [{ value: "yes", label: "Has phone" }, { value: "no", label: "No phone" }] : k === "also_in" ? [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] : [{ value: "true", label: "Fits budget" }, { value: "false", label: "Over budget" }];
     return single(k, opts);

@@ -20,6 +20,18 @@ export function topCitiesSubtitle(sources, fallback = "All sources") {
   return labels.length ? labels.join(", ") : fallback;
 }
 
+// The API's default Top cities sources per Lead flow (docs: "Top cities sources"). The dashboards
+// send no `sources`, so these apply; they only name the card when top_cities_sources is empty.
+export const TOP_CITIES_DEFAULTS = {
+  "": ["spin", "wedding", "wedding_planner"],
+  vendors: ["vendor_to_koc"],
+};
+
+// Subtitle for a flow: the API's top_cities_sources, else that flow's default sources
+export function topCitiesSubtitleFor(sources, flow = "") {
+  return topCitiesSubtitle(sources, topCitiesSubtitle(TOP_CITIES_DEFAULTS[flow] ?? TOP_CITIES_DEFAULTS[""]));
+}
+
 export function topCityRows(rows, defaultSource = null) {
   return (rows ?? []).map((row) => ({
     city: row.city ?? row.value,

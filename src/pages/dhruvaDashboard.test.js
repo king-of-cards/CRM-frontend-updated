@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { dashboardKpiCards, num, statusRows } from "./dhruvaDashboard.js";
+import { aovText, dashboardKpiCards, num, statusRows } from "./dhruvaDashboard.js";
 
 describe("num", () => {
   test("formats numbers with Indian grouping", () => {
@@ -33,9 +33,9 @@ describe("statusRows", () => {
 });
 
 describe("dashboardKpiCards", () => {
-  test("produces 9 cards", () => {
+  test("produces 11 cards", () => {
     const cards = dashboardKpiCards({}, null);
-    expect(cards.length).toBe(9);
+    expect(cards.length).toBe(11);
   });
   test("Total leads opens the period list and every filtered card links even at zero", () => {
     const cards = dashboardKpiCards({ total: 10, pending: 0 }, { from: "2026-11-01", to: "2026-11-05" });
@@ -63,7 +63,7 @@ describe("dashboardKpiCards", () => {
   test("the Dhruva KPI labels use the standard names and no subtitles", () => {
     const cards = dashboardKpiCards({ total: 10, pending: 2, interested: 3, not_interested: 1, quoted_count: 2, quoted_total: 90000, converted: 4, converted_pct: 40, conversion_count: 1, conversion_total: 25000, upcoming_30_days: 5 }, null);
     expect(cards.map((card) => card.label)).toEqual([
-      "Total leads", "Pending", "Interested", "Not interested", "Quoted amount", "Quotes sent", "Converted", "Conversion amount", "Upcoming events (30 days)",
+      "Total leads", "Pending", "Interested", "Not interested", "Quoted amount", "Quotes sent", "Converted", "Conversion amount", "Upcoming events (30 days)", "Hot leads", "AOV",
     ]);
     expect(cards[6].value).toBe("4");
     expect(cards[7].value).toBe("₹25,000");
@@ -82,7 +82,29 @@ describe("dashboardKpiCards", () => {
       "/dhruva-leads?update_status=converted",
       "/dhruva-leads?update_status=converted",
       "/dhruva-leads?upcoming_days=30",
+      "/dhruva-leads?hot=yes",
+      "/dhruva-leads?update_status=converted&conversion=has",
     ]);
+  });
+  test("Hot leads shows hot_count and opens the Hot filter with the shared date range", () => {
+    const card = dashboardKpiCards({ hot_count: 3 }, { from: "2026-11-01", to: "2026-11-05" }).find((item) => item.label === "Hot leads");
+    expect(card.value).toBe("3");
+    expect(card.to).toBe("/dhruva-leads?hot=yes&date_from=2026-11-01&date_to=2026-11-05");
+  });
+  test("Hot leads at zero shows — and still opens the filtered list", () => {
+    const card = dashboardKpiCards({ hot_count: 0 }, { all: true }).find((item) => item.label === "Hot leads");
+    expect(card.value).toBe("—");
+    expect(card.to).toBe("/dhruva-leads?hot=yes");
+  });
+  test("AOV is conversion_amount_total / conversion_amount_count and opens exactly those leads", () => {
+    const card = dashboardKpiCards({ conversion_amount_count: 4, conversion_amount_total: 200000, conversion_count: 9, conversion_total: 900000 }, { from: "2026-11-01", to: "2026-11-05" }).find((item) => item.label === "AOV");
+    expect(card.value).toBe("₹50,000");
+    expect(card.to).toBe("/dhruva-leads?update_status=converted&conversion=has&date_from=2026-11-01&date_to=2026-11-05");
+  });
+  test("aovText", () => {
+    expect(aovText({})).toBe("—");
+    expect(aovText({ conversion_amount_count: 2, conversion_amount_total: 300000 })).toBe("₹1.5 L");
+    expect(aovText({ conversion_amount_count: 3, conversion_amount_total: 100000 })).toBe("₹33,333");
   });
   test("Upcoming events links to list with upcoming_days=30", () => {
     const cards = dashboardKpiCards({ upcoming_30_days: 5 }, { from: "2026-11-01", to: "2026-11-05" });
