@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   notificationDateTime,
   notificationDestination,
+  notificationBellPlacement,
   notificationSourceLabel,
   relativeNotificationTime,
   unreadBadge,
@@ -24,6 +25,32 @@ describe("notification formatting", () => {
   test("source labels use the API source name", () => {
     expect(notificationSourceLabel("wedding_planner")).toBe("Wedding planner");
     expect(notificationSourceLabel("vendor_to_koc")).toBe("Vendors → KOC");
+  });
+});
+
+describe("notification bell placement", () => {
+  test("admins with a visible flow toggle use the toggle row and mobile avatar fallback", () => {
+    expect(notificationBellPlacement({ isAdmin: true, isVendor: false, isDhruva: false, showToggle: true })).toEqual({
+      besideToggle: true,
+      besideAvatar: false,
+      mobileBesideAvatar: true,
+    });
+  });
+
+  test("vendors without a visible flow toggle keep the bell beside the avatar", () => {
+    expect(notificationBellPlacement({ isAdmin: false, isVendor: true, isDhruva: false, showToggle: false })).toEqual({
+      besideToggle: false,
+      besideAvatar: true,
+      mobileBesideAvatar: false,
+    });
+  });
+
+  test("Dhruva never gets a notification bell", () => {
+    expect(notificationBellPlacement({ isAdmin: false, isVendor: false, isDhruva: true, showToggle: false })).toEqual({
+      besideToggle: false,
+      besideAvatar: false,
+      mobileBesideAvatar: false,
+    });
   });
 });
 

@@ -17,7 +17,7 @@ import {
 
 const PAGE_SIZE = 10;
 
-export default function NotificationBell() {
+export default function NotificationBell({ variant = "default" }) {
   const navigate = useNavigate();
   const root = useRef(null);
   const [open, setOpen] = useState(false);
@@ -135,8 +135,9 @@ export default function NotificationBell() {
   }
 
   const badge = unreadBadge(count);
+  const gold = variant === "gold";
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className={`relative ${gold ? "rounded-full bg-linear-to-r from-amber-200 via-amber-300 to-orange-400 p-1.5 shadow-lg shadow-orange-500/20 ring-1 ring-white/40" : ""}`}>
       <button
         type="button"
         aria-label={badge ? `Notifications, ${badge} unread` : "Notifications"}
@@ -144,10 +145,10 @@ export default function NotificationBell() {
         aria-expanded={open}
         title="Notifications"
         onClick={toggleOpen}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition hover:bg-white/15 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+        className={`relative flex h-9 w-9 items-center justify-center rounded-full transition focus-visible:outline-2 ${gold ? "text-amber-950 hover:bg-amber-950/10 focus-visible:outline-amber-950" : "text-white/90 hover:bg-white/15 hover:text-white focus-visible:outline-white"}`}
       >
         <Bell size={18} aria-hidden="true" />
-        {badge && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-rose-500 px-1 text-center text-[10px] font-bold leading-4 text-white ring-2 ring-brand-700">{badge}</span>}
+        {badge && <span className={`absolute -right-1 -top-1 min-w-4 rounded-full bg-rose-500 px-1 text-center text-[10px] font-bold leading-4 text-white ring-2 ${gold ? "ring-amber-300" : "ring-brand-700"}`}>{badge}</span>}
       </button>
 
       {open && (

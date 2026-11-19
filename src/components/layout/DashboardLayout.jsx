@@ -20,6 +20,7 @@ import NotificationBell from "./NotificationBell.jsx";
 import { flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
 import LeadBackButton from "./LeadBackButton.jsx";
 import { isLeadRoute } from "./leadBack.js";
+import { notificationBellPlacement } from "./notificationUtils.js";
 
 // Shared frame for every page after login: collapsible sidebar, top bar, page content.
 // adminOnly items are hidden for vendor accounts (the backend allows those endpoints to admins only)
@@ -72,8 +73,23 @@ export default function DashboardLayout({
 
   // The toggle is hidden for Dhruva logins (they only have the Dhruva flow)
   const showToggle = !isDhruva && (canSeeLeads || isAdmin) && FLOW_PAGES.includes(location.pathname);
+  const bellPlacement = notificationBellPlacement({
+    isAdmin,
+    isVendor: isVendor && Boolean(user?.vendor),
+    isDhruva,
+    showToggle,
+  });
   const topBarExtra = showToggle ? (
-    <LeadFlowToggle value={flow} onChange={chooseFlow} />
+    <div className="flex w-full items-center gap-2 lg:w-auto">
+      <div className="min-w-0 flex-1 lg:flex-none">
+        <LeadFlowToggle value={flow} onChange={chooseFlow} />
+      </div>
+      {bellPlacement.besideToggle && (
+        <div className="hidden shrink-0 lg:block">
+          <NotificationBell variant="gold" />
+        </div>
+      )}
+    </div>
   ) : null;
 
   // The other flow: on the Dashboard switch in place (keeping the period); elsewhere go to
@@ -259,7 +275,12 @@ export default function DashboardLayout({
                     {user.vendor.name}
                   </span>
                 )}
-                {!isDhruva && (isAdmin || (isVendor && user.vendor)) && <NotificationBell />}
+                {bellPlacement.besideAvatar && <NotificationBell variant="gold" />}
+                {bellPlacement.mobileBesideAvatar && (
+                  <div className="lg:hidden">
+                    <NotificationBell variant="gold" />
+                  </div>
+                )}
                 <span
                   title={`${user.name} · ${user.email}`}
                   className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white ring-1 ring-white/30"

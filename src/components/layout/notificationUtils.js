@@ -13,6 +13,15 @@ export function unreadBadge(count) {
   return value === 0 ? null : value > 9 ? "9+" : String(value);
 }
 
+export function notificationBellPlacement({ isAdmin, isVendor, isDhruva, showToggle }) {
+  const visible = !isDhruva && (isAdmin || isVendor);
+  return {
+    besideToggle: visible && showToggle,
+    besideAvatar: visible && !showToggle,
+    mobileBesideAvatar: visible && showToggle,
+  };
+}
+
 export function relativeNotificationTime(value, now = Date.now()) {
   const at = new Date(value).getTime();
   if (!Number.isFinite(at)) return "";
