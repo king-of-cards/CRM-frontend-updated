@@ -15,6 +15,8 @@ import {
   UserCog,
 } from "lucide-react";
 import { useAuth } from "../../auth/useAuth.js";
+import { navFor } from "../../auth/permissions.js";
+import { ViewOnlyBadge, ViewOnlyToast } from "../shared/ViewOnly.jsx";
 import LeadFlowToggle from "../dashboard/LeadFlowToggle.jsx";
 import NotificationBell from "./NotificationBell.jsx";
 import { flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
@@ -23,12 +25,12 @@ import { isLeadRoute } from "./leadBack.js";
 import { notificationBellPlacement } from "./notificationUtils.js";
 
 // Shared frame for every page after login: collapsible sidebar, top bar, page content.
-// adminOnly items are hidden for vendor accounts (the backend allows those endpoints to admins only)
+// navKey items show only when navFor(user) allows them (Team: admins; Settings: admins and vendors)
 // Only pages that exist. Add Customers / Orders here once their pages are built.
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/users", label: "Team", icon: UserCog, adminOnly: true },
-  { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/users", label: "Team", icon: UserCog, navKey: "team" },
+  { to: "/settings", label: "Settings", icon: Settings, navKey: "settings" },
 ];
 
 // Dhruva logins only see Dashboard (their flow's tabs handle Dhruva leads)
@@ -58,10 +60,12 @@ export default function DashboardLayout({
   const navigate = useNavigate();
   const { user, isAdmin, isVendor, isDhruva, canSeeLeads, logout } = useAuth();
 
-  // Dhruva logins have a minimal sidebar; vendors/admins have the full one
+  // What this login's frame shows (permissions.js): Team for admins, Settings for admins and
+  // vendors, View only badge for viewers. Dhruva logins have a minimal sidebar.
+  const nav = navFor(user);
   const visibleNav = isDhruva
     ? dhruvaNavItems
-    : navItems.filter((item) => !item.adminOnly || isAdmin);
+    : navItems.filter((item) => !item.navKey || nav[item.navKey]);
 
   // Lead flow: from the page (Dashboard ?flow=vendors and /vendor-to-koc = Vendors → KOC,
   // Dashboard ?flow=dhruva and /dhruva-leads = Dhruva). The top tabs follow it;
@@ -72,7 +76,7 @@ export default function DashboardLayout({
   const visibleTabs = tabsFor(flow).map((t) => ({ ...t, icon: TAB_ICONS[t.path] }));
 
   // The toggle is hidden for Dhruva logins (they only have the Dhruva flow)
-  const showToggle = !isDhruva && (canSeeLeads || isAdmin) && FLOW_PAGES.includes(location.pathname);
+  const showToggle = !isDhruva && (canSeeLeads || isAdmin || nav.flowToggle) && FLOW_PAGES.includes(location.pathname);
   const bellPlacement = notificationBellPlacement({
     isAdmin,
     isVendor: isVendor && Boolean(user?.vendor),
@@ -275,6 +279,7 @@ export default function DashboardLayout({
                     {user.vendor.name}
                   </span>
                 )}
+                {nav.viewOnlyBadge && <ViewOnlyBadge inverted className="relative" />}
                 {bellPlacement.besideAvatar && <NotificationBell variant="gold" />}
                 {bellPlacement.mobileBesideAvatar && (
                   <div className="lg:hidden">
@@ -318,6 +323,8 @@ export default function DashboardLayout({
           )}
           {children}
         </main>
+        {/* A friendly message when the API refuses a write from a view-only login */}
+        <ViewOnlyToast />
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import * as authApi from "../api/auth.js";
 import { clearCache, setSessionExpiredHandler } from "../api/client.js";
 import { AuthContext } from "./context.js";
+import { canEdit, isViewer, seesAdminData } from "./permissions.js";
 
 // Holds the logged-in user for the whole app.
 //
@@ -86,12 +87,18 @@ export default function AuthProvider({ children }) {
     () => ({
       user,
       isAdmin: user?.role === "admin",
+      // View only (docs section 16): sees what an admin sees, changes nothing
+      isViewer: isViewer(user),
+      // May change data at all (false only for view-only logins); see permissions.js
+      canEdit: canEdit(user),
+      // Sees admin data: admin columns, filters, fields and dashboard cards (admins and viewers)
+      seesAll: seesAdminData(user),
       // Vendor logins see only their vendor's leads; one not linked to a vendor sees none
       isVendor: user?.role === "vendor",
       // Dhruva logins use only the Dhruva section (docs/API_REFERENCE.md section 13)
       isDhruva: user?.role === "dhruva",
       vendor: user?.vendor ?? null,
-      canSeeLeads: user?.role === "admin" || (user?.role === "vendor" && Boolean(user?.vendor)),
+      canSeeLeads: seesAdminData(user) || (user?.role === "vendor" && Boolean(user?.vendor)),
       isReady,
       login,
       logout,

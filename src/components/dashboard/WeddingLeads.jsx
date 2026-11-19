@@ -41,7 +41,7 @@ const OCCASION_STYLES = {
 };
 
 export default function WeddingLeads() {
-  const { isAdmin, canSeeLeads } = useAuth();
+  const { isAdmin, seesAll, canSeeLeads } = useAuth(); // sheet sync (isAdmin): admins only; admin filters (seesAll): admins and viewers
   const [page, setPage] = useState(1);
   // Filters, kept in the URL; the same for the list, its stats and the export
   // Rows per page live in the URL too (?page_size=25)
@@ -136,7 +136,7 @@ export default function WeddingLeads() {
           clearFilters={clearFilters}
           count={count}
           options={options}
-          isAdmin={isAdmin}
+          isAdmin={seesAll}
           sorts={SORTS}
           sortValue={sortValue}
           placeholder="Search name, phone, city…"

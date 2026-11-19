@@ -8,6 +8,8 @@
 // - When a request gets 401 (token expired or page reloaded), we call /auth/refresh
 //   once, which uses the cookie to get a new access token, then retry the request.
 
+import { VIEW_ONLY_EVENT, isViewOnlyError } from "../auth/permissions.js";
+
 const API_BASE = import.meta.env.VITE_API_URL ?? "/api/v1";
 
 let accessToken = null;
@@ -29,6 +31,17 @@ export function getAccessToken() {
 // Called when the session can't be renewed (refresh cookie missing or expired)
 export function setSessionExpiredHandler(handler) {
   onSessionExpired = handler;
+}
+
+// A view-only login tried to change something (403 "View-only logins cannot change data."):
+// tell the page frame, which shows a friendly toast (ViewOnlyToast). The error is still thrown.
+export function notifyViewOnly(error) {
+  if (!isViewOnlyError(error) || typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(new CustomEvent(VIEW_ONLY_EVENT));
+  } catch {
+    // No CustomEvent (very old browsers): the page shows the error text instead
+  }
 }
 
 export class ApiError extends Error {
@@ -197,7 +210,11 @@ export async function apiRequest(path, { method = "GET", body, form, query, auth
   }
 
   const data = await readBody(res);
-  if (!res.ok) throw new ApiError(res.status, data && typeof data === "object" ? data.detail : data);
+  if (!res.ok) {
+    const error = new ApiError(res.status, data && typeof data === "object" ? data.detail : data);
+    notifyViewOnly(error);
+    throw error;
+  }
   if (method === "GET" && auth) remember(buildUrl(path, query), data);
   return data;
 }

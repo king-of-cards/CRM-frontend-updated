@@ -7,6 +7,7 @@ import LeadPdfButton from "../leads/LeadPdfButton.jsx";
 import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "../leads/HotLeadStar.jsx";
 import LeadActivity from "../leads/LeadActivity.jsx";
+import { useAuth } from "../../auth/useAuth.js";
 import {
   dateTimeText,
   dayText,
@@ -51,7 +52,10 @@ const amountOf = (text) => {
   return digits ? Number(digits) : null;
 };
 
-export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, isHot, hotPending, onToggleHot }) {
+// isAdmin: the admin view (admins and view-only logins); only logins that can edit get the form
+export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, isHot, hotPending, onToggleHot, showHot = false }) {
+  const { canEdit } = useAuth();
+  const editable = isAdmin && canEdit;
   const [shown, setShown] = useState(false);
   const [form, setForm] = useState(() => formOf(lead));
   const [saving, setSaving] = useState(false);
@@ -177,10 +181,10 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
 
   const btn = "flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition";
   // Admins edit Update / comments / follow-up / amounts in the form above, so only "Last updated" is listed
-  // for them; vendor logins see every follow-up field read-only
+  // for them; vendor and view-only logins see every follow-up field read-only
   const sections = [
     { title: "Lead details", rows: details },
-    isAdmin
+    editable
       ? { title: "Last update", rows: followRows.filter(([label]) => label === "Last updated") }
       : { title: "KOC follow-up", rows: followRows },
   ];
@@ -212,7 +216,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              {onToggleHot && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}
+              {(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}
               <LeadBackButton inverted />
               <LeadPdfButton onClick={download} loading={downloading} />
               <button type="button" onClick={close} aria-label="Close" className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white">
@@ -257,8 +261,8 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
             )}
           </div>
 
-          {/* KOC follow-up: admins only */}
-          {isAdmin && (
+          {/* KOC follow-up: admins only (view-only logins read it in the list below) */}
+          {editable && (
             <form onSubmit={save} className="rounded-3xl bg-white/80 p-5 ring-1 ring-gray-100 shadow-sm backdrop-blur">
               <h3 className="text-sm font-semibold text-gray-900">KOC follow-up</h3>
               <label className="mt-4 block">
@@ -326,7 +330,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
               </div>
             </form>
           )}
-          {!isAdmin && error && (
+          {!editable && error && (
             <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">
               {error}
             </p>

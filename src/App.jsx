@@ -108,7 +108,7 @@ function App() {
         <Route
           path="/leads"
           element={
-            <RequireAuth role="admin">
+            <RequireAuth role={["admin", "viewer"]}>
               <Leads />
             </RequireAuth>
           }
@@ -116,7 +116,7 @@ function App() {
         <Route
           path="/dhruva-leads"
           element={
-            <RequireAuth role={["admin", "dhruva"]}>
+            <RequireAuth role={["admin", "dhruva", "viewer"]}>
               <DhruvaLeads />
             </RequireAuth>
           }

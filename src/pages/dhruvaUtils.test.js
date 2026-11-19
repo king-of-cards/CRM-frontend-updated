@@ -28,4 +28,7 @@ describe("Dhruva helpers", () => {
     expect(dhruvaFieldAccess("admin")).toEqual({ editBasic: true, editAdmin: true, archive: true });
     expect(dhruvaFieldAccess("vendor")).toEqual({ editBasic: false, editAdmin: false, archive: false });
   });
+  test("view-only logins can't edit or archive anything", () => {
+    expect(dhruvaFieldAccess("viewer")).toEqual({ editBasic: false, editAdmin: false, archive: false });
+  });
 });

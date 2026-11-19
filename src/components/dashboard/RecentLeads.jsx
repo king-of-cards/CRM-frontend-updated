@@ -152,7 +152,7 @@ function storedCreated() {
 }
 
 export default function RecentLeads() {
-  const { isAdmin, canSeeLeads } = useAuth();
+  const { seesAll, canSeeLeads } = useAuth(); // admins and viewers: Explore all fields and the admin filters
   const [createdCol, setCreatedCol] = useState(storedCreated);
   const [page, setPage] = useState(1);
   // Filters, kept in the URL; the same for the list and the export
@@ -326,7 +326,7 @@ export default function RecentLeads() {
       subtitle={`Live from the workflow database (read-only) · ${columns.length || "—"} fields per lead`}
       action={
         <div className="flex items-center gap-2">
-          {isAdmin && (
+          {seesAll && (
             <Link
               to="/leads"
               className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
@@ -354,7 +354,7 @@ export default function RecentLeads() {
           clearFilters={clearFilters}
           count={count}
           options={options}
-          isAdmin={isAdmin}
+          isAdmin={seesAll}
           sorts={sorts}
           sortValue={sortValue}
           renderSearch={({ value, onChange }) => (

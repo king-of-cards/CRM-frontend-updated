@@ -545,7 +545,7 @@ export function LeadTable({
 }) {
   const [openRow, setOpenRow] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAdmin, isVendor } = useAuth();
+  const { isAdmin, isVendor, seesAll, canEdit } = useAuth();
   const [hotOverrides, setHotOverrides] = useState({});
   const [hotPending, setHotPending] = useState({});
 
@@ -582,17 +582,19 @@ export function LeadTable({
   };
   const hotKey = (row) => String(crmOf(row)?.lead_key ?? crmKey?.(row) ?? row.lead_key ?? row.id);
   const isHot = (row) => hotOverrides[hotKey(row)] ?? Boolean(row.is_hot ?? crmOf(row)?.is_hot);
-  const canToggleHot = isAdmin || isVendor;
+  // Hot column: admins, viewers and vendors; only those who can edit may toggle it
+  const showHot = seesAll || isVendor;
+  const canToggleHot = (isAdmin || isVendor) && canEdit;
   const toggleHot = (row) => {
     const key = hotKey(row);
-    if (hotPending[key]) return;
+    if (!canToggleHot || hotPending[key]) return;
     setHotPending((current) => ({ ...current, [key]: true }));
     toggleHotOptimistically(isHot(row), (next) => setSourceLeadHot(source, key, next), (next) => setHotOverrides((current) => ({ ...current, [key]: next })))
       .catch(() => {})
       .finally(() => setHotPending((current) => ({ ...current, [key]: false })));
   };
   const all = [...columns, ...trailing];
-  const colSpan = 2 + all.length + 4 + (canToggleHot ? 1 : 0);
+  const colSpan = 2 + all.length + 4 + (showHot ? 1 : 0);
   const th =
     "whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500";
 
@@ -637,6 +639,7 @@ export function LeadTable({
       isHot: isHot(row),
       hotPending: Boolean(hotPending[hotKey(row)]),
       onToggleHot: canToggleHot ? () => toggleHot(row) : null,
+      showHot,
     };
   })();
 
@@ -647,7 +650,7 @@ export function LeadTable({
       >
         <thead className="border-y border-gray-100 bg-gray-50/80">
           <tr>
-            {canToggleHot && <th className={th} aria-label="Hot lead" />}
+            {showHot && <th className={th} aria-label="Hot lead" />}
             <th className={`${th} sticky left-0 z-10 bg-gray-50`}>Lead</th>
             <th className={th}>Contact</th>
             {columns.map((c) => (
@@ -696,7 +699,7 @@ export function LeadTable({
                   onClick={() => setOpenRow(k)}
                   className={`group cursor-pointer border-b border-gray-50 transition-colors hover:bg-brand-50/40 ${isOpen ? "bg-brand-50/60" : ""}`}
                 >
-                  {canToggleHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(row)} pending={Boolean(hotPending[hotKey(row)])} onToggle={() => toggleHot(row)} /></td>}
+                  {showHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(row)} pending={Boolean(hotPending[hotKey(row)])} onToggle={canToggleHot ? () => toggleHot(row) : null} /></td>}
                   <td
                     className={`sticky left-0 z-10 px-4 py-3 transition-colors group-hover:bg-brand-50 ${isOpen ? "bg-brand-50" : "bg-white"}`}
                   >

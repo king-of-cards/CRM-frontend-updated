@@ -4,6 +4,7 @@ import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import { createUser, listUsers, setUserActive } from "../api/users.js";
 import { linkVendorUser, listKocVendors, unlinkVendorUser } from "../api/vendorToKoc.js";
 import { useAuth } from "../auth/useAuth.js";
+import { roleLabel } from "../auth/permissions.js";
 import { kocErrors } from "../components/vendorToKoc/kocUtils.js";
 
 // Team (admin only; docs/API_REFERENCE.md section 12): logins with their role, vendor and status;
@@ -284,9 +285,10 @@ export default function Users() {
                   onChange={handleChange}
                   className={inputClass}
                 >
-                  <option value="vendor">Vendor</option>
-                  <option value="admin">Admin</option>
-                  <option value="dhruva">Dhruva</option>
+                  {/* View only: sees what an admin sees, changes nothing; no vendor */}
+                  {["admin", "vendor", "dhruva", "viewer"].map((role) => (
+                    <option key={role} value={role}>{roleLabel(role)}</option>
+                  ))}
                 </select>
               </label>
               {form.role === "vendor" && (                <label className="block">
@@ -370,15 +372,17 @@ export default function Users() {
                       </td>
                       <td className="px-6 py-2.5">
                         <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                             u.role === "admin"
                               ? "bg-brand-50 text-brand-800 ring-1 ring-brand-200"
                               : u.role === "dhruva"
                                 ? "bg-violet-50 text-violet-800 ring-1 ring-violet-200"
-                                : "bg-gray-100 text-gray-700"
+                                : u.role === "viewer"
+                                  ? "bg-slate-100 text-slate-700 ring-1 ring-slate-300"
+                                  : "bg-gray-100 text-gray-700"
                           }`}
                         >
-                          {u.role}
+                          {roleLabel(u.role)}
                         </span>
                       </td>
                       <td className="px-6 py-2.5">

@@ -22,6 +22,7 @@ import { assignedText, panelChanges } from "./crmAccess.js";
 import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "./HotLeadStar.jsx";
 import LeadActivity from "./LeadActivity.jsx";
+import { ReadOnlyFields } from "../shared/ViewOnly.jsx";
 
 // Who edits what: Assigned to = admins (vendors see it as text); Update, Quoted amount/date,
 // Conversion amount and Notes = admins and the assigned vendor. Only changed, allowed fields are sent.
@@ -69,7 +70,7 @@ function formFrom(crm) {
 }
 
 export default function LeadPanel({ lead, onClose, onSaved }) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canEdit } = useAuth();
   const vendors = useVendors();
   const [shown, setShown] = useState(false);
   const [crm, setCrm] = useState(lead?.crm ?? null);
@@ -267,7 +268,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              {lead.onToggleHot && <HotLeadStar isHot={lead.isHot} pending={lead.hotPending} onToggle={lead.onToggleHot} />}
+              {(lead.onToggleHot || lead.showHot) && <HotLeadStar isHot={lead.isHot} pending={lead.hotPending} onToggle={lead.onToggleHot} />}
               <LeadBackButton inverted />
               <button
                 type="button"
@@ -365,8 +366,21 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
             )}
           </div>
 
-          {/* CRM */}
-          {crm && (
+          {/* CRM: view-only logins read it as plain text (no inputs, no Save) */}
+          {crm && !canEdit && (
+            <ReadOnlyFields
+              title="Lead status"
+              items={[
+                ["Assigned to", assignedText(crm)],
+                ["Update", updateInfo(crm.update_status).label],
+                ["Quoted amount", crm.quoted_amount != null ? inr.format(crm.quoted_amount) : null],
+                ["Quoted date", crm.quoted_date],
+                ["Conversion amount", crm.conversion_amount != null ? inr.format(crm.conversion_amount) : null],
+                ["Notes", crm.notes],
+              ]}
+            />
+          )}
+          {crm && canEdit && (
             <form
               onSubmit={save}
               className="rounded-3xl bg-white/80 p-5 ring-1 ring-gray-100 shadow-sm backdrop-blur"

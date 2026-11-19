@@ -48,7 +48,8 @@ function AdminFollowUp({ lead, onSaved }) {
 }
 
 export default function DhruvaLeads() {
-  const { isAdmin, isDhruva } = useAuth();
+  // isAdmin: admin edits; seesAll: the admin view (admins and view-only logins); canEdit false: view only
+  const { isAdmin, isDhruva, seesAll, canEdit } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const { filters, query, queryKey, update, clear, apply, clearFilters, count, pageSize, setPageSize } = useLeadFilters(DHRUVA);
@@ -93,31 +94,32 @@ export default function DhruvaLeads() {
   // Hot star (admins and Dhruva logins): optimistic, rolled back if the API refuses
   const [hotOverrides, setHotOverrides] = useState({});
   const [hotPending, setHotPending] = useState({});
-  const canToggleHot = isAdmin || isDhruva;
+  const showHot = seesAll || isDhruva;
+  const canToggleHot = (isAdmin || isDhruva) && canEdit;
   const isHot = (lead) => hotOverrides[String(lead.id)] ?? Boolean(lead.is_hot);
   const toggleHot = (lead) => {
     const key = String(lead.id);
-    if (hotPending[key]) return;
+    if (!canToggleHot || hotPending[key]) return;
     setHotPending((current) => ({ ...current, [key]: true }));
     toggleHotOptimistically(isHot(lead), (next) => setDhruvaLeadHot(lead.id, next), (next) => setHotOverrides((current) => ({ ...current, [key]: next })))
       .catch((err) => setMessage({ kind: "error", text: dhruvaErrors(err).message || err.message }))
       .finally(() => setHotPending((current) => ({ ...current, [key]: false })));
   };
   const statsCards = kpiCards(stats?.kpis);
-  const colCount = 12 + (canToggleHot ? 1 : 0);
+  const colCount = 12 + (showHot ? 1 : 0);
   const saveAmount = (lead) => async (changes) => onSaved(await updateDhruvaLead(lead.id, changes));
 
-  return <DashboardLayout title="Dhruva leads" description={isAdmin ? "Leads added by Dhruva team members" : "Leads you and your team have added"}><SectionShell theme="whatsapp" icon={Star} title="Dhruva leads" subtitle={isAdmin ? "Leads added by Dhruva team members" : "Leads you and your team have added"}
-    action={<div className="flex flex-wrap gap-2"><button type="button" onClick={() => setDialog("single")} className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-4 py-2 text-sm font-medium text-white"><Plus size={15} />Add lead</button><button type="button" onClick={() => setDialog("bulk")} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm"><FileUp size={15} />Bulk upload</button><button type="button" onClick={() => runExport("xlsx")} disabled={exporting} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm disabled:opacity-60"><Download size={15} />{exporting ? "Exporting…" : "Export"}</button><button type="button" onClick={() => runExport("csv")} disabled={exporting} className="rounded-full border border-gray-200 bg-white px-3 py-2 text-sm disabled:opacity-60">CSV</button></div>}
+  return <DashboardLayout title="Dhruva leads" description={seesAll ? "Leads added by Dhruva team members" : "Leads you and your team have added"}><SectionShell theme="whatsapp" icon={Star} title="Dhruva leads" subtitle={seesAll ? "Leads added by Dhruva team members" : "Leads you and your team have added"}
+    action={<div className="flex flex-wrap gap-2">{canEdit && <button type="button" onClick={() => setDialog("single")} className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-4 py-2 text-sm font-medium text-white"><Plus size={15} />Add lead</button>}{canEdit && <button type="button" onClick={() => setDialog("bulk")} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm"><FileUp size={15} />Bulk upload</button>}<button type="button" onClick={() => runExport("xlsx")} disabled={exporting} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm disabled:opacity-60"><Download size={15} />{exporting ? "Exporting…" : "Export"}</button><button type="button" onClick={() => runExport("csv")} disabled={exporting} className="rounded-full border border-gray-200 bg-white px-3 py-2 text-sm disabled:opacity-60">CSV</button></div>}
     message={message ?? error} stats={statsCards}
-    toolbar={<LeadFilterBar source={DHRUVA} filters={filters} update={update} clear={clear} apply={apply} clearFilters={clearFilters} count={count} options={options} isAdmin={isAdmin} sorts={sorts} sortValue={sortValue} placeholder="Search name, venue, event type or phone…" />}
+    toolbar={<LeadFilterBar source={DHRUVA} filters={filters} update={update} clear={clear} apply={apply} clearFilters={clearFilters} count={count} options={options} isAdmin={seesAll} sorts={sorts} sortValue={sortValue} placeholder="Search name, venue, event type or phone…" />}
     footer={<Pagination page={page} pageSize={pageSize} total={data?.total} onPage={setPage} onPageSize={setPageSize} disabled={loading} />}>
     <div className="overflow-x-auto"><table className={`w-full min-w-[1000px] text-sm transition-opacity ${loading && data ? "opacity-50" : ""}`}>
-      <thead className="border-y border-gray-100 bg-gray-50/80"><tr>{canToggleHot && <th className={th} aria-label="Hot lead" />}<th className={th}>Sl. No</th><th className={th}>Name</th><th className={th}>Venue</th><th className={th}>Event date</th><th className={th}>Phone</th><th className={th}>Event type</th><th className={th}>Received</th><th className={th}>Update</th><th className={th}>Additional comments</th><th className={`${th} text-right`}>Quoted amount</th><th className={`${th} text-right`}>Conversion amount</th><th className={th}>Follow-up date</th></tr></thead>
+      <thead className="border-y border-gray-100 bg-gray-50/80"><tr>{showHot && <th className={th} aria-label="Hot lead" />}<th className={th}>Sl. No</th><th className={th}>Name</th><th className={th}>Venue</th><th className={th}>Event date</th><th className={th}>Phone</th><th className={th}>Event type</th><th className={th}>Received</th><th className={th}>Update</th><th className={th}>Additional comments</th><th className={`${th} text-right`}>Quoted amount</th><th className={`${th} text-right`}>Conversion amount</th><th className={th}>Follow-up date</th></tr></thead>
       <tbody>
         {loading && !data && <tr><td colSpan={colCount} className="px-6 py-10 text-center text-gray-400">Loading…</td></tr>}
         {items.map((l) => <tr key={l.id} onClick={() => setOpenLead(l)} className="cursor-pointer border-b border-gray-50 align-top hover:bg-brand-50/40">
-          {canToggleHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(l)} pending={Boolean(hotPending[String(l.id)])} onToggle={() => toggleHot(l)} /></td>}
+          {showHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(l)} pending={Boolean(hotPending[String(l.id)])} onToggle={canToggleHot ? () => toggleHot(l) : null} /></td>}
           <td className="px-3 py-3 tabular-nums text-gray-500">{l.sl_no ?? "—"}</td>
           <td className="px-3 py-3 font-medium text-gray-900">{l.name || "—"}{(!l.phone && !l.alt_phone) && <span className="ml-2 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] text-sky-700">No phone</span>}</td>
           <td className="px-3 py-3">{l.venue || "—"}</td><td className="whitespace-nowrap px-3 py-3">{l.event_date_text || dayText(l.event_date)}</td>
@@ -133,8 +135,8 @@ export default function DhruvaLeads() {
         {!loading && !items.length && <tr><td colSpan={colCount} className="px-6 py-14 text-center text-gray-500">{count || filters.search ? "No leads match these filters." : "No Dhruva leads yet."}</td></tr>}
       </tbody>
     </table></div>
-    <DhruvaLeadPanel lead={openLead} isAdmin={isAdmin} isHot={openLead ? isHot(openLead) : false} hotPending={openLead ? Boolean(hotPending[String(openLead.id)]) : false} onToggleHot={canToggleHot && openLead && !openLead.archived ? () => toggleHot(openLead) : null} onClose={() => setOpenLead(null)} onSaved={onSaved} onArchived={(res) => { reload(); setOpenLead((old) => old ? { ...old, ...(res ?? {}), archived: !old.archived } : null); }} />
-    {dialog === "single" && <DhruvaAddLeadDialog onClose={() => setDialog(null)} onAdded={done} />}
-    {dialog === "bulk" && <DhruvaBulkUploadDialog onClose={() => setDialog(null)} onImported={reload} />}
+    <DhruvaLeadPanel lead={openLead} isAdmin={isAdmin} isHot={openLead ? isHot(openLead) : false} hotPending={openLead ? Boolean(hotPending[String(openLead.id)]) : false} onToggleHot={canToggleHot && openLead && !openLead.archived ? () => toggleHot(openLead) : null} showHot={showHot} onClose={() => setOpenLead(null)} onSaved={onSaved} onArchived={(res) => { reload(); setOpenLead((old) => old ? { ...old, ...(res ?? {}), archived: !old.archived } : null); }} />
+    {canEdit && dialog === "single" && <DhruvaAddLeadDialog onClose={() => setDialog(null)} onAdded={done} />}
+    {canEdit && dialog === "bulk" && <DhruvaBulkUploadDialog onClose={() => setDialog(null)} onImported={reload} />}
   </SectionShell></DashboardLayout>;
 }

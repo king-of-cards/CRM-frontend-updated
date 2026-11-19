@@ -1,0 +1,61 @@
+// Role permissions (docs/API_REFERENCE.md sections 12, 13 and 16). Pure, no React: the one place
+// that decides who sees and who changes what. AuthProvider exposes these as flags.
+//
+//   admin   sees everything, changes everything, manages Team / Settings / Branches
+//   viewer  "View only": sees what an admin sees, changes nothing, no Team / Settings / Branches
+//   vendor  their vendor's leads (CRM details, hot, Vendors → KOC add)
+//   dhruva  the Dhruva section only
+
+export const ROLES = ["admin", "vendor", "dhruva", "viewer"];
+export const ROLE_LABELS = { admin: "Admin", vendor: "Vendor", dhruva: "Dhruva", viewer: "View only" };
+export const roleLabel = (role) => ROLE_LABELS[role] ?? (role ? String(role) : "");
+
+// The API's answer to any write by a view-only login
+export const VIEW_ONLY_MESSAGE = "View-only logins cannot change data.";
+export const VIEW_ONLY_EVENT = "crm:view-only";
+
+const roleOf = (user) => user?.role ?? null;
+
+export const isViewer = (user) => roleOf(user) === "viewer";
+
+// May this login change data at all? (Which fields still depends on the role.)
+export const canEdit = (user) => Boolean(user) && !isViewer(user);
+
+// Sees admin data: admin columns, filters, fields and dashboard cards (admins and viewers)
+export const seesAdminData = (user) => ["admin", "viewer"].includes(roleOf(user));
+
+// Team, Settings and Branches: admins only
+export const canManage = (user) => roleOf(user) === "admin";
+
+// Pages a view-only login can't open: sent to the dashboard
+export const VIEWER_BLOCKED_PATHS = ["/users", "/settings", "/branches"];
+
+// Where to send this login instead of `pathname`, or null when it may open it
+export function redirectFor(user, pathname) {
+  if (!user) return "/login";
+  if (roleOf(user) === "dhruva" && !["/dashboard", "/dhruva-leads"].includes(pathname)) return "/dashboard?flow=dhruva";
+  if (isViewer(user) && VIEWER_BLOCKED_PATHS.includes(pathname)) return "/dashboard";
+  return null;
+}
+
+// What the frame shows for this login
+export function navFor(user) {
+  const role = roleOf(user);
+  const linkedVendor = role === "vendor" && Boolean(user?.vendor);
+  return {
+    team: role === "admin",
+    settings: role === "admin" || role === "vendor",
+    // Notifications: admins and linked vendors (viewers' inbox is always empty; Dhruva: 403)
+    bell: role === "admin" || linkedVendor,
+    // The Lead flow toggle (all three flows): admins, viewers and linked vendors
+    flowToggle: role === "admin" || role === "viewer" || linkedVendor,
+    viewOnlyBadge: role === "viewer",
+  };
+}
+
+// Did a write fail only because this is a view-only login?
+export function isViewOnlyError(error) {
+  if (error?.status !== 403) return false;
+  const detail = typeof error.detail === "string" ? error.detail : error.message;
+  return typeof detail === "string" && detail.includes(VIEW_ONLY_MESSAGE);
+}

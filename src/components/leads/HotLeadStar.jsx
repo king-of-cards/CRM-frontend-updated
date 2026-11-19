@@ -1,6 +1,20 @@
 import { Star } from "lucide-react";
 
+// onToggle null / missing: read-only (view-only logins) — shows the state, not clickable
 export default function HotLeadStar({ isHot, pending = false, onToggle }) {
+  if (!onToggle) {
+    const state = isHot ? "Hot lead" : "Not a hot lead";
+    return (
+      <span
+        role="img"
+        aria-label={`${state} (view only)`}
+        title={`${state} · View only`}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-amber-500"
+      >
+        <Star size={17} fill={isHot ? "currentColor" : "none"} className={isHot ? "" : "opacity-40"} aria-hidden="true" />
+      </span>
+    );
+  }
   const label = isHot ? "Remove hot lead" : "Mark as hot lead";
   return (
     <button

@@ -185,21 +185,22 @@ function ExportMenu({ onExport, busy }) {
 }
 
 export default function VendorToKocLeads() {
-  const { isAdmin, canSeeLeads, user: me } = useAuth();
+  // seesAll: the admin view (admins and view-only logins); isAdmin && canEdit: admin edits
+  const { isAdmin, seesAll, canEdit, canSeeLeads, user: me } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   // Rows per page live in the URL too (?page_size=25)
   const { filters, query, queryKey, update, clear, apply, clearFilters, count, pageSize, setPageSize } =
     useLeadFilters(KOC);
-  const sorts = isAdmin ? SORTS_ADMIN : SORTS_ALL;
+  const sorts = seesAll ? SORTS_ADMIN : SORTS_ALL;
   const sortValue = sorts.some((s) => s.value === filters.sort) ? filters.sort : sorts[0].value;
   // Vendor logins can't use the admin filters (the API answers 422): leave them out
-  const apiFilters = isAdmin ? query : withoutKocAdminKeys(query);
+  const apiFilters = seesAll ? query : withoutKocAdminKeys(query);
   const listParams = (p) => ({ page: p, page_size: pageSize, ...apiFilters, ...parseSort(sortValue) });
 
   const [data, setData] = useState(() => listKocLeads.peek(listParams(1)) ?? null);
   const [stats, setStats] = useState(() => getKocStats.peek(apiFilters) ?? null);
-  const [vendors, setVendors] = useState(() => (isAdmin ? (listKocVendors.peek() ?? []) : []));
+  const [vendors, setVendors] = useState(() => (seesAll ? (listKocVendors.peek() ?? []) : []));
   const [loading, setLoading] = useState(() => !listKocLeads.peek(listParams(1)));
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -217,12 +218,14 @@ export default function VendorToKocLeads() {
 
   // Vendors for the filter and the add forms, and login names (admins only)
   useEffect(() => {
-    if (!canSeeLeads || !isAdmin) return;
+    if (!canSeeLeads || !seesAll) return;
     listKocVendors().then(setVendors).catch(() => {});
+    // Login names come from Team (GET /users), which view-only logins can't read
+    if (!isAdmin) return;
     listUsers({ limit: 200 })
       .then((list) => setUserNames(Object.fromEntries(list.map((u) => [u.id, u.name]))))
       .catch(() => {});
-  }, [canSeeLeads, isAdmin, reloadKey]);
+  }, [canSeeLeads, seesAll, isAdmin, reloadKey]);
 
   useEffect(() => {
     if (!canSeeLeads) return;
@@ -247,7 +250,7 @@ export default function VendorToKocLeads() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canSeeLeads, isAdmin, page, pageSize, queryKey, sortValue, reloadKey]);
+  }, [canSeeLeads, seesAll, page, pageSize, queryKey, sortValue, reloadKey]);
 
   const items = data?.items ?? [];
   useEffect(() => {
@@ -261,11 +264,13 @@ export default function VendorToKocLeads() {
       setSearchParams(next, { replace: true });
     }
   }, [items, searchParams, setSearchParams]);
-  const canToggleHot = isAdmin || Boolean(me?.vendor);
+  // Hot column: admins, viewers and vendors; only those who can edit may toggle it
+  const showHot = seesAll || Boolean(me?.vendor);
+  const canToggleHot = (isAdmin || Boolean(me?.vendor)) && canEdit;
   const isHot = (lead) => hotOverrides[String(lead.id)] ?? Boolean(lead.is_hot);
   const toggleHot = (lead) => {
     const key = String(lead.id);
-    if (hotPending[key]) return;
+    if (!canToggleHot || hotPending[key]) return;
     setHotPending((current) => ({ ...current, [key]: true }));
     toggleHotOptimistically(isHot(lead), (next) => setKocLeadHot(lead.id, next), (next) => setHotOverrides((current) => ({ ...current, [key]: next })))
       .catch(() => {})
@@ -296,7 +301,7 @@ export default function VendorToKocLeads() {
   // else "Another team member" (no vendor name).
   const people = (id, lead) => {
     if (id == null) return null;
-    if (isAdmin) return userNames[id] ?? "—";
+    if (seesAll) return userNames[id] ?? "—";
     return id === me?.id ? "You" : "Another team member";
   };
   const openLead = items.find((i) => i.id === openId) ?? null;
@@ -313,7 +318,7 @@ export default function VendorToKocLeads() {
     { label: "Pending", value: stats?.by_status?.pending ? fmt(stats.by_status.pending) : "—", tone: stats?.by_status?.pending ? "amber" : undefined },
     { label: "Follow-ups due", value: stats?.follow_ups_due ? fmt(stats.follow_ups_due) : "—", tone: stats?.follow_ups_due ? "rose" : undefined },
   ];
-  const colCount = (isAdmin ? 11 : 10) + (canToggleHot ? 1 : 0);
+  const colCount = (seesAll ? 11 : 10) + (showHot ? 1 : 0);
   const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
   // An admin's amount edit (PATCH), for AmountCell: errors are shown under the cell
   const saveAmount = (lead) => async (changes) => onSaved(await updateKocLead(lead.id, changes));
@@ -323,11 +328,11 @@ export default function VendorToKocLeads() {
       theme="whatsapp"
       icon={Handshake}
       title="Vendors → KOC"
-      subtitle={isAdmin ? "Leads vendors send to KOC" : "Leads you send to KOC"}
+      subtitle={seesAll ? "Leads vendors send to KOC" : "Leads you send to KOC"}
       action={
         <div className="flex items-center gap-2">
-          {/* Adding leads: vendor logins only (admins get 403 from the API) */}
-          {!isAdmin && (
+          {/* Adding leads: vendor logins only (admins and view-only logins get 403 from the API) */}
+          {!seesAll && canEdit && (
             <>
               <button
                 type="button"
@@ -360,7 +365,7 @@ export default function VendorToKocLeads() {
           clearFilters={clearFilters}
           count={count}
           options={{ vendors }}
-          isAdmin={isAdmin}
+          isAdmin={seesAll}
           sorts={sorts}
           sortValue={sortValue}
           placeholder="Search name, city or phone…"
@@ -381,9 +386,9 @@ export default function VendorToKocLeads() {
         <table className={`w-full text-sm transition-opacity ${loading && data ? "opacity-50" : ""}`}>
           <thead className="border-y border-gray-100 bg-gray-50/80">
             <tr>
-              {canToggleHot && <th className={th} aria-label="Hot lead" />}
+              {showHot && <th className={th} aria-label="Hot lead" />}
               <th className={th}>Sl. No</th>
-              {isAdmin && <th className={th}>Vendor</th>}
+              {seesAll && <th className={th}>Vendor</th>}
               <th className={th}>Date</th>
               <th className={th}>Name</th>
               <th className={th}>Phone</th>
@@ -410,14 +415,14 @@ export default function VendorToKocLeads() {
                 onClick={() => setOpenId(l.id)}
                 className={`cursor-pointer border-b border-gray-50 align-top transition-colors hover:bg-brand-50/40 ${openId === l.id ? "bg-brand-50/60" : ""}`}
               >
-                {canToggleHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(l)} pending={Boolean(hotPending[String(l.id)])} onToggle={() => toggleHot(l)} /></td>}
+                {showHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(l)} pending={Boolean(hotPending[String(l.id)])} onToggle={canToggleHot ? () => toggleHot(l) : null} /></td>}
                 <td className="px-4 py-3 tabular-nums text-gray-500">{l.sl_no ?? "—"}</td>
-                {isAdmin && <td className="whitespace-nowrap px-4 py-3 text-gray-800">{l.vendor_name ?? "—"}</td>}
+                {seesAll && <td className="whitespace-nowrap px-4 py-3 text-gray-800">{l.vendor_name ?? "—"}</td>}
                 <td className="whitespace-nowrap px-4 py-3 text-gray-800">{dayText(l.lead_date)}</td>
                 <td className="px-4 py-3 font-medium text-gray-900">{l.name || "—"}</td>
                 <td className="whitespace-nowrap px-4 py-3 tabular-nums text-gray-800">{phoneText(l.phone)}</td>
                 <td className="px-4 py-3 text-gray-700">{l.city || "—"}</td>
-                {isAdmin ? (
+                {isAdmin && canEdit ? (
                   <>
                     {/* Editing here mustn't open the details panel */}
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -472,7 +477,8 @@ export default function VendorToKocLeads() {
 
       <KocLeadPanel
         lead={openLead}
-        isAdmin={isAdmin}
+        isAdmin={seesAll}
+        showHot={showHot}
         isHot={openLead ? isHot(openLead) : false}
         hotPending={openLead ? Boolean(hotPending[String(openLead.id)]) : false}
         onToggleHot={canToggleHot && openLead ? () => toggleHot(openLead) : null}
@@ -480,8 +486,8 @@ export default function VendorToKocLeads() {
         onClose={() => setOpenId(null)}
         onSaved={onSaved}
       />
-      {!isAdmin && dialog === "single" && <KocAddLeadDialog onClose={() => setDialog(null)} onAdded={done} />}
-      {!isAdmin && dialog === "bulk" && <KocBulkUploadDialog onClose={() => setDialog(null)} onImported={reload} />}
+      {!seesAll && canEdit && dialog === "single" && <KocAddLeadDialog onClose={() => setDialog(null)} onAdded={done} />}
+      {!seesAll && canEdit && dialog === "bulk" && <KocBulkUploadDialog onClose={() => setDialog(null)} onImported={reload} />}
     </SectionShell>
   );
 }

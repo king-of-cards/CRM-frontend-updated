@@ -94,7 +94,7 @@ function useSaver(save) {
 }
 
 export function VendorCell({ crm, save }) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, canEdit } = useAuth();
   const vendors = useVendors();
   const { busy, error, run } = useSaver(save);
   const manual =
@@ -107,8 +107,8 @@ export function VendorCell({ crm, save }) {
       : crm.vendor
         ? "bg-brand-50 text-brand-800 ring-brand-200"
         : "bg-amber-50 text-amber-700 ring-amber-200";
-  // Vendors: read-only chip
-  if (!isAdmin) {
+  // Vendors and view-only logins: read-only chip
+  if (!isAdmin || !canEdit) {
     return (
       <span
         className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ${cls}`}
@@ -149,8 +149,13 @@ export function VendorCell({ crm, save }) {
 
 // Update: Pending or one of the 7 values (null = Pending)
 export function UpdateCell({ crm, save }) {
+  const { canEdit } = useAuth();
   const { busy, error, run } = useSaver(save);
   const info = updateInfo(crm.update_status);
+  // View only: the status as a plain pill, not a picker
+  if (!canEdit) {
+    return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ${info.style}`}>{info.label}</span>;
+  }
   return (
     <span title={error || undefined}>
       <PillSelect
@@ -176,6 +181,7 @@ export function UpdateCell({ crm, save }) {
 // Escape cancels, empty clears. The first quote also sets today as the quoted date
 // (setQuotedDate: false where the lead has no quoted date, e.g. Vendors → KOC).
 export function AmountCell({ crm, save, field, label, setQuotedDate = true }) {
+  const { canEdit } = useAuth();
   const { busy, error, run } = useSaver(save);
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
@@ -185,6 +191,15 @@ export function AmountCell({ crm, save, field, label, setQuotedDate = true }) {
   useEffect(() => {
     if (editing) input.current?.focus();
   }, [editing]);
+
+  // View only: the amount as plain text, not clickable
+  if (!canEdit) {
+    return (
+      <span className="inline-flex min-w-[88px] justify-end px-2.5 py-1 text-xs tabular-nums" aria-label={label}>
+        {current != null ? <span className="text-sm font-semibold text-gray-900">{inr.format(current)}</span> : <span className="text-gray-400">—</span>}
+      </span>
+    );
+  }
 
   const start = (e) => {
     e.stopPropagation();
@@ -249,10 +264,10 @@ export function AmountCell({ crm, save, field, label, setQuotedDate = true }) {
 }
 
 export function CrmHeaderCells({ className }) {
-  const { isAdmin } = useAuth(); // vendor logins don't get the Assigned to column
+  const { seesAll } = useAuth(); // vendor logins don't get the Assigned to column (admins and viewers do)
   return (
     <>
-      {isAdmin && <th className={className}>Assigned to</th>}
+      {seesAll && <th className={className}>Assigned to</th>}
       <th className={className}>Update</th>
       <th className={`${className} text-right`}>Quoted amount</th>
       <th className={`${className} text-right`}>Conversion amount</th>
@@ -262,9 +277,9 @@ export function CrmHeaderCells({ className }) {
 
 // The four cells for one row. save(changes) -> Promise
 export function InlineCrmCells({ crm, save, className = "px-4 py-3" }) {
-  const { isAdmin } = useAuth(); // vendor logins don't get the Assigned to column
+  const { seesAll } = useAuth(); // vendor logins don't get the Assigned to column (admins and viewers do)
   if (!crm) {
-    return (isAdmin ? [0, 1, 2, 3] : [1, 2, 3]).map((i) => (
+    return (seesAll ? [0, 1, 2, 3] : [1, 2, 3]).map((i) => (
       <td key={i} className={`${className} text-gray-300`}>
         —
       </td>
@@ -272,7 +287,7 @@ export function InlineCrmCells({ crm, save, className = "px-4 py-3" }) {
   }
   return (
     <>
-      {isAdmin && (
+      {seesAll && (
         <td className={`whitespace-nowrap ${className}`}>
           <VendorCell crm={crm} save={save} />
         </td>

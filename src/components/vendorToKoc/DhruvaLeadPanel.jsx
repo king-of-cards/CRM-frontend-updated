@@ -12,6 +12,8 @@ import HotLeadStar from "../leads/HotLeadStar.jsx";
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
 import { dateTimeText, dayText, dhruvaErrors, dhruvaFieldAccess, phoneText, rupeesText, statusLabel, STATUSES, PENDING } from "../../pages/dhruvaUtils.js";
 import LeadActivity from "../leads/LeadActivity.jsx";
+import { useAuth } from "../../auth/useAuth.js";
+import { ViewOnlyBadge } from "../shared/ViewOnly.jsx";
 
 const basicFields = [
   ["name", "Name", "text"],
@@ -36,7 +38,9 @@ const fieldsOf = (lead) => ({
 });
 const amountValue = (v) => (String(v).trim() ? Number(String(v).replace(/,/g, "")) : null);
 
-export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArchived, isHot = false, hotPending = false, onToggleHot = null }) {
+// isAdmin: a real admin. View-only logins (useAuth().canEdit false) read every field as text.
+export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArchived, isHot = false, hotPending = false, onToggleHot = null, showHot = false }) {
+  const { canEdit } = useAuth();
   const [form, setForm] = useState(() => fieldsOf(lead));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -56,7 +60,8 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
   }, [lead?.id]);
 
   if (!lead) return null;
-  const access = dhruvaFieldAccess(isAdmin ? "admin" : "dhruva");
+  const access = dhruvaFieldAccess(!canEdit ? "viewer" : isAdmin ? "admin" : "dhruva");
+  const canSave = access.editBasic || access.editAdmin;
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
   const basicPayload = () => Object.fromEntries(basicFields.map(([key]) => [key, form[key].trim() || null]));
   const adminPayload = () => ({
@@ -149,20 +154,26 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
   }
 
   return (
-    <Drawer kicker="Dhruva leads" title={lead.name || "Lead details"} onClose={onClose} wide headerActions={<>{onToggleHot && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}<LeadPdfButton onClick={pdf} loading={downloading} /></>}
+    <Drawer kicker="Dhruva leads" title={lead.name || "Lead details"} onClose={onClose} wide headerActions={<>{!canEdit && <ViewOnlyBadge inverted />}{(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}<LeadPdfButton onClick={pdf} loading={downloading} /></>}
       footer={<>
         {access.archive && <button type="button" onClick={archive} disabled={archiveBusy} className={secondaryBtn}>{lead.archived ? <RotateCcw size={15} className="mr-1 inline" /> : <Archive size={15} className="mr-1 inline" />}{lead.archived ? "Unarchive" : "Archive"}</button>}
         <button type="button" onClick={onClose} className={secondaryBtn}>Close</button>
-        <button type="submit" form="dhruva-edit-lead" disabled={busy} className={primaryBtn}>{busy ? "Saving…" : isAdmin ? "Save changes" : "Save basic details"}</button>
+        {canSave && <button type="submit" form="dhruva-edit-lead" disabled={busy} className={primaryBtn}>{busy ? "Saving…" : isAdmin ? "Save changes" : "Save basic details"}</button>}
       </>}
     >
       <form id="dhruva-edit-lead" onSubmit={save} className="space-y-5">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert kind="success">Lead saved.</Alert>}
         {duplicate && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200"><span>Save this lead despite the duplicate match?</span><button type="button" disabled={busy} onClick={() => save(undefined, true)} className={primaryBtn}>Save anyway</button></div>}
-        <section className="grid gap-4 sm:grid-cols-2">
+        {access.editBasic ? (
+          <section className="grid gap-4 sm:grid-cols-2">
           {basicFields.map(([key, label, type]) => <label key={key} className="block"><span className="mb-1 block text-xs font-medium text-gray-600">{label}</span><input type={type} value={form[key]} onChange={(e) => { set(key, e.target.value); setFieldErrors((old) => ({ ...old, [key]: undefined })); }} className={`${fieldCls} ${fieldErrors[key] ? "border-red-300" : ""}`} maxLength={key === "venue" ? 300 : 200} />{fieldErrors[key] && <span className="mt-1 block text-xs text-red-600">{fieldErrors[key]}</span>}</label>)}
-        </section>
+          </section>
+        ) : (
+          <dl className="grid gap-4 sm:grid-cols-2" aria-label="Lead details, view only">
+            {basicFields.map(([key, label]) => <div key={key}><dt className="text-xs font-medium text-gray-500">{label}</dt><dd className="mt-1 break-words text-sm text-gray-900">{key === "phone" || key === "alt_phone" ? (form[key] ? phoneText(form[key]) : "—") : form[key] || "—"}</dd></div>)}
+          </dl>
+        )}
         <p className="text-xs text-gray-500">Received {dateTimeText(lead.created_at)} · Added by {lead.created_by_name || "—"}</p>
         {access.editAdmin && <section className="space-y-4 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100">
           <h3 className="text-sm font-semibold text-gray-900">Admin update</h3>

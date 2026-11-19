@@ -1,4 +1,4 @@
-import { ApiError, apiRequest, getAccessToken, refreshAccessToken } from "./client.js";
+import { ApiError, apiRequest, getAccessToken, notifyViewOnly, refreshAccessToken } from "./client.js";
 import { exportQuery, filenameFromDisposition, parseCsvHeader } from "../components/crmLeads/crmLeadUtils.js";
 import { toQueryString } from "../components/leads/leadFilters.js";
 
@@ -44,7 +44,9 @@ export async function rawFetch(path, { method = "GET", query, body } = {}) {
     } catch {
       // no readable body
     }
-    throw new ApiError(res.status, detail);
+    const error = new ApiError(res.status, detail);
+    notifyViewOnly(error);
+    throw error;
   }
   return res;
 }

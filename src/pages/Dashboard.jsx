@@ -228,7 +228,8 @@ const monthLabel = (m) =>
 // ── Page ───────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const location = useLocation();
-  const { user, isAdmin, canSeeLeads, isDhruva } = useAuth();
+  // isAdmin: sheet sync status (Settings data, admins only); seesAll: admin cards (admins and viewers)
+  const { user, isAdmin, seesAll, canSeeLeads, isDhruva } = useAuth();
   const firstName = user?.name?.split(" ")[0];
   const [showIntro, setShowIntro] = useState(
     Boolean(location.state?.fromLogin),
@@ -432,7 +433,7 @@ export default function Dashboard() {
           <DhruvaLeadsDashboard period={period} refreshKey={refreshKey} />
         )}
         {flow === "vendors" && canSeeLeads && (
-          <VendorToKocDashboard period={period} refreshKey={refreshKey} isAdmin={isAdmin} />
+          <VendorToKocDashboard period={period} refreshKey={refreshKey} isAdmin={seesAll} />
         )}
         {canSeeLeads && !flow && state.error && (
           <p
@@ -456,7 +457,7 @@ export default function Dashboard() {
           <>
             {/* ── KPIs ── */}
             <section
-              className={`mt-6 grid gap-4 sm:grid-cols-2 ${isAdmin ? "xl:grid-cols-4" : "xl:grid-cols-6"}`}
+              className={`mt-6 grid gap-4 sm:grid-cols-2 ${seesAll ? "xl:grid-cols-4" : "xl:grid-cols-6"}`}
               aria-label="Key numbers"
             >
               <Kpi
@@ -512,7 +513,7 @@ export default function Dashboard() {
                 gradient="from-cyan-500 to-brand-700"
                 loading={kpiLoading}
               />
-              {isAdmin && <Kpi
+              {seesAll && <Kpi
                 icon={Send}
                 label="Quotes sent"
                 value={fmt(o?.kpis?.quotes_count)}
@@ -520,7 +521,7 @@ export default function Dashboard() {
                 gradient="from-indigo-500 to-indigo-700"
                 loading={kpiLoading}
               />}
-              {isAdmin && <Kpi
+              {seesAll && <Kpi
                 icon={Flame}
                 label="Hot leads"
                 value={fmt(o?.kpis?.hot_count)}
