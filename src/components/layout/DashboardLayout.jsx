@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router
 import {
   Camera,
   ClipboardList,
+  Gift,
   Globe,
   Handshake,
   LayoutDashboard,
@@ -42,6 +43,7 @@ const dhruvaNavItems = [
 const TAB_ICONS = {
   "/dashboard": LayoutDashboard,
   "/leads/spin": Target,
+  "/leads/wedding-gifts": Gift,
   "/leads/international": Globe,
   "/leads/wedding": Camera,
   "/leads/wedding-planner": ClipboardList,

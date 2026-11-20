@@ -34,6 +34,7 @@ import {
   RefreshCw,
   Sparkles,
   Target,
+  Gift,
   TrendingUp,
 } from "lucide-react";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
@@ -66,6 +67,15 @@ const SOURCES = {
     tint: "bg-sky-50 text-sky-600",
     tag: "bg-sky-50 text-sky-700 ring-sky-200",
   },
+  // Teal is Wedding gifts' alone (docs section 17)
+  wedding_gifts: {
+    label: "Wedding gifts",
+    to: "/leads/wedding-gifts",
+    icon: Gift,
+    color: "#14b8a6",
+    tint: "bg-teal-50 text-teal-600",
+    tag: "bg-teal-50 text-teal-700 ring-teal-200",
+  },
   whatsapp: {
     label: "International",
     to: "/leads/international",
@@ -92,6 +102,9 @@ const SOURCES = {
   },
 };
 const SOURCE_KEYS = Object.keys(SOURCES);
+// Read from the workflow database: left out of the charts when it can't be read (spin_available)
+const WORKFLOW_SOURCES = ["spin", "wedding_gifts"];
+const charted = (k, o) => !WORKFLOW_SOURCES.includes(k) || Boolean(o?.spin_available);
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -334,9 +347,7 @@ export default function Dashboard() {
     // Leads that arrived in the period (spin is null when its dates couldn't be read)
     const totals = o.totals;
     const all = o.totals.all;
-    const trendKeys = o.spin_available
-      ? SOURCE_KEYS
-      : SOURCE_KEYS.filter((k) => k !== "spin");
+    const trendKeys = SOURCE_KEYS.filter((k) => charted(k, o));
     // Source mix and the tiles' % bar: leads that arrived in the period
     const mixAll = (o.source_mix ?? []).filter((m) => SOURCES[m.source]);
     return {
@@ -537,7 +548,7 @@ export default function Dashboard() {
 
             {/* ── Sources ── */}
             <section
-              className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+              className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5"
               aria-label="Lead sources"
             >
               {SOURCE_KEYS.map((k) => {
@@ -572,7 +583,7 @@ export default function Dashboard() {
                         <span className="text-xl font-bold tabular-nums text-gray-900">
                           {fmt(total)}
                         </span>
-                        {delta != null && (k !== "spin" || o?.spin_available) ? (
+                        {delta != null && charted(k, o) ? (
                           <span
                             className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
                               delta >= 0
@@ -791,7 +802,7 @@ export default function Dashboard() {
                   o && (
                     <Legend
                       keys={SOURCE_KEYS.filter(
-                        (k) => k !== "spin" || o.spin_available,
+                        (k) => charted(k, o),
                       )}
                     />
                   )
@@ -827,7 +838,7 @@ export default function Dashboard() {
                           cursor={{ fill: "#f8fafc" }}
                         />
                         {SOURCE_KEYS.filter(
-                          (k) => k !== "spin" || o.spin_available,
+                          (k) => charted(k, o),
                         ).map((k, i, arr) => (
                           <Bar
                             key={k}
@@ -940,7 +951,7 @@ export default function Dashboard() {
               <p className="mt-6 text-center text-xs text-gray-400">
                 Updated {timeAgo(o.generated_at)}
                 {!o.spin_available &&
-                  " · spin leads are counted, but their dates couldn't be read for the charts"}
+                  " · spin and wedding gifts leads are counted, but their dates couldn't be read for the charts"}
               </p>
             )}
           </>

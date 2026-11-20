@@ -140,6 +140,12 @@ export const THEMES = {
     chip: "from-sky-500 to-sky-700",
     tagCls: "bg-sky-50 text-sky-700 ring-sky-200",
   },
+  // Teal is Wedding gifts' alone (no other source uses it)
+  wedding_gifts: {
+    tag: "Wedding gifts",
+    chip: "from-teal-500 to-teal-700",
+    tagCls: "bg-teal-50 text-teal-700 ring-teal-200",
+  },
   whatsapp: {
     tag: "International",
     chip: "from-violet-500 to-violet-700",
@@ -516,7 +522,7 @@ export function emptyCrm(leadKey) {
 /**
  * columns: [{ id, header, align?: "right", render: (row) => node }]
  * identity(row) -> { name, subtitle, badge? }   contact(row) -> { phone, email }
- * source: "spin" | "whatsapp" | "wedding" | "wedding_planner"
+ * source: "spin" | "wedding_gifts" | "whatsapp" | "wedding" | "wedding_planner"
  * crm(row) -> crm object | null                 context(row) -> { location, pincode, sheet_vendor }
  * crmKey(row) -> the lead's key, used when crm(row) is missing (backend not sending "crm" yet)
  * onCrmSaved(leadKey, crm)                      update the row in the page's data

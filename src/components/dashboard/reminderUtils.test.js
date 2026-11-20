@@ -2,8 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { FLOW_REMINDERS, reminderDashboardDestination, reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderRequestFor, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
 
 describe("follow-ups per Lead flow", () => {
-  test("KOC → Vendors asks for its four sources only", () => {
-    expect(reminderRequestFor("")).toMatchObject({ dhruva: false, sources: ["spin", "whatsapp", "wedding", "wedding_planner"] });
+  test("KOC → Vendors asks for its five sources only, Wedding gifts included", () => {
+    expect(reminderRequestFor("")).toMatchObject({ dhruva: false, sources: ["spin", "wedding_gifts", "whatsapp", "wedding", "wedding_planner"] });
+  });
+  test("Wedding gifts reminders: label, list and lead links", () => {
+    expect(reminderSourceLabel("wedding_gifts")).toBe("Wedding gifts");
+    expect(reminderListDestination("wedding_gifts")).toBe("/leads/wedding-gifts?follow_up=due");
+    const url = new URL(reminderLeadDestination({ source: "wedding_gifts", lead_key: "41", name: "Asha" }), "https://crm.local");
+    expect(url.pathname).toBe("/leads/wedding-gifts");
+    expect(url.searchParams.get("notification_lead_key")).toBe("41");
   });
   test("Vendors → KOC asks for vendor_to_koc only", () => {
     expect(reminderRequestFor("vendors")).toMatchObject({ dhruva: false, sources: ["vendor_to_koc"] });

@@ -23,6 +23,9 @@ import {
   summarize,
   toIstInput,
   valuesToForm,
+  SOURCE_NAMES,
+  sourceList,
+  SPIN_FAMILY,
 } from "./crmLeadUtils.js";
 
 describe("filenameFromDisposition", () => {
@@ -282,5 +285,17 @@ describe("upload-only CRM columns", () => {
     expect(csv).toBe(
       "name,phone,assigned_to,submitted_at,update_status,quoted_amount,conversion_amount\r\nAsha,9845012345,,,will_call_back,150000,\r\n",
     );
+  });
+});
+
+describe("Wedding gifts in the CRM lead helpers", () => {
+  test("its name, also for the 'Also in …' warnings", () => {
+    expect(SOURCE_NAMES.wedding_gifts).toBe("Wedding gifts");
+    expect(sourceList(["wedding_gifts", "wedding"])).toBe("Wedding gifts, Wedding");
+  });
+  test("it's in the spin family: bulk upload only, and no order without a sort", () => {
+    expect(SPIN_FAMILY).toEqual(["spin", "wedding_gifts"]);
+    expect(exportQuery("wedding_gifts", { order: "desc", hot: "yes" }, "xlsx")).toEqual({ format: "xlsx", hot: "yes" });
+    expect(exportQuery("wedding_gifts", { sort: "created_at", order: "desc" }, "csv")).toEqual({ format: "csv", sort: "created_at", order: "desc" });
   });
 });

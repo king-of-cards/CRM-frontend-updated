@@ -85,3 +85,12 @@ describe("notification destinations", () => {
     })).toBe("/vendor-to-koc");
   });
 });
+
+describe("Wedding gifts notifications", () => {
+  test("label and lead link", () => {
+    expect(notificationSourceLabel("wedding_gifts")).toBe("Wedding gifts");
+    const url = new URL(notificationDestination({ source: "wedding_gifts", lead_ref: { source: "wedding_gifts", lead_key: "41" } }), "https://crm.local");
+    expect(url.pathname).toBe("/leads/wedding-gifts");
+    expect(url.searchParams.get("notification_lead_key")).toBe("41");
+  });
+});

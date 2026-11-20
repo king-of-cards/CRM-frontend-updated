@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   activeCount,
   buildQuote,
+  keysFor,
   clearedParams,
   filtersOfPeriod,
   pageSizeOf,
@@ -157,5 +158,13 @@ describe("Vendors → KOC quote and conversion filters", () => {
   });
   test("each counts once on the Filters badge", () => {
     expect(activeCount(readFilters(q("quote=has&conversion=none"), "vendor_to_koc"), "vendor_to_koc")).toBe(2);
+  });
+});
+
+describe("Wedding gifts filters", () => {
+  test("the same URL keys as Spin: branch, pincode, budget and the common filters", () => {
+    expect(keysFor("wedding_gifts")).toEqual(keysFor("spin"));
+    const f = readFilters(q("branch=4&pincode=560&budget=10-20&hot=yes&also_in=yes&update_status=pending"), "wedding_gifts");
+    expect(toApiQuery(f, "wedding_gifts")).toEqual({ branch: "4", pincode: "560", budget: "10-20", hot: "yes", also_in: "yes", update_status: ["pending"] });
   });
 });

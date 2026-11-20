@@ -38,7 +38,7 @@ describe("Top cities subtitle (top_cities_sources)", () => {
 
 describe("Top cities per Lead flow (API defaults)", () => {
   test("the defaults match the API's per-flow defaults", () => {
-    expect(TOP_CITIES_DEFAULTS[""]).toEqual(["spin", "wedding", "wedding_planner"]);
+    expect(TOP_CITIES_DEFAULTS[""]).toEqual(["spin", "wedding_gifts", "wedding", "wedding_planner"]);
     expect(TOP_CITIES_DEFAULTS.vendors).toEqual(["vendor_to_koc"]);
   });
   test("top_cities_sources wins when the API sends it", () => {
@@ -46,8 +46,15 @@ describe("Top cities per Lead flow (API defaults)", () => {
     expect(topCitiesSubtitleFor(["vendor_to_koc"], "vendors")).toBe("Vendors → KOC");
   });
   test("without a list the flow's own defaults are named, never 'All sources'", () => {
-    expect(topCitiesSubtitleFor(undefined, "")).toBe("Spin, Wedding, Wedding planner");
+    expect(topCitiesSubtitleFor(undefined, "")).toBe("Spin, Wedding gifts, Wedding, Wedding planner");
     expect(topCitiesSubtitleFor([], "vendors")).toBe("Vendors → KOC");
-    expect(topCitiesSubtitleFor(null)).toBe("Spin, Wedding, Wedding planner");
+    expect(topCitiesSubtitleFor(null)).toBe("Spin, Wedding gifts, Wedding, Wedding planner");
+  });
+  test("Wedding gifts is labelled in the subtitle and the per-city tooltip", () => {
+    expect(topCitiesSubtitle(["spin", "wedding_gifts", "wedding"])).toBe("Spin, Wedding gifts, Wedding");
+    expect(topCityTooltipData({ count: 3, by_source: { spin: 1, wedding_gifts: 2 } })).toEqual([
+      { source: "spin", label: "Spin", count: 1 },
+      { source: "wedding_gifts", label: "Wedding gifts", count: 2 },
+    ]);
   });
 });

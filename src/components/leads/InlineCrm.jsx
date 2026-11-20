@@ -125,7 +125,9 @@ export function VendorCell({ crm, save }) {
           ? "Assigned in the CRM"
           : crm.vendor_source === "sheet"
             ? "From the sheet"
-            : "Automatic (area rules)")
+            : crm.vendor_source === "source_default"
+              ? "Automatic (this source's default vendor)"
+              : "Automatic (area rules)")
       }
     >
       <PillSelect

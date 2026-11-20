@@ -20,8 +20,9 @@ describe("Lead flow from the page", () => {
 });
 
 describe("tabs per flow", () => {
-  test("KOC → Vendors: Dashboard + the four sources, no Vendors → KOC or Dhruva", () => {
-    expect(tabsFor("").map((t) => t.label)).toEqual(["Dashboard", "Spin leads", "International", "Wedding", "Wedding planner"]);
+  test("KOC → Vendors: Dashboard + the five sources (Wedding gifts after Spin leads), no Vendors → KOC or Dhruva", () => {
+    expect(tabsFor("").map((t) => t.label)).toEqual(["Dashboard", "Spin leads", "Wedding gifts", "International", "Wedding", "Wedding planner"]);
+    expect(tabsFor("").find((t) => t.label === "Wedding gifts").to).toBe("/leads/wedding-gifts");
     expect(tabsFor("")[0].to).toBe("/dashboard");
   });
   test("Vendors → KOC: Dashboard (keeping the flow) + Vendors → KOC", () => {
@@ -38,7 +39,7 @@ describe("tabs per flow", () => {
   });
   test("the switch shows on the Dashboard and every lead list (including dhruva)", () => {
     expect(FLOW_PAGES.sort()).toEqual(
-      ["/dashboard", "/dhruva-leads", "/leads/international", "/leads/spin", "/leads/wedding", "/leads/wedding-planner", "/vendor-to-koc"].sort(),
+      ["/dashboard", "/dhruva-leads", "/leads/international", "/leads/spin", "/leads/wedding", "/leads/wedding-gifts", "/leads/wedding-planner", "/vendor-to-koc"].sort(),
     );
   });
 });

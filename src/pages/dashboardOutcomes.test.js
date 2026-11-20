@@ -78,3 +78,20 @@ describe("aggregate KPI source destinations", () => {
     ]);
   });
 });
+
+describe("Wedding gifts KPI choosers", () => {
+  test("Hot leads, Quotes sent and AOV choosers include Wedding gifts after Spin", () => {
+    const outcomes = { spin: { hot_count: 1, quotes_count: 1, conversion_amount_count: 1 }, wedding_gifts: { hot_count: 2, quotes_count: 3, conversion_amount_count: 4 } };
+    expect(sourceKpiDestinations(outcomes, "hot", { all: true }).map((c) => [c.label, c.count, c.to])).toEqual([
+      ["Spin leads", 1, "/leads/spin?hot=yes"],
+      ["Wedding gifts", 2, "/leads/wedding-gifts?hot=yes"],
+    ]);
+    expect(sourceKpiDestinations(outcomes, "quotes", { from: "2026-11-01", to: "2026-11-05" })[1].to).toBe(
+      "/leads/wedding-gifts?quote=has&date_from=2026-11-01&date_to=2026-11-05",
+    );
+    expect(sourceKpiDestinations(outcomes, "aov", { all: true })[1].to).toBe("/leads/wedding-gifts?update_status=converted&conversion=has");
+  });
+  test("no choice when the workflow database can't be read (outcome null)", () => {
+    expect(sourceKpiDestinations({ wedding_gifts: null, wedding: { hot_count: 1 } }, "hot", { all: true }).map((c) => c.source)).toEqual(["wedding"]);
+  });
+});

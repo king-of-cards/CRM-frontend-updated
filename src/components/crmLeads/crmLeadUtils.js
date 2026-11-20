@@ -3,12 +3,16 @@
 
 export const SOURCE_NAMES = {
   spin: "Spin leads",
+  wedding_gifts: "Wedding gifts",
   whatsapp: "International",
   wedding: "Wedding",
   wedding_planner: "Wedding planner",
 };
 
 export const CRM_ORIGINS = ["added", "imported"];
+
+// Sources read from the workflow spin_lead table: bulk upload only (no single add), Spin's filters
+export const SPIN_FAMILY = ["spin", "wedding_gifts"];
 
 // Only these leads can be edited or archived here (sheet and spin-game leads can't)
 export const isCrmLead = (row) => CRM_ORIGINS.includes(row?.origin);
@@ -39,8 +43,8 @@ export function exportQuery(source, params = {}, format = "xlsx") {
     if (Array.isArray(v) ? v.length === 0 : v === undefined || v === null || v === "") continue;
     query[k] = v;
   }
-  // The spin list only sends an order together with a sort
-  if (source === "spin" && !query.sort) delete query.order;
+  // The spin lists (Spin and Wedding gifts) only send an order together with a sort
+  if (SPIN_FAMILY.includes(source) && !query.sort) delete query.order;
   return query;
 }
 

@@ -5,7 +5,7 @@ import AddLeadDialog from "./AddLeadDialog.jsx";
 import BulkUploadDialog from "./BulkUploadDialog.jsx";
 import EditLeadDialog from "./EditLeadDialog.jsx";
 import { onCrmLeadEvent } from "./crmLeadEvents.js";
-import { errorText } from "./crmLeadUtils.js";
+import { errorText, SPIN_FAMILY } from "./crmLeadUtils.js";
 import { useAuth } from "../../auth/useAuth.js";
 
 // "Add lead" and "Export" for a source's list header. Also opens the Edit drawer and runs
@@ -155,8 +155,8 @@ export default function CrmLeadActions({ source, exportParams, onChanged }) {
 
   return (
     <div className="flex items-center gap-2">
-      {/* Adding leads: admins only. Spin leads can only be added by bulk upload. */}
-      {isAdmin && source === "spin" && (
+      {/* Adding leads: admins only. Spin and Wedding gifts leads can only be added by bulk upload. */}
+      {isAdmin && SPIN_FAMILY.includes(source) && (
         <button
           type="button"
           onClick={() => setDialog("bulk")}
@@ -166,7 +166,7 @@ export default function CrmLeadActions({ source, exportParams, onChanged }) {
           Bulk upload
         </button>
       )}
-      {isAdmin && source !== "spin" && (
+      {isAdmin && !SPIN_FAMILY.includes(source) && (
         <Menu
           label="Add lead"
           icon={Plus}

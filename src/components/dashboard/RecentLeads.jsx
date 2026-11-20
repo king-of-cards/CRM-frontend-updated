@@ -3,10 +3,10 @@ import { Link } from "react-router";
 import {
   ArrowUpRight,
   Building2,
+  Gift,
   MapPin,
   Target,
 } from "lucide-react";
-import { listSpinLeads } from "../../api/spinLeads.js";
 import { getFilterOptions, getLeadStats, listLeads, listQuery } from "../../api/leadLists.js";
 import { listBranches } from "../../api/branches.js";
 import { pincodeArea } from "../leads/pincode.js";
@@ -30,12 +30,39 @@ import CrmRowBadge from "../crmLeads/CrmRowBadge.jsx";
 import LeadFilterBar from "../leads/LeadFilterBar.jsx";
 import { useLeadFilters } from "../leads/useLeadFilters.js";
 
-// Spin leads: read live from the workflow database (read-only). The CRM columns come from
-// our own database next to each lead (sidecar), matched by the lead's id.
+// Spin leads and Wedding gifts: read live from the workflow database (read-only). The CRM columns
+// come from our own database next to each lead (sidecar), matched by the lead's id. Wedding gifts
+// are the spin_lead rows naming "Wedding Gifts & Return Gifts" (docs section 17): the same page,
+// with its own list endpoint, look and labels.
 
 const PAGE_SIZE = 10; // the default page size (10 / 25 / 50 / 100)
 
-const CREATED_KEY = "crm-spin-created-column"; // remembered so later loads need one request
+// What differs per source. branchVendor: Spin's leads go to their branch's vendor automatically;
+// Wedding gifts go to their source's default vendor (Kraftzy), so branch rules don't apply.
+// explore: the "Explore all fields" page reads Spin's table only.
+const SPIN_PAGES = {
+  spin: {
+    theme: "spin",
+    icon: Target,
+    title: "Spin leads",
+    leadLabel: "Spin lead",
+    emptyName: "spin leads",
+    branchVendor: true,
+    explore: true,
+  },
+  wedding_gifts: {
+    theme: "wedding_gifts",
+    icon: Gift,
+    title: "Wedding gifts",
+    leadLabel: "Wedding gifts lead",
+    emptyName: "wedding gifts leads",
+    branchVendor: false,
+    explore: false,
+  },
+};
+
+// Remembered per source so later loads need one request (Spin keeps its original key)
+const createdKey = (source) => `crm-${source}-created-column`;
 
 // Which spin field is which. Matching ignores case, "_" and the "additional_details." prefix.
 const FIELDS = {
@@ -129,7 +156,7 @@ function locationOf(lead, f, branches) {
 // A spin lead goes to its branch's vendor automatically (RJ / Phodeo / OHP), unless someone
 // assigned a vendor in the CRM. The backend does this too; this covers older backends.
 function withBranchVendor(crm, branch, vendors) {
-  if (crm && ["manual", "sheet", "branch"].includes(crm.vendor_source))
+  if (crm && ["manual", "sheet", "branch", "source_default"].includes(crm.vendor_source))
     return crm;
   const vendor = branch?.vendor
     ? vendors.find((v) => v.name.toLowerCase() === branch.vendor.toLowerCase())
@@ -142,27 +169,29 @@ function withBranchVendor(crm, branch, vendors) {
   };
 }
 
-function storedCreated() {
+function storedCreated(source) {
   try {
-    const v = sessionStorage.getItem(CREATED_KEY);
+    const v = sessionStorage.getItem(createdKey(source));
     return v === null ? undefined : v || null; // "" = no created column
   } catch {
     return undefined;
   }
 }
 
-export default function RecentLeads() {
+export default function RecentLeads({ source = "spin" }) {
+  const look = SPIN_PAGES[source] ?? SPIN_PAGES.spin;
+  const Icon = look.icon;
   const { seesAll, canSeeLeads } = useAuth(); // admins and viewers: Explore all fields and the admin filters
-  const [createdCol, setCreatedCol] = useState(storedCreated);
+  const [createdCol, setCreatedCol] = useState(() => storedCreated(source));
   const [page, setPage] = useState(1);
   // Filters, kept in the URL; the same for the list and the export
   // Rows per page live in the URL too (?page_size=25)
   const { filters, query, queryKey, update, clear, apply, clearFilters, count, pageSize, setPageSize } =
-    useLeadFilters("spin");
+    useLeadFilters(source);
   const sortValue = filters.sort || "created:desc";
   const [openKey, setOpenKey] = useState(null); // lead to open (picked from the search suggestions)
-  const [options, setOptions] = useState(() => getFilterOptions.peek("spin") ?? null);
-  const [stats, setStats] = useState(() => getLeadStats.peek("spin", query) ?? null);
+  const [options, setOptions] = useState(() => getFilterOptions.peek(source) ?? null);
+  const [stats, setStats] = useState(() => getLeadStats.peek(source, query) ?? null);
   const [branches, setBranches] = useState(
     () => listBranches.peek()?.branches ?? [],
   );
@@ -197,7 +226,7 @@ export default function RecentLeads() {
   // Dropdown values: branches, pincodes, budgets, origins, interests, vendors (admins)
   useEffect(() => {
     if (!canSeeLeads) return;
-    getFilterOptions("spin")
+    getFilterOptions(source)
       .then(setOptions)
       .catch(() => {});
   }, [canSeeLeads, reloadKey]);
@@ -231,7 +260,7 @@ export default function RecentLeads() {
     lastParams.current = { ...query, sort, order: sort ? order : undefined };
 
     const cached =
-      createdCol !== undefined ? listLeads.peek("spin", params) : undefined;
+      createdCol !== undefined ? listLeads.peek(source, params) : undefined;
     if (cached) setData(cached);
     setLoading(!cached);
 
@@ -240,19 +269,19 @@ export default function RecentLeads() {
         let res;
         if (createdCol === undefined) {
           // First visit: learn the columns, find the "created" column, then sort by it
-          res = await listSpinLeads({ page: 1, pageSize: PAGE_SIZE });
+          res = await listLeads(source, { page: 1, page_size: PAGE_SIZE });
           const found = pick(res.columns).created;
           try {
-            sessionStorage.setItem(CREATED_KEY, found ?? "");
+            sessionStorage.setItem(createdKey(source), found ?? "");
           } catch {
             // fine: found again next time
           }
           if (!cancelled) setCreatedCol(found ?? null);
           return; // the effect runs again with the column known
         }
-        res = await listLeads("spin", params);
-        // Stats over the same filters: GET /spin-leads/stats -> { total, kpis }
-        getLeadStats("spin", query)
+        res = await listLeads(source, params);
+        // Stats over the same filters: GET /spin-leads/stats (or /wedding-gifts-leads/stats) -> { total, kpis }
+        getLeadStats(source, query)
           .then((st) => !cancelled && setStats(st))
           .catch(() => {});
         if (!cancelled) {
@@ -285,12 +314,12 @@ export default function RecentLeads() {
   // Search suggestions: the best matching leads (name, phone, email, branch)
   function suggestLeads(q) {
     const sort = createdCol || undefined;
-    return listSpinLeads({
+    return listLeads(source, {
       page: 1,
-      pageSize: 10,
+      page_size: 10,
       search: q,
       sort,
-      order: "desc",
+      order: sort ? "desc" : undefined,
     }).then((res) => {
       const ff = pick(res.columns);
       // page_size must be 10 / 25 / 50 / 100: ask for 10, suggest the first 7
@@ -320,13 +349,13 @@ export default function RecentLeads() {
 
   return (
     <SectionShell
-      theme="spin"
-      icon={Target}
-      title="Spin leads"
+      theme={look.theme}
+      icon={Icon}
+      title={look.title}
       subtitle={`Live from the workflow database (read-only) · ${columns.length || "—"} fields per lead`}
       action={
         <div className="flex items-center gap-2">
-          {seesAll && (
+          {seesAll && look.explore && (
             <Link
               to="/leads"
               className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
@@ -335,7 +364,7 @@ export default function RecentLeads() {
             </Link>
           )}
           <CrmLeadActions
-            source="spin"
+            source={source}
             exportParams={() => lastParams.current}
             onChanged={reload}
           />
@@ -346,7 +375,7 @@ export default function RecentLeads() {
       stats={kpiCards(stats?.kpis)}
       toolbar={
         <LeadFilterBar
-          source="spin"
+          source={source}
           filters={filters}
           update={update}
           clear={clear}
@@ -383,13 +412,13 @@ export default function RecentLeads() {
       }
     >
       <LeadTable
-        theme="spin"
+        theme={look.theme}
         rows={items}
         rowKey={(l) => l[pkName] ?? JSON.stringify(l).slice(0, 80)}
         loading={loading && !data}
         dimmed={loading && Boolean(data)}
         identity={(l) => ({
-          badge: <CrmRowBadge source="spin" lead={l} leadKey={l[pkName]} />,
+          badge: <CrmRowBadge source={source} lead={l} leadKey={l[pkName]} />,
           name: (f.name && l[f.name]) || "Unnamed lead",
           subtitle:
             (f.email && l[f.email]) ||
@@ -495,14 +524,11 @@ export default function RecentLeads() {
               ) : null,
           },
         ]}
-        source="spin"
-        crm={(l) =>
-          withBranchVendor(
-            l.crm ?? (l.id != null ? emptyCrm(l.id) : null),
-            locationOf(l, f, branches).branch,
-            vendors,
-          )
-        }
+        source={source}
+        crm={(l) => {
+          const crm = l.crm ?? (l.id != null ? emptyCrm(l.id) : null);
+          return look.branchVendor ? withBranchVendor(crm, locationOf(l, f, branches).branch, vendors) : crm;
+        }}
         crmKey={(l) => l.id}
         context={(l) => ({
           pincode: f.pincode ? String(l[f.pincode] ?? "") : undefined,
@@ -510,8 +536,8 @@ export default function RecentLeads() {
         })}
         onCrmSaved={(key, crm) => setData((d) => withCrm(d, key, crm))}
         panel={(l) => ({
-          sourceLabel: "Spin lead",
-          title: (f.name && l[f.name]) || "Spin lead",
+          sourceLabel: look.leadLabel,
+          title: (f.name && l[f.name]) || look.leadLabel,
           subtitle: [
             locationOf(l, f, branches).branch?.name,
             f.occasion && l[f.occasion],
@@ -591,8 +617,8 @@ export default function RecentLeads() {
         })}
         empty={
           count || filters.search
-            ? "No spin leads match these filters."
-            : "No spin leads yet."
+            ? `No ${look.emptyName} match these filters.`
+            : `No ${look.emptyName} yet.`
         }
         openKey={openKey}
         onOpened={() => setOpenKey(null)}

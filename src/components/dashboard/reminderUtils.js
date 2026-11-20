@@ -2,6 +2,7 @@ import { dayText, phoneText } from "../vendorToKoc/kocUtils.js";
 
 export const REMINDER_SOURCES = {
   spin: { label: "Spin", path: "/leads/spin" },
+  wedding_gifts: { label: "Wedding gifts", path: "/leads/wedding-gifts" },
   whatsapp: { label: "International", path: "/leads/international" },
   wedding: { label: "Wedding", path: "/leads/wedding" },
   wedding_planner: { label: "Wedding planner", path: "/leads/wedding-planner" },
@@ -12,7 +13,7 @@ export const REMINDER_SOURCES = {
 // Each Lead flow's follow-ups, kept separate: "" = KOC → Vendors, "vendors" = Vendors → KOC,
 // "dhruva" = the Dhruva endpoint. sources goes to GET /reminders/follow-ups?sources=…
 export const FLOW_REMINDERS = {
-  "": { dhruva: false, sources: ["spin", "whatsapp", "wedding", "wedding_planner"], label: "KOC → Vendors leads" },
+  "": { dhruva: false, sources: ["spin", "wedding_gifts", "whatsapp", "wedding", "wedding_planner"], label: "KOC → Vendors leads" },
   vendors: { dhruva: false, sources: ["vendor_to_koc"], label: "Vendors → KOC leads" },
   dhruva: { dhruva: true, sources: [], label: "Dhruva leads" },
 };

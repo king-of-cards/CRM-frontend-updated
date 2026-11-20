@@ -5,6 +5,7 @@
 export const KOC_TABS = [
   { path: "/dashboard", label: "Dashboard" },
   { path: "/leads/spin", label: "Spin leads" },
+  { path: "/leads/wedding-gifts", label: "Wedding gifts" },
   { path: "/leads/international", label: "International" },
   { path: "/leads/wedding", label: "Wedding" },
   { path: "/leads/wedding-planner", label: "Wedding planner" },

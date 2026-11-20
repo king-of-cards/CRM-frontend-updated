@@ -72,3 +72,11 @@ describe("buildFilterButtons", () => {
     expect(byKind(buildFilterButtons("wedding", filters, {}, true), "quote")).toMatchObject({ active: true, value: ["has"] });
   });
 });
+
+describe("Wedding gifts filter buttons", () => {
+  test("the same buttons as Spin (branch, pincode, budget, Update, quote, conversion, hot, In other sources)", () => {
+    const kinds = (source) => buildFilterButtons(source, {}, {}, true).map((b) => b.kind);
+    expect(kinds("wedding_gifts")).toEqual(kinds("spin"));
+    for (const kind of ["branch", "pincode", "budget", "update", "quote", "conversion", "hot", "also_in", "origin"]) expect(kinds("wedding_gifts")).toContain(kind);
+  });
+});
