@@ -11,12 +11,13 @@ import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/D
 import { useAuth } from "../../auth/useAuth.js";
 import { ViewOnlyBadge } from "../shared/ViewOnly.jsx";
 import { dateTimeText, dayText, dhruvaErrors, phoneText, rupeesText, statusLabel, STATUSES, PENDING } from "../../pages/dhruvaUtils.js";
-import { budgetText, crmChanges, crmFormOf as formOf, quantityText, reasonLabel } from "../../pages/kocToDhruvaUtils.js";
+import { budgetText, crmChanges, crmFormOf as formOf, quantityText } from "../../pages/kocToDhruvaUtils.js";
+import { branchText } from "../leads/stores.js";
 
 // One KOC → Dhruva lead (docs section 18). Admins and Dhruva logins edit this section's CRM
 // details (Update, comments, quoted amount / date, conversion amount, follow-up date); view-only
 // logins read them. The Spin record of the same lead is never changed here.
-// lead: the list item plus { display: { name, phone, email, branch, city } } from the page.
+// lead: the list item plus { display: { name, phone, email, branch ({ name, code, city } | null), city } }.
 
 export default function KocToDhruvaLeadPanel({ lead, onClose, onSaved, isHot = false, hotPending = false, onToggleHot = null, showHot = false }) {
   const { canEdit } = useAuth();
@@ -64,11 +65,9 @@ export default function KocToDhruvaLeadPanel({ lead, onClose, onSaved, isHot = f
     ["Email", d.email || "—"],
     ["Occasion", lead.occasion || "—"],
     ["Event date", dayText(lead.event_date)],
-    ["Branch", d.branch || "—"],
-    ["Pincode", lead.pincode || "—"],
+    ["Branch", branchText(d.branch)],
     ["Estimated budget per card", budgetText(lead.estimated_budget_per_card)],
     ["Quantity required", quantityText(lead.quantity_required)],
-    ["Reason", reasonLabel(lead.reason, lead.reason_label) || "—"],
     ["Received", dateTimeText(lead.received)],
   ];
 
@@ -78,7 +77,7 @@ export default function KocToDhruvaLeadPanel({ lead, onClose, onSaved, isHot = f
       const title = d.name || phoneText(d.phone);
       await downloadLeadPdf({
         title,
-        subtitle: [lead.occasion, reasonLabel(lead.reason, lead.reason_label)].filter(Boolean).join(" · "),
+        subtitle: lead.occasion || "",
         source: "KOC → Dhruva lead",
         fileName: `koc-to-dhruva-lead-${String(title || "lead").replace(/[^\w]+/g, "-").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`,
         sections: [

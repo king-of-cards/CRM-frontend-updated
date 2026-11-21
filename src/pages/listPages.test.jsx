@@ -24,6 +24,7 @@ const ROW = {
   event_date: "2026-12-20", venue: "Palace Grounds", event_type: "Wedding", source: "manual",
   reason: "budget", reason_label: "Budget ≥ ₹70", quantity_required: 1200, estimated_budget_per_card: "70-100",
   received: "2026-11-20T10:00:00Z", update_status: "interested", is_hot: true, origin: "workflow",
+  branch: { id: 11, name: "Chitradurga", code: "CTRD-011", city: "Chitradurga" }, // as the API sends on spin / KOC → Dhruva items
   crm: {
     lead_key: "1", vendor: { id: 9, name: "Kraftyz" }, vendor_source: "source_default", update_status: "interested",
     quoted_amount: 50000, quoted_date: "2026-11-21", conversion_amount: null, notes: "Call back", follow_up_date: "2026-12-01",
@@ -142,4 +143,14 @@ describe("every lead list renders its filters and columns", () => {
       });
     }
   }
+  test("KOC → Dhruva: Branch as Spin shows it (name pill, code · city); no Reason or Pincode column", () => {
+    mode = "data";
+    memory.clear();
+    const html = render("koc_to_dhruva", "admin");
+    expect(html).toContain("Chitradurga</span>");
+    expect(html).toContain("CTRD-011 · Chitradurga");
+    expect(html).not.toContain(">Reason</th>");
+    expect(html).not.toContain(">Pincode</th>");
+    expect(html).toContain("Reason"); // the Reason filter stays
+  });
 });

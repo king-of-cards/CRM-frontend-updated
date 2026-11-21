@@ -21,11 +21,12 @@ import { KOC_TO_DHRUVA } from "../components/leads/leadFilters.js";
 import { kpiCards } from "../components/leads/kpiCards.js";
 import { AmountCell, UpdateCell } from "../components/leads/InlineCrm.jsx";
 import AlsoInBadges from "../components/leads/AlsoInBadges.jsx";
-import { storeFor } from "../components/leads/stores.js";
+import { branchOf } from "../components/leads/stores.js";
+import BranchCell from "../components/leads/BranchCell.jsx";
 import { fieldCls } from "../components/crmLeads/Drawer.jsx";
 import KocToDhruvaLeadPanel from "../components/vendorToKoc/KocToDhruvaLeadPanel.jsx";
 import { dateTimeText, dayText, dhruvaErrors, phoneText } from "./dhruvaUtils.js";
-import { budgetText, quantityText, reasonLabel, spinField } from "./kocToDhruvaUtils.js";
+import { budgetText, quantityText, spinField } from "./kocToDhruvaUtils.js";
 
 // KOC → Dhruva (docs/API_REFERENCE.md section 18): the spin leads shared with Dhruva by rule
 // (budget per card ≥ ₹70 or quantity ≥ 1000). Admins and Dhruva logins edit this section's CRM
@@ -45,10 +46,6 @@ const sortQuery = (value) => {
   return { sort, order };
 };
 const th = "whitespace-nowrap px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500";
-const REASON_STYLES = {
-  budget: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  quantity: "bg-indigo-50 text-indigo-700 ring-indigo-200",
-};
 
 // A date or text cell that saves on change / blur (view only: plain text). Rendered with a key
 // that includes the saved value, so a new value from the API starts it afresh.
@@ -125,19 +122,15 @@ export default function KocToDhruvaLeads() {
   }, [page, pageSize, queryKey, sortValue]);
 
   const branches = useMemo(() => options.branches ?? [], [options]);
-  // Spin's raw fields (name, phone, email, branch) as display values
-  const displayOf = useCallback((l) => {
-    const branchValue = l.branch ?? spinField(l, "branch");
-    const branchId = branchValue && typeof branchValue === "object" ? branchValue.id ?? branchValue.name : branchValue;
-    const store = branchValue && typeof branchValue === "object" && branchValue.name ? branchValue : storeFor(branchId, branches);
-    return {
-      name: l.name ?? spinField(l, "name"),
-      phone: l.phone ?? spinField(l, "phone"),
-      email: l.email ?? spinField(l, "email"),
-      branch: store?.name ?? null,
-      city: l.city ?? spinField(l, "city"),
-    };
-  }, [branches]);
+  // Spin's raw fields (name, phone, email) as display values; the branch is the API's item.branch
+  // ({ id, name, code, city }, as on spin items), or looked up from item.branch_id
+  const displayOf = useCallback((l) => ({
+    name: l.name ?? spinField(l, "name"),
+    phone: l.phone ?? spinField(l, "phone"),
+    email: l.email ?? spinField(l, "email"),
+    branch: branchOf(l, branches),
+    city: l.city ?? spinField(l, "city"),
+  }), [branches]);
   const items = useMemo(() => (data?.items ?? []).map((l) => ({ ...l, display: displayOf(l) })), [data, displayOf]);
   const openLead = openKey == null ? null : items.find((l) => String(l.lead_key) === String(openKey)) ?? null;
 
@@ -190,7 +183,7 @@ export default function KocToDhruvaLeads() {
       .catch((err) => setMessage({ kind: "error", text: dhruvaErrors(err).message || err.message }))
       .finally(() => setHotPending((c) => ({ ...c, [key]: false })));
   };
-  const colCount = 16 + (showHot ? 1 : 0);
+  const colCount = 14 + (showHot ? 1 : 0);
   const stop = (e) => e.stopPropagation();
   const description = "Spin leads shared with Dhruva: budget per card ≥ ₹70 or quantity ≥ 1000";
 
@@ -216,8 +209,8 @@ export default function KocToDhruvaLeads() {
               <tr>
                 {showHot && <th className={th} aria-label="Hot lead" />}
                 <th className={th}>Name</th><th className={th}>Phone</th><th className={th}>Occasion</th><th className={th}>Event date</th>
-                <th className={th}>Branch</th><th className={th}>Pincode</th><th className={`${th} text-right`}>Estimated budget per card</th>
-                <th className={`${th} text-right`}>Quantity required</th><th className={th}>Reason</th><th className={th}>Received</th>
+                <th className={th}>Branch</th><th className={`${th} text-right`}>Estimated budget per card</th>
+                <th className={`${th} text-right`}>Quantity required</th><th className={th}>Received</th>
                 <th className={th}>Update</th><th className={th}>Additional comments</th><th className={`${th} text-right`}>Quoted amount</th>
                 <th className={th}>Quoted date</th><th className={`${th} text-right`}>Conversion amount</th><th className={th}>Follow-up date</th>
               </tr>
@@ -238,11 +231,9 @@ export default function KocToDhruvaLeads() {
                     <td className="whitespace-nowrap px-3 py-3">{phoneText(l.display.phone)}</td>
                     <td className="px-3 py-3">{l.occasion || "—"}</td>
                     <td className="whitespace-nowrap px-3 py-3">{dayText(l.event_date)}</td>
-                    <td className="px-3 py-3">{l.display.branch || "—"}</td>
-                    <td className="whitespace-nowrap px-3 py-3">{l.pincode || "—"}</td>
+                    <td className="px-3 py-3"><BranchCell branch={l.display.branch} empty="—" /></td>
                     <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">{budgetText(l.estimated_budget_per_card)}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">{quantityText(l.quantity_required)}</td>
-                    <td className="px-3 py-3">{l.reason ? <span className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${REASON_STYLES[l.reason] ?? "bg-gray-100 text-gray-700 ring-gray-200"}`}>{reasonLabel(l.reason, l.reason_label)}</span> : "—"}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-gray-600" title={dateTimeText(l.received)}>{dayText(l.received)}</td>
                     <td className="px-2 py-2" onClick={stop}><UpdateCell crm={crm} save={save} /></td>
                     <td className="px-2 py-2" onClick={stop}><SaveCell key={`notes-${crm.notes ?? ""}`} kind="text" field="notes" label="Additional comments" value={crm.notes} save={save} canEdit={canEdit} /></td>

@@ -13,6 +13,7 @@ import {
   spinField,
 } from "./kocToDhruvaUtils.js";
 import { topCitiesSubtitleFor } from "./topCities.js";
+import { branchOf, branchText } from "../components/leads/stores.js";
 
 describe("KOC → Dhruva labels", () => {
   test("Reason badge: the API's label, else ours", () => {
@@ -90,5 +91,20 @@ describe("KOC → Dhruva CRM edits", () => {
     const form = { ...crmFormOf(crm), update_status: "interested", notes: "", follow_up_date: "2026-12-01" };
     expect(crmChanges(form, crm)).toEqual({ update_status: "interested", notes: null, follow_up_date: "2026-12-01" });
     expect(crmChanges(crmFormOf(crm), crm)).toEqual({});
+  });
+});
+
+describe("KOC → Dhruva branch (as spin items)", () => {
+  test("item.branch from the API, else item.branch_id, else none", () => {
+    const branch = { id: 11, name: "Chitradurga", code: "CTRD-011", city: "Chitradurga" };
+    expect(branchOf({ branch, branch_id: 11 })).toEqual(branch);
+    expect(branchOf({ branch: null, branch_id: 11 })).toMatchObject({ name: "Chitradurga", code: "CTRD-011" });
+    expect(branchOf({ branch_id: 4 }, [{ id: 4, name: "Jayanagar (renamed)", code: "JNG-004" }])).toMatchObject({ name: "Jayanagar (renamed)" });
+    expect(branchOf({ branch: null, branch_id: null })).toBeNull();
+  });
+  test("one line for the panel and PDF: name · code, or —", () => {
+    expect(branchText({ name: "Chitradurga", code: "CTRD-011", city: "Chitradurga" })).toBe("Chitradurga · CTRD-011");
+    expect(branchText({ name: "HSR Layout", code: null })).toBe("HSR Layout");
+    expect(branchText(null)).toBe("—");
   });
 });

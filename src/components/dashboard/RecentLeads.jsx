@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   ArrowUpRight,
-  Building2,
   MapPin,
   Target,
 } from "lucide-react";
@@ -10,6 +9,7 @@ import { getFilterOptions, getLeadStats, listLeads, listQuery } from "../../api/
 import { listBranches } from "../../api/branches.js";
 import { pincodeArea } from "../leads/pincode.js";
 import { storeFor } from "../leads/stores.js";
+import BranchCell from "../leads/BranchCell.jsx";
 import { useVendors } from "../leads/InlineCrm.jsx";
 import LeadSearch from "../leads/LeadSearch.jsx";
 import { useAuth } from "../../auth/useAuth.js";
@@ -426,24 +426,7 @@ export default function RecentLeads({ source = "spin" }) {
           {
             id: "branch",
             header: "Branch",
-            render: (l) => {
-              const b = locationOf(l, f, branches).branch;
-              if (!b)
-                return <span className="text-xs text-gray-400">No branch</span>;
-              return (
-                <span className="block leading-tight">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800 ring-1 ring-sky-100">
-                    <Building2 size={12} aria-hidden="true" />
-                    {b.name}
-                  </span>
-                  {(b.code || b.city) && (
-                    <span className="mt-1 block pl-1 text-[11px] text-gray-500">
-                      {[b.code, b.city].filter(Boolean).join(" · ")}
-                    </span>
-                  )}
-                </span>
-              );
-            },
+            render: (l) => <BranchCell branch={locationOf(l, f, branches).branch} />,
           },
           {
             id: "location",
