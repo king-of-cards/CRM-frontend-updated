@@ -1,44 +1,56 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { BadgeCheck, Clock3, Flame, IndianRupee, Inbox, Send, ThumbsDown, ThumbsUp, Wallet, Receipt } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  AlarmClock, BadgeCheck, CalendarDays, Clock3, Gem, Hourglass, IndianRupee, Receipt, Send, Share2, ThumbsUp, Wallet,
+} from "lucide-react";
 import { getKocToDhruvaDashboard } from "../api/kocToDhruva.js";
 import { Kpi, Panel } from "../components/dashboard/DashboardParts.jsx";
 import FollowUpsCard from "../components/dashboard/FollowUpsCard.jsx";
-import TopCities from "../components/dashboard/TopCities.jsx";
-import { dateTimeText, dayText, dhruvaErrors, phoneText, statusLabel } from "./dhruvaUtils.js";
-import { budgetBandRows, dashboardKpiCards, kocToDhruvaListLink, num, occasionRows, reasonLabel, reasonRows, statusRows } from "./kocToDhruvaUtils.js";
-import { periodLabel } from "./dashboardPeriod.js";
+import { dayText, dhruvaErrors, rupeesText } from "./dhruvaUtils.js";
+import {
+  branchRows, budgetBandRows, budgetQuantityText, dashboardKpiCards, daysSince, entryStatus, funnelRows,
+  leadLink, monthlyPoints, num, pctText, potentialText,
+} from "./kocToDhruvaUtils.js";
 
 // KOC → Dhruva dashboard (GET /analytics/koc-to-dhruva, docs section 18): the shared period
-// (All time by default), the KPI cards (each opens the filtered list), follow-ups, charts and
-// the latest leads.
+// (All time by default), the KPI cards (each opens the filtered list where an exact filter
+// exists), follow-ups, then three pairs of panels: Monthly | Funnel, Upcoming events | Top value
+// leads, By branch | By budget band, Stale leads | Latest leads.
 
-const COLORS = ["#4f46e5", "#8b5cf6", "#f59e0b", "#e11d48", "#0284c7", "#16a34a", "#d97706", "#64748b"];
-const chartDate = (v) => (v?.length === 7 ? new Date(`${v}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : dayText(v));
-const KPI_ICONS = { total: Inbox, interested: ThumbsUp, not_interested: ThumbsDown, quotes_sent: Send, quoted_amount: Receipt, converted: BadgeCheck, conversion_amount: IndianRupee, aov: Wallet, hot: Flame, pending: Clock3 };
-const kpiGradient = (key, i) => (key === "hot" ? "from-amber-500 to-orange-600" : i % 2 ? "from-violet-500 to-violet-700" : "from-indigo-500 to-indigo-700");
+const KPI_ICONS = {
+  shared: Share2, pending: Clock3, interested: ThumbsUp, quotes_sent: Send, quoted_amount: Receipt,
+  converted: BadgeCheck, conversion_amount: IndianRupee, aov: Wallet, potential_value: Gem, follow_ups_due: AlarmClock,
+};
+const kpiGradient = (key, i) =>
+  key === "follow_ups_due" ? "from-amber-500 to-orange-600" : i % 2 ? "from-violet-500 to-violet-700" : "from-indigo-500 to-indigo-700";
+const th = "py-2 pr-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500";
+const empty = (text) => <p className="text-sm text-gray-500">{text}</p>;
 
-// Bars with counts; rows with filters open the list (with the period)
-function BarRows({ rows, period, color, empty = "No data for this period." }) {
-  const max = Math.max(1, ...rows.map((r) => r.count));
-  if (!rows.some((r) => r.count)) return <p className="text-sm text-gray-500">{empty}</p>;
+// A lead in a dashboard list: its name opens it on the list
+function LeadName({ lead }) {
   return (
-    <div className="space-y-3">
-      {rows.map((r) => (
-        <div key={r.key}>
-          <div className="flex justify-between gap-3 text-sm">
-            <span className="truncate text-gray-700">{r.label}</span>
-            {r.filters && r.count ? (
-              <Link className="font-semibold tabular-nums hover:underline" to={kocToDhruvaListLink(r.filters, period)}>{num(r.count)}</Link>
-            ) : (
-              <span className="font-semibold tabular-nums">{num(r.count)}</span>
-            )}
-          </div>
-          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full" style={{ width: `${(r.count / max) * 100}%`, backgroundColor: color }} /></div>
-        </div>
+    <Link to={leadLink(lead)} className="font-medium text-gray-900 hover:text-brand-700 hover:underline">
+      {lead.name || "Unnamed lead"}
+    </Link>
+  );
+}
+
+// A compact list of leads: name, a detail line, and a value on the right
+function LeadList({ leads, detail, right, none }) {
+  if (!leads.length) return empty(none);
+  return (
+    <ul className="divide-y divide-gray-100">
+      {leads.map((l) => (
+        <li key={l.lead_key} className="flex items-start justify-between gap-3 py-2.5">
+          <span className="min-w-0">
+            <LeadName lead={l} />
+            <span className="block truncate text-xs text-gray-500">{detail(l)}</span>
+          </span>
+          <span className="shrink-0 text-right text-sm tabular-nums text-gray-900">{right(l)}</span>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }
 
@@ -60,11 +72,15 @@ export default function KocToDhruvaDashboard({ period, refreshKey }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period.all, period.from, period.to, refreshKey]);
 
-  const inflow = useMemo(() => (data?.inflow ?? []).map((x) => ({ ...x, label: x.end ? periodLabel(x.date, x.end) : chartDate(x.date) })), [data]);
-  const statusBars = statusRows(data?.by_status);
+  const monthly = useMemo(() => monthlyPoints(data?.monthly), [data]);
+  const funnel = funnelRows(data?.funnel, period);
+  const funnelMax = Math.max(1, ...funnel.map((s) => s.count));
+  const upcoming = data?.upcoming_events ?? {};
+  const branches = branchRows(data?.by_branch, period);
+  const bands = budgetBandRows(data?.by_budget_band);
+  const stale = data?.stale ?? {};
   const cards = dashboardKpiCards(data?.kpis, period);
   const kpiLoading = loading && !data;
-  const latest = data?.latest ?? [];
 
   return (
     <>
@@ -74,66 +90,123 @@ export default function KocToDhruvaDashboard({ period, refreshKey }) {
       </section>
       <div className="mt-6"><FollowUpsCard flow="koc_to_dhruva" /></div>
       <section className="mt-6 grid gap-4 xl:grid-cols-2">
-        <Panel title="Lead inflow" subtitle="Received during the selected period, by reason">
-          <div className="h-72">
-            {inflow.length ? (
+        <Panel title="Monthly" subtitle="Leads shared and converted, by the month they were received">
+          <div className="h-64">
+            {monthly.some((m) => m.shared || m.converted) ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={inflow} margin={{ top: 10, right: 12, left: -18, bottom: 0 }}>
-                  <defs><linearGradient id="kocDhruvaInflow" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#4f46e5" stopOpacity={0.25} /><stop offset="95%" stopColor="#4f46e5" stopOpacity={0.02} /></linearGradient></defs>
+                <BarChart data={monthly} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={24} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={16} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                  <Tooltip labelFormatter={(_, p) => p?.[0]?.payload?.label} />
+                  <Tooltip />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Area type="monotone" dataKey="total" name="Total" stroke="#4f46e5" fill="url(#kocDhruvaInflow)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="budget" name="Budget ≥ ₹70" stroke="#16a34a" fill="none" strokeWidth={1.5} />
-                  <Area type="monotone" dataKey="quantity" name="Quantity ≥ 1000" stroke="#f59e0b" fill="none" strokeWidth={1.5} />
-                </AreaChart>
+                  <Bar dataKey="shared" name="Shared" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="converted" name="Converted" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             ) : <p className="pt-10 text-center text-sm text-gray-500">No leads received in this period.</p>}
           </div>
         </Panel>
-        <Panel title="Update breakdown" subtitle="Current update of leads received in this period">
-          <div className="h-72">
-            {statusBars.some((x) => x.count) ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={statusBars} layout="vertical" margin={{ top: 8, right: 16, left: 18, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" allowDecimals={false} />
-                  <YAxis type="category" dataKey="label" width={125} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="count" radius={[0, 5, 5, 0]}>{statusBars.map((x, i) => <Cell key={x.key} fill={COLORS[i % COLORS.length]} />)}</Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <p className="pt-10 text-center text-sm text-gray-500">No updates yet.</p>}
-          </div>
+        <Panel title="Funnel" subtitle="How far the period's leads got (% of shared)">
+          {funnel.some((s) => s.count) ? (
+            <div className="space-y-3">
+              {funnel.map((s) => (
+                <div key={s.key}>
+                  <div className="flex justify-between gap-3 text-sm">
+                    <span className="text-gray-700">{s.label}</span>
+                    <span className="tabular-nums">
+                      {s.to ? <Link to={s.to} className="font-semibold hover:underline">{num(s.count)}</Link> : <span className="font-semibold">{num(s.count)}</span>}
+                      {s.pct != null && <span className="ml-1.5 text-xs text-gray-500">{s.pct}%</span>}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-100">
+                    <div className="h-full rounded-full bg-linear-to-r from-indigo-500 to-violet-500" style={{ width: `${(s.count / funnelMax) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : empty("No leads received in this period.")}
         </Panel>
-        <Panel title="Leads by reason"><BarRows rows={reasonRows(data?.by_reason)} period={period} color="#4f46e5" /></Panel>
-        <Panel title="Leads by budget band" subtitle="Estimated budget per card"><BarRows rows={budgetBandRows(data?.by_budget_band)} period={period} color="#16a34a" /></Panel>
-        <Panel title="Leads by occasion" subtitle="Top 10 occasions"><BarRows rows={occasionRows(data?.by_occasion)} period={period} color="#8b5cf6" /></Panel>
-        <TopCities rows={data?.top_cities} sources={data?.top_cities_sources} defaultSource="koc_to_dhruva" flow="koc_to_dhruva" />
-        <Panel title="Latest leads" subtitle="Six newest leads received in this period">
-          {latest.length ? (
+
+        <Panel title="Upcoming events" subtitle="Open leads with an event from today" icon={CalendarDays}>
+          <div className="mb-3 flex flex-wrap gap-2 text-xs">
+            {[["Next 30 days", upcoming.next_30_days], ["Next 60 days", upcoming.next_60_days], ["Next 90 days", upcoming.next_90_days]].map(([label, n]) => (
+              <span key={label} className="rounded-full bg-indigo-50 px-2.5 py-1 font-medium text-indigo-700 ring-1 ring-indigo-100">{label}: {num(n)}</span>
+            ))}
+          </div>
+          <LeadList
+            leads={upcoming.next ?? []}
+            detail={(l) => `${budgetQuantityText(l)} · ${entryStatus(l)}`}
+            right={(l) => dayText(l.event_date)}
+            none="No upcoming events."
+          />
+        </Panel>
+        <Panel title="Top value leads" subtitle="Open leads with the highest potential value (budget × quantity)" icon={Gem}>
+          <LeadList
+            leads={data?.top_value_leads ?? []}
+            detail={(l) => `${budgetQuantityText(l)} · ${entryStatus(l)}`}
+            right={(l) => <span className="font-semibold">{potentialText(l.potential_value)}</span>}
+            none="No open leads with a potential value."
+          />
+        </Panel>
+
+        <Panel title="By branch" subtitle="Leads received in the period">
+          {branches.length ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead><tr className="border-b text-xs text-gray-500"><th className="py-2">Name</th><th>Occasion</th><th>Reason</th><th>Update</th><th aria-label="Hot lead" /></tr></thead>
+              <table className="w-full text-sm">
+                <thead><tr className="border-b border-gray-100"><th className={th}>Branch</th><th className={`${th} text-right`}>Leads</th><th className={`${th} text-right`}>Converted</th><th className={`${th} text-right`}>Conversion amount</th></tr></thead>
                 <tbody>
-                  {latest.map((l) => (
-                    <tr key={l.lead_key} className="border-b border-gray-50">
-                      <td className="py-3">
-                        <Link to={kocToDhruvaListLink({ search: l.name || l.phone || "", notification_lead_key: l.lead_key })} className="font-medium text-gray-900 hover:text-brand-700 hover:underline">{l.name || phoneText(l.phone)}</Link>
-                        <span className="block text-xs text-gray-500">{dateTimeText(l.received)}</span>
-                      </td>
-                      <td>{l.occasion || "—"}</td>
-                      <td>{reasonLabel(l.reason) || "—"}</td>
-                      <td>{statusLabel(l.update_status)}</td>
-                      <td>{l.is_hot ? <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200"><Flame size={11} aria-hidden="true" />Hot</span> : null}</td>
+                  {branches.map((b) => (
+                    <tr key={b.key} className="border-b border-gray-50">
+                      <td className="py-2.5 pr-3"><span className="font-medium text-gray-900">{b.name}</span>{b.code && <span className="block text-[11px] text-gray-500">{b.code}</span>}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums">{b.to ? <Link to={b.to} className="font-semibold hover:underline">{num(b.leads)}</Link> : num(b.leads)}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums">{num(b.converted)}</td>
+                      <td className="py-2.5 text-right tabular-nums">{b.conversionAmount ? rupeesText(b.conversionAmount) : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          ) : <p className="text-sm text-gray-500">No leads for this period.</p>}
+          ) : empty("No leads received in this period.")}
+        </Panel>
+        <Panel title="By budget band" subtitle="Estimated budget per card">
+          {bands.some((b) => b.leads) ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b border-gray-100"><th className={th}>Budget</th><th className={`${th} text-right`}>Leads</th><th className={`${th} text-right`}>Converted</th><th className={`${th} text-right`}>Rate</th></tr></thead>
+                <tbody>
+                  {bands.map((b) => (
+                    <tr key={b.key} className="border-b border-gray-50">
+                      <td className="py-2.5 pr-3 text-gray-800">{b.label}</td>
+                      <td className="py-2.5 pr-3 text-right font-semibold tabular-nums">{num(b.leads)}</td>
+                      <td className="py-2.5 pr-3 text-right tabular-nums">{num(b.converted)}</td>
+                      <td className="py-2.5 text-right tabular-nums text-gray-600">{pctText(b.pct) || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : empty("No leads received in this period.")}
+        </Panel>
+
+        <Panel title="Stale leads" subtitle={`${num(stale.count)} open leads untouched for 7+ days`} icon={Hourglass}>
+          <LeadList
+            leads={stale.oldest ?? []}
+            detail={(l) => `${entryStatus(l)} · last change ${l.last_update ? dayText(l.last_update) : "never"}`}
+            right={(l) => {
+              const days = daysSince(l.last_update ?? l.received);
+              return days == null ? "—" : `${days} days`;
+            }}
+            none="Nothing stale: every open lead was touched in the last 7 days."
+          />
+        </Panel>
+        <Panel title="Latest leads" subtitle="Six newest leads received in this period">
+          <LeadList
+            leads={data?.latest ?? []}
+            detail={(l) => [l.occasion, l.event_date && dayText(l.event_date), budgetQuantityText(l)].filter(Boolean).join(" · ")}
+            right={(l) => <span className="text-xs text-gray-600">{entryStatus(l)}</span>}
+            none="No leads for this period."
+          />
         </Panel>
       </section>
     </>

@@ -48,9 +48,8 @@ export const KOC_TO_DHRUVA = "koc_to_dhruva";
 export const KOC_TO_DHRUVA_KEYS = [
   "search", "date_from", "date_to", "event_from", "event_to", "upcoming_days",
   "update_status", "quote", "conversion", "follow_up", "hot", "also_in", "origin",
-  "branch", "pincode", "budget", "occasion", "quantity_min", "quantity_max", "reason",
+  "branch", "pincode", "budget", "occasion", "quantity_min", "quantity_max",
 ];
-export const REASON_LABELS = { budget: "Budget ≥ ₹70", quantity: "Quantity ≥ 1000" };
 // follow_up: the follow-up date relative to today (docs section 10)
 export const FOLLOW_UP_LABELS = { due: "Due", overdue: "Overdue", today: "Today", upcoming: "Upcoming" };
 export const KOC_KEYS = [
@@ -159,7 +158,7 @@ export function activeCount(filters, source) {
     return [
       ["date_from", "date_to"], ["event_from", "event_to", "upcoming_days"], ["update_status"],
       ["quote"], ["conversion"], ["follow_up"], ["hot"], ["also_in"], ["origin"], ["branch"],
-      ["pincode"], ["budget"], ["occasion"], ["quantity_min", "quantity_max"], ["reason"],
+      ["pincode"], ["budget"], ["occasion"], ["quantity_min", "quantity_max"],
     ].filter((group) => group.some(has)).length;
   }
   const groups = [

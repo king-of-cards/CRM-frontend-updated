@@ -11,7 +11,7 @@ import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/D
 import { useAuth } from "../../auth/useAuth.js";
 import { ViewOnlyBadge } from "../shared/ViewOnly.jsx";
 import { dateTimeText, dayText, dhruvaErrors, phoneText, rupeesText, statusLabel, STATUSES, PENDING } from "../../pages/dhruvaUtils.js";
-import { budgetText, crmChanges, crmFormOf as formOf, quantityText } from "../../pages/kocToDhruvaUtils.js";
+import { budgetText, crmChanges, crmFormOf as formOf, potentialText, quantityText } from "../../pages/kocToDhruvaUtils.js";
 import { branchText } from "../leads/stores.js";
 
 // One KOC → Dhruva lead (docs section 18). Admins and Dhruva logins edit this section's CRM
@@ -68,6 +68,7 @@ export default function KocToDhruvaLeadPanel({ lead, onClose, onSaved, isHot = f
     ["Branch", branchText(d.branch)],
     ["Estimated budget per card", budgetText(lead.estimated_budget_per_card)],
     ["Quantity required", quantityText(lead.quantity_required)],
+    ["Potential value", potentialText(lead.potential_value)],
     ["Received", dateTimeText(lead.received)],
   ];
 

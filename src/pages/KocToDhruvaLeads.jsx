@@ -26,7 +26,7 @@ import BranchCell from "../components/leads/BranchCell.jsx";
 import { fieldCls } from "../components/crmLeads/Drawer.jsx";
 import KocToDhruvaLeadPanel from "../components/vendorToKoc/KocToDhruvaLeadPanel.jsx";
 import { dateTimeText, dayText, dhruvaErrors, phoneText } from "./dhruvaUtils.js";
-import { budgetText, quantityText, spinField } from "./kocToDhruvaUtils.js";
+import { budgetText, POTENTIAL_SORT, potentialText, quantityText, spinField } from "./kocToDhruvaUtils.js";
 
 // KOC → Dhruva (docs/API_REFERENCE.md section 18): the spin leads shared with Dhruva by rule
 // (budget per card ≥ ₹70 or quantity ≥ 1000). Admins and Dhruva logins edit this section's CRM
@@ -39,6 +39,7 @@ const SORTS = [
   { value: "received:asc", label: "Oldest first" },
   { value: "event_date:asc", label: "Event date (soonest)" },
   { value: "quantity_required:desc", label: "Quantity (largest)" },
+  { value: POTENTIAL_SORT, label: "Potential value (highest)" }, // empty values last (API)
 ];
 const sortQuery = (value) => {
   if (!value) return {};
@@ -183,7 +184,7 @@ export default function KocToDhruvaLeads() {
       .catch((err) => setMessage({ kind: "error", text: dhruvaErrors(err).message || err.message }))
       .finally(() => setHotPending((c) => ({ ...c, [key]: false })));
   };
-  const colCount = 14 + (showHot ? 1 : 0);
+  const colCount = 15 + (showHot ? 1 : 0);
   const stop = (e) => e.stopPropagation();
   const description = "Spin leads shared with Dhruva: budget per card ≥ ₹70 or quantity ≥ 1000";
 
@@ -210,7 +211,7 @@ export default function KocToDhruvaLeads() {
                 {showHot && <th className={th} aria-label="Hot lead" />}
                 <th className={th}>Name</th><th className={th}>Phone</th><th className={th}>Occasion</th><th className={th}>Event date</th>
                 <th className={th}>Branch</th><th className={`${th} text-right`}>Estimated budget per card</th>
-                <th className={`${th} text-right`}>Quantity required</th><th className={th}>Received</th>
+                <th className={`${th} text-right`}>Quantity required</th><th className={`${th} text-right`}>Potential value</th><th className={th}>Received</th>
                 <th className={th}>Update</th><th className={th}>Additional comments</th><th className={`${th} text-right`}>Quoted amount</th>
                 <th className={th}>Quoted date</th><th className={`${th} text-right`}>Conversion amount</th><th className={th}>Follow-up date</th>
               </tr>
@@ -234,6 +235,7 @@ export default function KocToDhruvaLeads() {
                     <td className="px-3 py-3"><BranchCell branch={l.display.branch} empty="—" /></td>
                     <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">{budgetText(l.estimated_budget_per_card)}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">{quantityText(l.quantity_required)}</td>
+                    <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">{potentialText(l.potential_value)}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-gray-600" title={dateTimeText(l.received)}>{dayText(l.received)}</td>
                     <td className="px-2 py-2" onClick={stop}><UpdateCell crm={crm} save={save} /></td>
                     <td className="px-2 py-2" onClick={stop}><SaveCell key={`notes-${crm.notes ?? ""}`} kind="text" field="notes" label="Additional comments" value={crm.notes} save={save} canEdit={canEdit} /></td>

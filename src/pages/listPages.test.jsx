@@ -22,7 +22,7 @@ const ROW = {
   estimatedBudgetPerCard: "70-100", created_at: "2026-11-20T10:00:00Z", submitted_at: "2026-11-20T10:00:00Z",
   updated: "2026-11-20T10:00:00Z", city: "Bangalore", country: "India", occasion: "Wedding",
   event_date: "2026-12-20", venue: "Palace Grounds", event_type: "Wedding", source: "manual",
-  reason: "budget", reason_label: "Budget ≥ ₹70", quantity_required: 1200, estimated_budget_per_card: "70-100",
+  potential_value: 84000, quantity_required: 1200, estimated_budget_per_card: "70-100",
   received: "2026-11-20T10:00:00Z", update_status: "interested", is_hot: true, origin: "workflow",
   branch: { id: 11, name: "Chitradurga", code: "CTRD-011", city: "Chitradurga" }, // as the API sends on spin / KOC → Dhruva items
   crm: {
@@ -44,9 +44,24 @@ const ANSWER = {
   pincodes: [{ value: "560018", count: 1 }], budgets: [{ value: "70-100", count: 1 }],
   other_services: [{ value: "Wedding Gifts & Return Gifts", count: 1 }], updates: [{ value: "interested", count: 1 }],
   origins: [{ value: "workflow", count: 1 }], vendors: [{ id: 9, name: "Kraftyz" }], occasions: [{ value: "Wedding", count: 1 }],
-  reasons: [{ value: "budget", count: 1 }], event_types: [{ value: "Wedding", count: 1 }], last_steps: [], shared_with: [],
+  event_types: [{ value: "Wedding", count: 1 }], last_steps: [], shared_with: [],
   quantity_range: { min: 1000, max: 5000 },
   sources: [], // GET /sheets/sources (sheet sync status)
+};
+
+// GET /analytics/koc-to-dhruva (docs section 18)
+const ENTRY = { lead_key: "crm-7", name: "Meera Iyer", event_date: "2026-12-20", budget: "70-100", quantity: 1200, potential_value: 84000, update_status: null, status_label: "Pending" };
+const DASH = {
+  kpis: { shared: 12, pending: 5, interested: 3, quotes_count: 2, quoted_count: 2, quoted_total: 90000, converted: 1, converted_pct: 8.3, conversion_count: 1, conversion_total: 40000, conversion_amount_count: 1, conversion_amount_total: 40000, potential_value: 420000, follow_ups_due: 2 },
+  funnel: [{ stage: "shared", count: 12 }, { stage: "contacted", count: 7 }, { stage: "interested", count: 4 }, { stage: "quoted", count: 2 }, { stage: "converted", count: 1 }],
+  upcoming_events: { next_30_days: 2, next_60_days: 3, next_90_days: 4, next: [ENTRY] },
+  top_value_leads: [{ ...ENTRY, lead_key: "crm-8", name: "Ravi Kumar", potential_value: 150000 }],
+  monthly: [{ month: "2026-11", shared: 12, converted: 1 }],
+  by_branch: [{ branch_id: 11, name: "Chitradurga", code: "CTRD-011 · Chitradurga", leads: 8, converted: 1, conversion_amount: 40000 }, { branch_id: null, name: null, code: null, leads: 4, converted: 0, conversion_amount: null }],
+  by_budget_band: [{ band: "70-100", leads: 9, converted: 1, converted_pct: 11.1 }],
+  stale: { count: 1, oldest: [{ ...ENTRY, lead_key: "crm-9", name: "Old Lead", received: "2026-10-01T10:00:00Z", last_update: null }] },
+  latest: [{ ...ENTRY, occasion: "Wedding", received: "2026-11-20T10:00:00Z" }],
+  by_occasion: [{ value: "Engagement", count: 1 }], inflow: [{ date: "2026-11-20", total: 1 }], by_status: { pending: 5 }, top_cities: [{ city: "Mysuru", count: 1 }],
 };
 
 let mode = "empty"; // "empty": nothing loaded yet; "data": every request has ANSWER
@@ -54,6 +69,7 @@ const memory = new Map();
 const storage = { getItem: (k) => (memory.has(k) ? memory.get(k) : null), setItem: (k, v) => memory.set(k, String(v)), removeItem: (k) => memory.delete(k) };
 
 let PAGES;
+let KocToDhruvaDashboard;
 beforeAll(async () => {
   globalThis.sessionStorage = storage;
   globalThis.localStorage = storage;
@@ -61,7 +77,7 @@ beforeAll(async () => {
   mock.module("../api/client.js", () => ({
     ...real,
     // Per path: the vendor list is an array, the sheet status { sources }, the rest ANSWER
-    peek: (path) => (mode !== "data" ? undefined : String(path).startsWith("/vendors") ? ANSWER.vendors : ANSWER),
+    peek: (path) => (mode !== "data" ? undefined : String(path).startsWith("/vendors") ? ANSWER.vendors : String(path).startsWith("/analytics/koc-to-dhruva") ? DASH : ANSWER),
     apiRequest: () => new Promise(() => {}), // never answers: effects don't run in this test anyway
   }));
   PAGES = {
@@ -73,6 +89,7 @@ beforeAll(async () => {
     dhruva: (await import("./DhruvaLeads.jsx")).default,
     koc_to_dhruva: (await import("./KocToDhruvaLeads.jsx")).default,
   };
+  KocToDhruvaDashboard = (await import("./KocToDhruvaDashboard.jsx")).default;
 });
 
 const ROLES = {
@@ -143,7 +160,7 @@ describe("every lead list renders its filters and columns", () => {
       });
     }
   }
-  test("KOC → Dhruva: Branch as Spin shows it (name pill, code · city); no Reason or Pincode column", () => {
+  test("KOC → Dhruva: Branch as Spin shows it; Potential value column; no Reason or Pincode column or filter", () => {
     mode = "data";
     memory.clear();
     const html = render("koc_to_dhruva", "admin");
@@ -151,6 +168,34 @@ describe("every lead list renders its filters and columns", () => {
     expect(html).toContain("CTRD-011 · Chitradurga");
     expect(html).not.toContain(">Reason</th>");
     expect(html).not.toContain(">Pincode</th>");
-    expect(html).toContain("Reason"); // the Reason filter stays
+    expect(html).not.toContain("Reason"); // no Reason column, filter or text
+    expect(html).toContain(">Potential value</th>");
+    expect(html).toContain("₹84,000");
+    expect(html).toContain("Potential value (highest)"); // the sort option
+  });
+});
+
+describe("KOC → Dhruva dashboard", () => {
+  const renderDashboard = (role) =>
+    renderToString(
+      <AuthContext.Provider value={authFor(ROLES[role])}>
+        <MemoryRouter initialEntries={["/dashboard?flow=dhruva&direction=koc_to_dhruva"]}>
+          <KocToDhruvaDashboard period={{ all: true }} refreshKey={0} />
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    );
+  test("nothing loaded yet: renders without crashing", () => {
+    mode = "empty";
+    const html = renderDashboard("dhruva");
+    expect(html).toContain("Leads shared");
+    expect(html).toContain("Funnel");
+  });
+  test("the new KPI cards and panels; no occasion, inflow, Top cities, Update breakdown or reason", () => {
+    mode = "data";
+    const html = renderDashboard("admin");
+    for (const text of ["Leads shared", "Not contacted yet", "Potential value", "Follow-ups due", "Monthly", "Funnel", "Upcoming events", "Top value leads", "By branch", "By budget band", "Stale leads", "Latest leads"])
+      expect(html).toContain(text);
+    for (const name of ["Meera Iyer", "Ravi Kumar", "Old Lead", "Chitradurga", "CTRD-011 · Chitradurga", "No branch", "₹1,50,000"]) expect(html).toContain(name);
+    for (const gone of ["Lead inflow", "Top cities", "Leads by occasion", "Engagement", "Mysuru", "Update breakdown", "Reason"]) expect(html).not.toContain(gone);
   });
 });

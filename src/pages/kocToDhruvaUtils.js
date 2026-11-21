@@ -1,13 +1,18 @@
 // KOC → Dhruva helpers (docs/API_REFERENCE.md section 18). Pure, no React.
-// Spin leads KOC shares with Dhruva by rule: budget per card ≥ ₹70 or quantity ≥ 1000.
+// Spin leads KOC shares with Dhruva by rule (budget per card ≥ ₹70 or quantity ≥ 1000).
 import { AOV_FILTERS, aovOf } from "./aov.js";
-import { PENDING, shortRupees, STATUSES } from "./dhruvaUtils.js";
-import { REASON_LABELS } from "../components/leads/leadFilters.js";
+import { PENDING, rupeesText, shortRupees, statusLabel } from "./dhruvaUtils.js";
 
 export const KOC_TO_DHRUVA_PATH = "/koc-to-dhruva";
-export { REASON_LABELS };
 
 export const num = (n) => (n == null || n === 0 ? "—" : Number(n).toLocaleString("en-IN"));
+export const pctText = (p) => (p == null ? "" : `${p}%`);
+
+// Open leads (docs: Update pending, interested or will call back); the rest are closed
+export const OPEN_UPDATES = [PENDING, "interested", "will_call_back"];
+
+// Sort for the list: highest potential value first (empty values last, as the API sorts)
+export const POTENTIAL_SORT = "potential_value:desc";
 
 // A link to the KOC → Dhruva list with these filters and, unless All time, the period (received)
 export function kocToDhruvaListLink(filters = {}, period) {
@@ -25,8 +30,9 @@ export function kocToDhruvaListLink(filters = {}, period) {
   return qs ? `${KOC_TO_DHRUVA_PATH}?${qs}` : KOC_TO_DHRUVA_PATH;
 }
 
-// The Reason badge: the API's reason_label, else ours ("Budget ≥ ₹70" / "Quantity ≥ 1000")
-export const reasonLabel = (reason, label) => label || REASON_LABELS[reason] || (reason ? String(reason) : "");
+// One lead from a dashboard list: the list searched by its name, opening that lead
+export const leadLink = (lead) =>
+  kocToDhruvaListLink({ search: lead?.name || "", notification_lead_key: lead?.lead_key });
 
 // Estimated budget per card as sent by the workflow ("70-100", "70_100", "500_PLUS", "400")
 export function budgetText(value) {
@@ -41,7 +47,24 @@ export function budgetText(value) {
 export const quantityText = (q) =>
   q == null || q === "" ? "—" : Number.isFinite(Number(q)) ? Number(q).toLocaleString("en-IN") : String(q);
 
-// Budget bands of the dashboard (by_budget_band), in the API's order
+// Potential value (budget-per-card lower bound × quantity, rupees): "₹84,000", or "—" when null
+export const potentialText = (v) => (v == null || v === "" ? "—" : rupeesText(Number(v)));
+
+// "₹70–100 × 1,200" for a dashboard list entry (budget, quantity)
+export const budgetQuantityText = (lead) => `${budgetText(lead?.budget)} × ${quantityText(lead?.quantity)}`;
+
+// A list entry's Update: the API's status_label, else ours (null = Pending)
+export const entryStatus = (lead) => lead?.status_label || statusLabel(lead?.update_status);
+
+// Whole days from an ISO date / date-time to now (for "untouched for N days"); null without a date
+export function daysSince(value, now = Date.now()) {
+  if (!value) return null;
+  const at = new Date(value).getTime();
+  if (!Number.isFinite(at)) return null;
+  return Math.max(0, Math.floor((now - at) / 86_400_000));
+}
+
+// Budget bands (by_budget_band: [{ band, leads, converted, converted_pct }]), in the API's order
 export const BUDGET_BAND_LABELS = {
   "70-100": "₹70–100",
   "100-200": "₹100–200",
@@ -51,54 +74,76 @@ export const BUDGET_BAND_LABELS = {
   not_given: "Not given",
 };
 const BAND_ORDER = Object.keys(BUDGET_BAND_LABELS);
-
-// by_budget_band may be an object { band: count } or a list [{ band|value, label?, count }]
 export function budgetBandRows(byBand) {
-  const list = Array.isArray(byBand)
-    ? byBand.map((b) => ({ key: b.band ?? b.value ?? b.key, label: b.label, count: b.count ?? 0 }))
-    : Object.entries(byBand ?? {}).map(([key, count]) => ({ key, count }));
-  return list
-    .map((b) => ({ ...b, label: b.label ?? BUDGET_BAND_LABELS[b.key] ?? String(b.key), count: Number(b.count) || 0 }))
+  return (Array.isArray(byBand) ? byBand : [])
+    .map((b) => ({
+      key: b.band,
+      label: BUDGET_BAND_LABELS[b.band] ?? String(b.band ?? ""),
+      leads: Number(b.leads) || 0,
+      converted: Number(b.converted) || 0,
+      pct: b.converted_pct ?? null,
+    }))
     .sort((a, b) => (BAND_ORDER.indexOf(a.key) + 1 || 99) - (BAND_ORDER.indexOf(b.key) + 1 || 99));
 }
 
-// by_reason [{ reason, label, count }] -> rows that open the list with that reason
-export const reasonRows = (byReason) =>
-  (byReason ?? []).map((r) => ({
-    key: r.reason,
-    label: reasonLabel(r.reason, r.label),
-    count: Number(r.count) || 0,
-    filters: { reason: r.reason },
-  }));
-
-// by_occasion [{ value|occasion, count }] -> rows that open the list with that occasion
-export const occasionRows = (byOccasion) =>
-  (byOccasion ?? []).map((o) => {
-    const value = o.value ?? o.occasion ?? o.label;
-    return { key: value, label: value, count: Number(o.count) || 0, filters: { occasion: value } };
+// Funnel ([{ stage, count }]): each stage with its % of Shared. Only Shared and Converted have an
+// exact list filter, so only they link.
+const FUNNEL_LABELS = { shared: "Shared", contacted: "Contacted", interested: "Interested", quoted: "Quoted", converted: "Converted" };
+export function funnelRows(funnel, period) {
+  const list = Array.isArray(funnel) ? funnel : [];
+  const shared = Number(list.find((s) => s.stage === "shared")?.count) || 0;
+  return list.map((s) => {
+    const count = Number(s.count) || 0;
+    const filters = s.stage === "shared" ? {} : s.stage === "converted" ? { update_status: ["converted"] } : null;
+    return {
+      key: s.stage,
+      label: FUNNEL_LABELS[s.stage] ?? String(s.stage),
+      count,
+      pct: shared ? Math.round((count / shared) * 100) : null,
+      to: filters ? kocToDhruvaListLink(filters, period) : null,
+    };
   });
-
-// Update breakdown: Pending first, then the 7 statuses
-export function statusRows(byStatus) {
-  const b = byStatus ?? {};
-  return [
-    { key: PENDING, label: "Pending", count: b.pending ?? 0, filters: { update_status: [PENDING] } },
-    ...STATUSES.map((s) => ({ key: s.value, label: s.label, count: b[s.value] ?? 0, filters: { update_status: [s.value] } })),
-  ];
 }
 
-export const pctText = (p) => (p == null ? "" : `${p}%`);
+// Monthly ([{ month: "YYYY-MM", shared, converted }]) -> chart points with "Nov 2026" labels
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const monthLabel = (month) => {
+  const m = /^(\d{4})-(\d{2})/.exec(String(month ?? ""));
+  return m ? `${MONTHS[Number(m[2]) - 1]} ${m[1]}` : String(month ?? "");
+};
+export const monthlyPoints = (monthly) =>
+  (Array.isArray(monthly) ? monthly : []).map((m) => ({
+    month: m.month,
+    label: monthLabel(m.month),
+    shared: Number(m.shared) || 0,
+    converted: Number(m.converted) || 0,
+  }));
 
-// The dashboard's KPI cards, in the other dashboards' order; each opens the matching list
-// (with the period). Converted shows its rate.
+// By branch ([{ branch_id, name, code, leads, converted, conversion_amount }], code = "CHA-001 ·
+// Bangalore"): leads open the list for that branch; the "No branch" row has no link
+export const branchRows = (byBranch, period) =>
+  (Array.isArray(byBranch) ? byBranch : []).map((b) => ({
+    key: b.branch_id ?? "none",
+    name: b.name || "No branch",
+    code: b.code || null,
+    leads: Number(b.leads) || 0,
+    converted: Number(b.converted) || 0,
+    conversionAmount: b.conversion_amount ?? null,
+    to: b.branch_id != null && b.leads ? kocToDhruvaListLink({ branch: String(b.branch_id) }, period) : null,
+  }));
+
+// The dashboard's KPI cards; each opens the list where an exact filter exists (with the period).
+// Follow-ups due covers every open lead (not only the period); Potential value: the period's open
+// leads, sorted by potential value.
 export function dashboardKpiCards(kpis, period) {
   const k = kpis ?? {};
   const link = (filters) => kocToDhruvaListLink(filters, period);
   const { value: aov } = aovOf(k);
+  const shared = k.shared ?? k.total;
   return [
-    { key: "total", label: "Total leads", value: num(k.total), to: link({}) },
+    { key: "shared", label: "Leads shared", value: num(shared), to: link({}) },
+    { key: "pending", label: "Not contacted yet", value: num(k.pending), to: link({ update_status: [PENDING] }) },
     { key: "interested", label: "Interested", value: num(k.interested), to: link({ update_status: ["interested"] }) },
-    { key: "not_interested", label: "Not interested", value: num(k.not_interested), to: link({ update_status: ["not_interested"] }) },
     { key: "quotes_sent", label: "Quotes sent", value: num(k.quotes_count), to: link({ quote: "has" }) },
     { key: "quoted_amount", label: "Quoted amount", value: k.quoted_count ? shortRupees(k.quoted_total ?? 0) : "—", to: link({ quote: "has" }) },
     {
@@ -109,8 +154,13 @@ export function dashboardKpiCards(kpis, period) {
     },
     { key: "conversion_amount", label: "Conversion amount", value: k.conversion_count ? shortRupees(k.conversion_total ?? 0) : "—", to: link({ conversion: "has" }) },
     { key: "aov", label: "AOV", value: aov == null ? "—" : shortRupees(Math.round(aov)), to: link(AOV_FILTERS) },
-    { key: "hot", label: "Hot leads", value: num(k.hot_count), to: link({ hot: "yes" }) },
-    { key: "pending", label: "Pending", value: num(k.pending), to: link({ update_status: [PENDING] }) },
+    {
+      key: "potential_value",
+      label: "Potential value",
+      value: k.potential_value ? shortRupees(k.potential_value) : "—",
+      to: link({ update_status: OPEN_UPDATES, sort: POTENTIAL_SORT }),
+    },
+    { key: "follow_ups_due", label: "Follow-ups due", value: num(k.follow_ups_due), to: kocToDhruvaListLink({ follow_up: "due" }) },
   ];
 }
 

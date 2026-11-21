@@ -26,8 +26,6 @@ export function topCitiesSubtitle(sources, fallback = "All sources") {
 export const TOP_CITIES_DEFAULTS = {
   "": ["spin", "wedding", "wedding_planner"],
   vendors: ["vendor_to_koc"],
-  // The KOC → Dhruva dashboard's own leads (/analytics/koc-to-dhruva)
-  koc_to_dhruva: ["koc_to_dhruva"],
 };
 
 // Subtitle for a flow: the API's top_cities_sources, else that flow's default sources

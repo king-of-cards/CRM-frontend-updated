@@ -1,4 +1,4 @@
-import { DHRUVA, FOLLOW_UP_LABELS, hasFilterValue, KOC, KOC_TO_DHRUVA, NOT_SHARED, ORIGIN_LABELS, REASON_LABELS, UPDATE_LABELS } from "./leadFilters.js";
+import { DHRUVA, FOLLOW_UP_LABELS, hasFilterValue, KOC, KOC_TO_DHRUVA, NOT_SHARED, ORIGIN_LABELS, UPDATE_LABELS } from "./leadFilters.js";
 
 const countLabel = (value, list = []) => {
   const found = list.find((item) => String(item.value) === String(value));
@@ -17,7 +17,7 @@ export function buildFilterButtons(source, filters = {}, optionsIn = {}, isAdmin
   const specs = source === DHRUVA
     ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["venue", "Venue", ["venue"]], ["event_type", "Event type", ["event_type"]], ["update", "Update", ["update_status"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["has_phone", "Has phone", ["has_phone"]], ["hot", "Hot only", ["hot"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
     : source === KOC_TO_DHRUVA
-      ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["branch", "Branch", ["branch"]], ["pincode", "Pincode", ["pincode"]], ["budget", "Budget", ["budget"]], ["quantity", "Quantity", ["quantity_min", "quantity_max"]], ["reason", "Reason", ["reason"]], ["occasion", "Occasion", ["occasion"]], ["update", "Update", ["update_status"]], ["hot", "Hot only", ["hot"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_when", "Follow-up", ["follow_up"]], ["origin", "Origin", ["origin"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
+      ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["branch", "Branch", ["branch"]], ["pincode", "Pincode", ["pincode"]], ["budget", "Budget", ["budget"]], ["quantity", "Quantity", ["quantity_min", "quantity_max"]], ["occasion", "Occasion", ["occasion"]], ["update", "Update", ["update_status"]], ["hot", "Hot only", ["hot"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_when", "Follow-up", ["follow_up"]], ["origin", "Origin", ["origin"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
     : source === KOC
       ? [["lead_date", "Lead date", ["lead_date_from", "lead_date_to"]], ...(isAdmin ? [["vendor", "Vendor", ["vendor_id"]], ["also_in", "In other sources", ["also_in"]]] : []), ["update", "Update", ["update_status"]], ["hot", "Hot only", ["hot"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["city", "City", ["city"]], ["source", "Source", ["source"]]]
       : [
@@ -40,7 +40,6 @@ export function buildFilterButtons(source, filters = {}, optionsIn = {}, isAdmin
     if (kind === "event") return filters.upcoming_days ? ["Upcoming 30 days"] : [filters.event_from, filters.event_to].filter(Boolean);
     if (kind === "lead_date") return [filters.lead_date_from, filters.lead_date_to].filter(Boolean);
     if (kind === "follow_up") return filters.follow_up_due ? ["Due"] : [filters.follow_up_from, filters.follow_up_to].filter(Boolean);
-    if (kind === "reason") return filters.reason ? [REASON_LABELS[filters.reason] ?? filters.reason] : [];
     if (kind === "follow_when") return filters.follow_up ? [FOLLOW_UP_LABELS[filters.follow_up] ?? filters.follow_up] : [];
     if (kind === "quantity") { const { quantity_min: min, quantity_max: max } = filters; return min || max ? [min && max ? `${min}–${max}` : min ? `≥ ${min}` : `≤ ${max}`] : []; }
     if (kind === "budget_range" || kind === "guests") return [filters[kind === "guests" ? "guests_min" : "budget_min"], filters[kind === "guests" ? "guests_max" : "budget_max"]].filter(Boolean);

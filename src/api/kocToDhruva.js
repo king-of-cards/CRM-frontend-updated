@@ -32,13 +32,13 @@ export function listKocToDhruvaLeads(query) {
 }
 listKocToDhruvaLeads.peek = (query) => peek(withQuery(`${BASE}/leads`, query));
 
-// -> { total, kpis, by_reason }
+// -> { total, kpis }
 export function getKocToDhruvaStats(filters) {
   return apiRequest(withQuery(`${BASE}/leads/stats`, filters));
 }
 getKocToDhruvaStats.peek = (filters) => peek(withQuery(`${BASE}/leads/stats`, filters));
 
-// -> budgets, pincodes, branches, origins, updates, occasions, reasons, quantity_range
+// -> budgets, pincodes, branches, origins, updates, occasions, quantity_range
 export function getKocToDhruvaFilterOptions() {
   return apiRequest(`${BASE}/leads/filter-options`);
 }

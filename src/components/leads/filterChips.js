@@ -8,7 +8,6 @@ import {
   KOC,
   NOT_SHARED,
   ORIGIN_LABELS,
-  REASON_LABELS,
   FOLLOW_UP_LABELS,
   UPDATE_LABELS,
   parseQuote,
@@ -115,7 +114,6 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
   // KOC → Dhruva
   if (has("quantity_min") || has("quantity_max"))
     add("quantity", `Quantity: ${numberRange(filters.quantity_min, filters.quantity_max, false)}`, ["quantity_min", "quantity_max"]);
-  if (has("reason")) add("reason", `Reason: ${REASON_LABELS[filters.reason] ?? filters.reason}`, ["reason"]);
   if (has("follow_up")) add("follow_up", `Follow-up: ${FOLLOW_UP_LABELS[filters.follow_up] ?? filters.follow_up}`, ["follow_up"]);
 
   // CRM filters
