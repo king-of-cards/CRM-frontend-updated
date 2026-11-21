@@ -116,7 +116,7 @@ export default function LeadFilterBar({ source, filters, update, clear, apply, c
   const [search, setSearch] = useState(filters.search ?? "");
   useEffect(() => setSearch(filters.search ?? ""), [filters.search]);
   useEffect(() => { const timer = setTimeout(() => { if (search.trim() !== (filters.search ?? "")) update({ search: search.trim() }); }, 250); return () => clearTimeout(timer); }, [search]);
-  const buttons = buildFilterButtons(source, filters, options, isAdmin);
+  const buttons = buildFilterButtons(source, filters ?? {}, options ?? {}, isAdmin);
   const searchBox = renderSearch ? renderSearch({ value: search, onChange: setSearch }) : <SearchBox value={search} onChange={setSearch} placeholder={placeholder} />;
   const clearAll = () => { setSearch(""); clear?.(); };
   return <div className="w-full rounded-2xl bg-gray-50/80 p-3 ring-1 ring-gray-100">

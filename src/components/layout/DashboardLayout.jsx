@@ -23,6 +23,7 @@ import DhruvaDirectionSwitch from "../dashboard/DhruvaDirectionSwitch.jsx";
 import NotificationBell from "./NotificationBell.jsx";
 import { dhruvaDirectionOf, dhruvaDirectionTarget, flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
 import LeadBackButton from "./LeadBackButton.jsx";
+import PageErrorBoundary from "../shared/PageErrorBoundary.jsx";
 import { isLeadRoute } from "./leadBack.js";
 import { notificationBellPlacement } from "./notificationUtils.js";
 
@@ -346,7 +347,8 @@ export default function DashboardLayout({
               {actions}
             </div>
           )}
-          {children}
+          {/* A crash in the page shows a message with Retry, not a white page (new key per page) */}
+          <PageErrorBoundary key={location.pathname}>{children}</PageErrorBoundary>
         </main>
         {/* A friendly message when the API refuses a write from a view-only login */}
         <ViewOnlyToast />

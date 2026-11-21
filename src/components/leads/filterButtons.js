@@ -11,7 +11,9 @@ const plural = (label, values) => values.length === 1 ? `${label}: ${values[0]}`
 
 // Describes the controls available in each list and their URL keys. Kept pure so the
 // button inventory and active labels can be verified without rendering React.
-export function buildFilterButtons(source, filters = {}, options = {}, isAdmin = false) {
+export function buildFilterButtons(source, filters = {}, optionsIn = {}, isAdmin = false) {
+  // filter-options may not have loaded yet (null): treat it as empty, never crash the page
+  const options = optionsIn ?? {};
   const specs = source === DHRUVA
     ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["venue", "Venue", ["venue"]], ["event_type", "Event type", ["event_type"]], ["update", "Update", ["update_status"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["has_phone", "Has phone", ["has_phone"]], ["hot", "Hot only", ["hot"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
     : source === KOC_TO_DHRUVA
