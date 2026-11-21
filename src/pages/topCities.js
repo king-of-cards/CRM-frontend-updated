@@ -1,6 +1,5 @@
 const SOURCE_LABELS = {
   spin: "Spin",
-  wedding_gifts: "Wedding gifts",
   wedding: "Wedding",
   wedding_planner: "Wedding planner",
   vendor_to_koc: "Vendors → KOC",
@@ -25,7 +24,7 @@ export function topCitiesSubtitle(sources, fallback = "All sources") {
 // The API's default Top cities sources per Lead flow (docs: "Top cities sources"). The dashboards
 // send no `sources`, so these apply; they only name the card when top_cities_sources is empty.
 export const TOP_CITIES_DEFAULTS = {
-  "": ["spin", "wedding_gifts", "wedding", "wedding_planner"],
+  "": ["spin", "wedding", "wedding_planner"],
   vendors: ["vendor_to_koc"],
   // The KOC → Dhruva dashboard's own leads (/analytics/koc-to-dhruva)
   koc_to_dhruva: ["koc_to_dhruva"],

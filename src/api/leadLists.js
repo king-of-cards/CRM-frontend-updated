@@ -8,8 +8,6 @@ import { toQueryString } from "../components/leads/leadFilters.js";
 
 const PATHS = {
   spin: "/spin-leads",
-  // Wedding gifts: spin_lead rows naming "Wedding Gifts & Return Gifts" (docs section 17); same shape as Spin
-  wedding_gifts: "/wedding-gifts-leads",
   whatsapp: "/whatsapp-leads",
   wedding: "/wedding-leads",
   wedding_planner: "/wedding-plans",

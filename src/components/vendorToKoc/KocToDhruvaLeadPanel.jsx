@@ -15,7 +15,7 @@ import { budgetText, crmChanges, crmFormOf as formOf, quantityText, reasonLabel 
 
 // One KOC → Dhruva lead (docs section 18). Admins and Dhruva logins edit this section's CRM
 // details (Update, comments, quoted amount / date, conversion amount, follow-up date); view-only
-// logins read them. The Spin / Wedding gifts record of the same lead is never changed here.
+// logins read them. The Spin record of the same lead is never changed here.
 // lead: the list item plus { display: { name, phone, email, branch, city } } from the page.
 
 export default function KocToDhruvaLeadPanel({ lead, onClose, onSaved, isHot = false, hotPending = false, onToggleHot = null, showHot = false }) {

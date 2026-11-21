@@ -16,7 +16,7 @@ export function canEdit(isAdmin, field) {
 
 // How the vendor was chosen (crm.vendor_source). Named: by hand, the sheet or the branch.
 // Automatic: area rules ("suggested") or the source's default vendor ("source_default", e.g. every
-// Wedding gifts lead goes to its default vendor, docs section 17).
+// gift lead, i.e. a spin lead asking for Wedding Gifts & Return Gifts, goes to Kraftyz: docs section 17).
 export const NAMED_VENDOR_SOURCES = ["manual", "sheet", "branch"];
 export const AUTO_VENDOR_SOURCES = ["suggested", "source_default"];
 

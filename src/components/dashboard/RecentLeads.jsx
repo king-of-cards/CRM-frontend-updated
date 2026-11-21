@@ -3,7 +3,6 @@ import { Link } from "react-router";
 import {
   ArrowUpRight,
   Building2,
-  Gift,
   MapPin,
   Target,
 } from "lucide-react";
@@ -29,17 +28,17 @@ import { kpiCards } from "../leads/kpiCards.js";
 import CrmRowBadge from "../crmLeads/CrmRowBadge.jsx";
 import LeadFilterBar from "../leads/LeadFilterBar.jsx";
 import { useLeadFilters } from "../leads/useLeadFilters.js";
+import { isGiftService, servicesOf } from "../leads/otherServices.js";
 
-// Spin leads and Wedding gifts: read live from the workflow database (read-only). The CRM columns
-// come from our own database next to each lead (sidecar), matched by the lead's id. Wedding gifts
-// are the spin_lead rows naming "Wedding Gifts & Return Gifts" (docs section 17): the same page,
-// with its own list endpoint, look and labels.
+// Spin leads: read live from the workflow database (read-only), plus the leads added or uploaded
+// in the CRM. The CRM columns come from our own database next to each lead (sidecar), matched by
+// the lead's id. Gift leads (Other wedding services naming "Wedding Gifts & Return Gifts") are
+// Spin leads too; only their automatic vendor differs (Kraftyz, docs section 17).
 
 const PAGE_SIZE = 10; // the default page size (10 / 25 / 50 / 100)
 
-// What differs per source. branchVendor: Spin's leads go to their branch's vendor automatically;
-// Wedding gifts go to their source's default vendor (from the API), so branch rules don't apply.
-// explore: the "Explore all fields" page reads Spin's table only.
+// The page's look. branchVendor: Spin's leads go to their branch's vendor automatically (gift
+// leads excepted: the API's "source_default" vendor is kept). explore: "Explore all fields".
 const SPIN_PAGES = {
   spin: {
     theme: "spin",
@@ -50,18 +49,9 @@ const SPIN_PAGES = {
     branchVendor: true,
     explore: true,
   },
-  wedding_gifts: {
-    theme: "wedding_gifts",
-    icon: Gift,
-    title: "Wedding gifts",
-    leadLabel: "Wedding gifts lead",
-    emptyName: "wedding gifts leads",
-    branchVendor: false,
-    explore: false,
-  },
 };
 
-// Remembered per source so later loads need one request (Spin keeps its original key)
+// Remembered so later loads need one request
 const createdKey = (source) => `crm-${source}-created-column`;
 
 // Which spin field is which. Matching ignores case, "_" and the "additional_details." prefix.
@@ -91,6 +81,7 @@ const FIELDS = {
   pincode: ["pincode", "pin", "zipcode"],
   city: ["city", "location", "eventcity"],
   budget: ["estimatedbudgetpercard", "servicebudget", "budget"],
+  otherServices: ["otherweddingservices"],
   created: ["createdat", "created", "createdon", "submittedat"],
   branch: ["branchid", "spinbranchid", "branch", "storeid", "store"],
 };
@@ -280,7 +271,7 @@ export default function RecentLeads({ source = "spin" }) {
           return; // the effect runs again with the column known
         }
         res = await listLeads(source, params);
-        // Stats over the same filters: GET /spin-leads/stats (or /wedding-gifts-leads/stats) -> { total, kpis }
+        // Stats over the same filters: GET /spin-leads/stats -> { total, kpis }
         getLeadStats(source, query)
           .then((st) => !cancelled && setStats(st))
           .catch(() => {});
@@ -500,6 +491,27 @@ export default function RecentLeads({ source = "spin" }) {
             },
           },
           {
+            // Comma-separated services as small chips; the gift service is highlighted
+            id: "other_services",
+            header: "Other wedding services",
+            render: (l) => {
+              const list = servicesOf(f.otherServices ? l[f.otherServices] : null);
+              if (!list.length) return null;
+              return (
+                <span className="flex min-w-[11rem] max-w-[18rem] flex-wrap gap-1 whitespace-normal">
+                  {list.map((s) => (
+                    <span
+                      key={s}
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${isGiftService(s) ? "bg-amber-50 text-amber-800 ring-amber-200" : "bg-gray-50 text-gray-700 ring-gray-200"}`}
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </span>
+              );
+            },
+          },
+          {
             id: "budget",
             header: "Budget",
             align: "right",
@@ -580,6 +592,7 @@ export default function RecentLeads({ source = "spin" }) {
                     : null,
                 ],
                 ["Pincode", f.pincode ? show(l[f.pincode]) : null],
+                ["Other wedding services", servicesOf(f.otherServices ? l[f.otherServices] : null).join(", ") || null],
                 [
                   "Budget",
                   f.budget
@@ -608,6 +621,7 @@ export default function RecentLeads({ source = "spin" }) {
                       f.eventDate,
                       f.pincode,
                       f.budget,
+                      f.otherServices,
                       createdCol,
                     ].includes(c.name),
                 )

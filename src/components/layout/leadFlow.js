@@ -7,7 +7,6 @@
 export const KOC_TABS = [
   { path: "/dashboard", label: "Dashboard" },
   { path: "/leads/spin", label: "Spin leads" },
-  { path: "/leads/wedding-gifts", label: "Wedding gifts" },
   { path: "/leads/international", label: "International" },
   { path: "/leads/wedding", label: "Wedding" },
   { path: "/leads/wedding-planner", label: "Wedding planner" },
@@ -29,6 +28,10 @@ export const DHRUVA_DIRECTIONS = [
   { value: DHRUVA_DIRECTION, label: "Dhruva → KOC", path: "/dhruva-leads" },
   { value: KOC_TO_DHRUVA, label: "KOC → Dhruva", path: "/koc-to-dhruva" },
 ];
+
+// Pages that no longer exist -> where they went. Wedding gifts is part of Spin again (docs
+// section 17): old links and bookmarks open Spin leads.
+export const RETIRED_PATHS = { "/leads/wedding-gifts": "/leads/spin" };
 
 // Pages that show the Lead flow switch (all lead-flow pages combined, deduplicated)
 export const FLOW_PAGES = [

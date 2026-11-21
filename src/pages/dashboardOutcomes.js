@@ -68,12 +68,11 @@ export function outcomeLink(path, filter, period) {
 
 const SOURCE_PATHS = {
   spin: "/leads/spin",
-  wedding_gifts: "/leads/wedding-gifts",
   whatsapp: "/leads/international",
   wedding: "/leads/wedding",
   wedding_planner: "/leads/wedding-planner",
 };
-const SOURCE_LABELS = { spin: "Spin leads", wedding_gifts: "Wedding gifts", whatsapp: "International", wedding: "Wedding", wedding_planner: "Wedding planner" };
+const SOURCE_LABELS = { spin: "Spin leads", whatsapp: "International", wedding: "Wedding", wedding_planner: "Wedding planner" };
 
 // The list filter and the count behind each chooser KPI. "aov": exactly the leads AOV averages
 // (converted, with a conversion amount).

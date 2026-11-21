@@ -73,10 +73,19 @@ describe("buildFilterButtons", () => {
   });
 });
 
-describe("Wedding gifts filter buttons", () => {
-  test("the same buttons as Spin (branch, pincode, budget, Update, quote, conversion, hot, In other sources)", () => {
-    const kinds = (source) => buildFilterButtons(source, {}, {}, true).map((b) => b.kind);
-    expect(kinds("wedding_gifts")).toEqual(kinds("spin"));
-    for (const kind of ["branch", "pincode", "budget", "update", "quote", "conversion", "hot", "also_in", "origin"]) expect(kinds("wedding_gifts")).toContain(kind);
+describe("Spin's Other services filter (docs section 17)", () => {
+  test("a Spin button for everyone, after Budget; no other source has it", () => {
+    for (const isAdmin of [true, false]) {
+      const kinds = buildFilterButtons("spin", {}, {}, isAdmin).map((b) => b.kind);
+      expect(kinds.indexOf("other_services")).toBe(kinds.indexOf("budget") + 1);
+    }
+    for (const source of ["whatsapp", "wedding", "wedding_planner", "vendor_to_koc", "dhruva", "koc_to_dhruva"])
+      expect(buildFilterButtons(source, {}, {}, true).map((b) => b.kind)).not.toContain("other_services");
+  });
+  test("one value, shown on the button and kept in the URL", () => {
+    const filters = readFilters(new URLSearchParams("other_services=Wedding+Gifts+%26+Return+Gifts"), "spin");
+    const button = buildFilterButtons("spin", filters, {}, false).find((b) => b.kind === "other_services");
+    expect(button).toMatchObject({ active: true, keys: ["other_services"], activeLabel: "Other services: Wedding Gifts & Return Gifts" });
+    expect(withFilters(new URLSearchParams(), { other_services: "Photography" }).toString()).toBe("other_services=Photography");
   });
 });

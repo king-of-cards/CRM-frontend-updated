@@ -16,6 +16,8 @@ import {
   assignedForUpload,
   AUTOMATIC,
   previewColumns,
+  SPIN_ASSIGNED_HINT,
+  wrapsInPreview,
   screenFieldKeys,
   uploadFields,
   duplicateLabel,
@@ -146,6 +148,19 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
         {v && v !== "Yes" && v !== "No" && <option value={v}>{v}</option>}
       </select>
     );
+  } else if (wrapsInPreview(field)) {
+    // Long text (e.g. Other wedding services): a small box that wraps
+    input = (
+      <textarea
+        rows={2}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        aria-label={field.label}
+        aria-invalid={invalid}
+        className={`${cls} min-w-[200px] resize-y`}
+      />
+    );
   } else {
     input = (
       <input
@@ -154,6 +169,7 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
         onBlur={onBlur}
         aria-label={field.label}
         aria-invalid={invalid}
+        inputMode={field.type === "int" ? "numeric" : undefined}
         className={cls}
       />
     );
@@ -558,6 +574,9 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
             {preview.ignored.length > 0 && (
               <p className="text-xs text-gray-500">Columns not used: {preview.ignored.join(", ")}</p>
             )}
+            {source === "spin" && columns.some((f) => f.type === "assigned") && (
+              <p className="text-xs text-gray-500">{SPIN_ASSIGNED_HINT}</p>
+            )}
 
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-sm text-gray-600">
@@ -598,7 +617,7 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
                         <RowBadges row={r} />
                       </td>
                       {columns.map((f) => (
-                        <td key={f.key} className="whitespace-nowrap px-3 py-2">
+                        <td key={f.key} className={`px-3 py-2 ${wrapsInPreview(f) ? "min-w-[12rem] max-w-[18rem] whitespace-normal break-words" : "whitespace-nowrap"}`}>
                           {r.fixable ? (
                             <CellInput
                               field={f}

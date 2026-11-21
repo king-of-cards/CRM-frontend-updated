@@ -19,7 +19,6 @@ import { useVendors } from "./InlineCrm.jsx";
 import { downloadLeadPdf } from "./leadPdf.js";
 import { useAuth } from "../../auth/useAuth.js";
 import { assignedText, panelChanges } from "./crmAccess.js";
-import { SOURCE_NAMES } from "../crmLeads/crmLeadUtils.js";
 import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "./HotLeadStar.jsx";
 import LeadActivity from "./LeadActivity.jsx";
@@ -428,7 +427,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                     ? `Sheet says ${lead.context.sheet_vendor}. `
                     : ""}
                   {crm.vendor_source === "source_default" && crm.vendor
-                    ? `${SOURCE_NAMES[lead.source] ?? "These"} leads go to ${crm.vendor.name} automatically.`
+                    ? `Gift leads go to ${crm.vendor.name} automatically.` // source_default: docs section 17
                     : crm.suggested_vendor
                       ? `Area rules suggest ${crm.suggested_vendor.name}.`
                       : "Location unknown, no automatic match."}

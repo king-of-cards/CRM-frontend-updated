@@ -24,8 +24,8 @@ import {
   toIstInput,
   valuesToForm,
   SOURCE_NAMES,
-  sourceList,
-  SPIN_FAMILY,
+  SPIN_ASSIGNED_HINT,
+  wrapsInPreview,
 } from "./crmLeadUtils.js";
 
 describe("filenameFromDisposition", () => {
@@ -288,14 +288,26 @@ describe("upload-only CRM columns", () => {
   });
 });
 
-describe("Wedding gifts in the CRM lead helpers", () => {
-  test("its name, also for the 'Also in …' warnings", () => {
-    expect(SOURCE_NAMES.wedding_gifts).toBe("Wedding gifts");
-    expect(sourceList(["wedding_gifts", "wedding"])).toBe("Wedding gifts, Wedding");
+describe("Spin after Wedding gifts (docs section 17)", () => {
+  test("Wedding gifts is no longer a source", () => {
+    expect(SOURCE_NAMES.wedding_gifts).toBeUndefined();
+    expect(Object.keys(SOURCE_NAMES)).toEqual(["spin", "whatsapp", "wedding", "wedding_planner"]);
   });
-  test("it's in the spin family: bulk upload only, and no order without a sort", () => {
-    expect(SPIN_FAMILY).toEqual(["spin", "wedding_gifts"]);
-    expect(exportQuery("wedding_gifts", { order: "desc", hot: "yes" }, "xlsx")).toEqual({ format: "xlsx", hot: "yes" });
-    expect(exportQuery("wedding_gifts", { sort: "created_at", order: "desc" }, "csv")).toEqual({ format: "csv", sort: "created_at", order: "desc" });
+  test("Spin export: no order without a sort; Other services goes with the filters", () => {
+    expect(exportQuery("spin", { order: "desc", other_services: "Photography" }, "xlsx")).toEqual({ format: "xlsx", other_services: "Photography" });
+    expect(exportQuery("spin", { sort: "created_at", order: "desc" }, "csv")).toEqual({ format: "csv", sort: "created_at", order: "desc" });
+  });
+  test("upload preview: Other wedding services (500) wraps, Quantity required and short text don't", () => {
+    expect(wrapsInPreview({ key: "otherWeddingServices", type: "text", max_length: 500 })).toBe(true);
+    expect(wrapsInPreview({ key: "quantityRequired", type: "int" })).toBe(false);
+    expect(wrapsInPreview({ key: "name", type: "text", max_length: 150 })).toBe(false);
+  });
+  test("upload Assigned to: vendor name, Automatic, Unassigned (empty = Unassigned)", () => {
+    expect(assignedChoice("Kraftyz")).toBe("Kraftyz");
+    expect(assignedChoice("Automatic")).toBe(AUTOMATIC);
+    expect(assignedChoice("Kraftyz · auto")).toBe(AUTOMATIC);
+    expect(assignedChoice("Unassigned")).toBe("Unassigned");
+    expect(assignedChoice("")).toBe("Unassigned");
+    expect(SPIN_ASSIGNED_HINT).toContain("Kraftyz");
   });
 });

@@ -19,8 +19,8 @@ export const COMMON_KEYS = [
   "also_in",
 ];
 export const SOURCE_KEYS = {
-  spin: ["branch", "pincode", "budget"],
-  wedding_gifts: ["branch", "pincode", "budget"], // the same filters as Spin (docs section 17)
+  // other_services: one Other wedding service, matched by "contains" (docs section 17)
+  spin: ["branch", "pincode", "budget", "other_services"],
   whatsapp: ["country"],
   wedding: ["occasion", "city", "budget_min", "budget_max", "shared_with", "hide_repeats"],
   wedding_planner: [

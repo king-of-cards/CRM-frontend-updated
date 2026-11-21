@@ -7,6 +7,7 @@ import { SearchBox } from "./LeadKit.jsx";
 import { SOURCES as KOC_SOURCES } from "../vendorToKoc/kocUtils.js";
 import FilterDropdown from "./FilterDropdown.jsx";
 import { buildFilterButtons } from "./filterButtons.js";
+import { otherServiceOptions } from "./otherServices.js";
 import { DHRUVA, FOLLOW_UP_LABELS, KOC, KOC_TO_DHRUVA, NOT_SHARED, ORIGIN_LABELS, REASON_LABELS, UPDATE_LABELS } from "./leadFilters.js";
 
 const input = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20";
@@ -64,6 +65,8 @@ function FilterContents({ button, source, filters, update, options, isAdmin }) {
     const freeText = ["venue", "city", "pincode"].includes(k) || (k === "occasion" && source === KOC_TO_DHRUVA);
     return <div className="space-y-2">{freeText && <input value={active} onChange={(e) => update({ [key]: e.target.value })} aria-label={button.label} placeholder={`Filter ${button.label.toLowerCase()}`} className={input} />}{opts.length > 0 && single(key, opts, true)}{!freeText && !opts.length && single(key, opts, true)}</div>;
   }
+  // Spin's Other services: one value (the API's other_services is a single "contains" filter)
+  if (k === "other_services") return single("other_services", otherServiceOptions(options.other_services), true);
   if (k === "reason") {
     const fromApi = (options.reasons ?? []).map((r) => (typeof r === "object" ? r : { value: r })).filter((r) => r.value);
     const list = fromApi.length ? fromApi : Object.keys(REASON_LABELS).map((value) => ({ value }));

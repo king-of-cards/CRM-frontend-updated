@@ -126,7 +126,7 @@ export function VendorCell({ crm, save }) {
           : crm.vendor_source === "sheet"
             ? "From the sheet"
             : crm.vendor_source === "source_default"
-              ? "Automatic (this source's default vendor)"
+              ? "Automatic (gift lead: Wedding Gifts & Return Gifts)"
               : "Automatic (area rules)")
       }
     >

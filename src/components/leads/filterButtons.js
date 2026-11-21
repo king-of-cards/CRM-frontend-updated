@@ -19,7 +19,7 @@ export function buildFilterButtons(source, filters = {}, options = {}, isAdmin =
     : source === KOC
       ? [["lead_date", "Lead date", ["lead_date_from", "lead_date_to"]], ...(isAdmin ? [["vendor", "Vendor", ["vendor_id"]], ["also_in", "In other sources", ["also_in"]]] : []), ["update", "Update", ["update_status"]], ["hot", "Hot only", ["hot"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["city", "City", ["city"]], ["source", "Source", ["source"]]]
       : [
-          ...(source !== "spin" && source !== "wedding_gifts" ? [] : [["branch", "Branch", ["branch"]], ["pincode", "Pincode", ["pincode"]], ["budget", "Budget", ["budget"]]]),
+          ...(source !== "spin" ? [] : [["branch", "Branch", ["branch"]], ["pincode", "Pincode", ["pincode"]], ["budget", "Budget", ["budget"]], ["other_services", "Other services", ["other_services"]]]),
           ...(source === "whatsapp" ? [["country", "Country", ["country"]]] : []),
           ...(source === "wedding" ? [["occasion", "Event type", ["occasion"]], ["city", "City", ["city"]], ["budget_range", "Budget", ["budget_min", "budget_max"]], ["shared_with", "Sheet partner", ["shared_with"]], ["hide_repeats", "Hide repeats", ["hide_repeats"]]] : []),
           ...(source === "wedding_planner" ? [["city", "City", ["city"]], ["guests", "Guests", ["guests_min", "guests_max"]], ["budget_range", "Budget", ["budget_min", "budget_max"]], ["fits_budget", "Budget fit", ["fits_budget"]], ["last_step", "Last step", ["last_step"]], ["shared_with", "Sheet partner", ["shared_with"]]] : []),

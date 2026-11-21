@@ -161,10 +161,16 @@ describe("Vendors → KOC quote and conversion filters", () => {
   });
 });
 
-describe("Wedding gifts filters", () => {
-  test("the same URL keys as Spin: branch, pincode, budget and the common filters", () => {
-    expect(keysFor("wedding_gifts")).toEqual(keysFor("spin"));
-    const f = readFilters(q("branch=4&pincode=560&budget=10-20&hot=yes&also_in=yes&update_status=pending"), "wedding_gifts");
-    expect(toApiQuery(f, "wedding_gifts")).toEqual({ branch: "4", pincode: "560", budget: "10-20", hot: "yes", also_in: "yes", update_status: ["pending"] });
+describe("Spin's other_services (one value, the API's contains filter)", () => {
+  test("URL -> list, stats and export query; counted once", () => {
+    expect(keysFor("spin")).toContain("other_services");
+    const f = readFilters(q("other_services=Wedding+Gifts+%26+Return+Gifts&other_services=Photography&branch=4"), "spin");
+    expect(f.other_services).toBe("Wedding Gifts & Return Gifts"); // a single value: the first one
+    expect(toApiQuery(f, "spin")).toEqual({ branch: "4", other_services: "Wedding Gifts & Return Gifts" });
+    expect(activeCount(f, "spin")).toBe(2);
+  });
+  test("Wedding gifts is gone: no keys of its own, and Spin's filters stay on Spin", () => {
+    expect(keysFor("wedding_gifts")).not.toContain("branch");
+    expect(keysFor("wedding")).not.toContain("other_services");
   });
 });

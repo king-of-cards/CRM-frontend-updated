@@ -5,7 +5,6 @@
 
 export const ALSO_IN_LABELS = {
   spin: "Spin",
-  wedding_gifts: "Wedding gifts",
   whatsapp: "International",
   wedding: "Wedding",
   wedding_planner: "Wedding planner",

@@ -1,7 +1,7 @@
 import { apiRequest } from "./client.js";
 
 // CRM details on a lead (stored in our own database next to the lead: the "sidecar").
-// source: "spin" | "wedding_gifts" | "whatsapp" | "wedding" | "wedding_planner"; leadKey: the row's crm.lead_key
+// source: "spin" | "whatsapp" | "wedding" | "wedding_planner"; leadKey: the row's crm.lead_key
 
 // Update (crm.update_status): the same 7 values and labels as Vendors → KOC; null = Pending.
 // Shown in the Update dropdowns in this order. (docs/API_REFERENCE.md, "Access: who sees and edits what")

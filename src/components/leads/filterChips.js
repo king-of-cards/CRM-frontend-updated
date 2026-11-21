@@ -111,6 +111,7 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
   if (has("shared_with"))
     add("partner", `Sheet partner: ${filters.shared_with === NOT_SHARED ? "Not shared yet" : filters.shared_with}`, ["shared_with"]);
   if (has("hide_repeats")) add("repeats", "Hide repeats", ["hide_repeats"]);
+  if (has("other_services")) add("other_services", `Other services: ${filters.other_services}`, ["other_services"]);
   // KOC → Dhruva
   if (has("quantity_min") || has("quantity_max"))
     add("quantity", `Quantity: ${numberRange(filters.quantity_min, filters.quantity_max, false)}`, ["quantity_min", "quantity_max"]);

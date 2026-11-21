@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { dhruvaDashboardPath, dhruvaDirectionOf, dhruvaDirectionTarget, DHRUVA_DIRECTIONS, flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
+import { RETIRED_PATHS, dhruvaDashboardPath, dhruvaDirectionOf, dhruvaDirectionTarget, DHRUVA_DIRECTIONS, flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
 
 describe("Lead flow from the page", () => {
   test("Vendors → KOC pages", () => {
@@ -42,10 +42,13 @@ describe("Dhruva direction", () => {
 });
 
 describe("tabs per flow", () => {
-  test("KOC → Vendors: Dashboard + the five sources (Wedding gifts after Spin leads), no Vendors → KOC or Dhruva", () => {
-    expect(tabsFor("").map((t) => t.label)).toEqual(["Dashboard", "Spin leads", "Wedding gifts", "International", "Wedding", "Wedding planner"]);
-    expect(tabsFor("").find((t) => t.label === "Wedding gifts").to).toBe("/leads/wedding-gifts");
+  test("KOC → Vendors: Dashboard + the four sources, no Wedding gifts, Vendors → KOC or Dhruva", () => {
+    expect(tabsFor("").map((t) => t.label)).toEqual(["Dashboard", "Spin leads", "International", "Wedding", "Wedding planner"]);
     expect(tabsFor("")[0].to).toBe("/dashboard");
+  });
+  test("the old Wedding gifts page redirects to Spin leads", () => {
+    expect(RETIRED_PATHS["/leads/wedding-gifts"]).toBe("/leads/spin");
+    expect(FLOW_PAGES).not.toContain("/leads/wedding-gifts");
   });
   test("Vendors → KOC: Dashboard (keeping the flow) + Vendors → KOC", () => {
     expect(tabsFor("vendors").map((t) => [t.label, t.to])).toEqual([
@@ -64,7 +67,7 @@ describe("tabs per flow", () => {
   });
   test("the switch shows on the Dashboard and every lead list (including dhruva)", () => {
     expect(FLOW_PAGES.sort()).toEqual(
-      ["/dashboard", "/dhruva-leads", "/koc-to-dhruva", "/leads/international", "/leads/spin", "/leads/wedding", "/leads/wedding-gifts", "/leads/wedding-planner", "/vendor-to-koc"].sort(),
+      ["/dashboard", "/dhruva-leads", "/koc-to-dhruva", "/leads/international", "/leads/spin", "/leads/wedding", "/leads/wedding-planner", "/vendor-to-koc"].sort(),
     );
   });
 });

@@ -5,16 +5,12 @@ import { ALSO_IN_LABELS } from "../leads/alsoIn.js";
 
 export const SOURCE_NAMES = {
   spin: "Spin leads",
-  wedding_gifts: "Wedding gifts",
   whatsapp: "International",
   wedding: "Wedding",
   wedding_planner: "Wedding planner",
 };
 
 export const CRM_ORIGINS = ["added", "imported"];
-
-// Sources read from the workflow spin_lead table: bulk upload only (no single add), Spin's filters
-export const SPIN_FAMILY = ["spin", "wedding_gifts"];
 
 // Only these leads can be edited or archived here (sheet and spin-game leads can't)
 export const isCrmLead = (row) => CRM_ORIGINS.includes(row?.origin);
@@ -45,8 +41,8 @@ export function exportQuery(source, params = {}, format = "xlsx") {
     if (Array.isArray(v) ? v.length === 0 : v === undefined || v === null || v === "") continue;
     query[k] = v;
   }
-  // The spin lists (Spin and Wedding gifts) only send an order together with a sort
-  if (SPIN_FAMILY.includes(source) && !query.sort) delete query.order;
+  // The spin list only sends an order together with a sort
+  if (source === "spin" && !query.sort) delete query.order;
   return query;
 }
 
@@ -290,6 +286,14 @@ export function previewColumns(fields, { screenKeys = null, fileKeys = [], error
   const extra = new Set(["phone", ...fileKeys, ...errorKeys]);
   return [...first, ...fields.filter((f) => !screen.includes(f.key) && extra.has(f.key))];
 }
+
+// Long text fields (e.g. spin's Other wedding services, up to 500 characters) wrap in the upload
+// preview instead of stretching the table
+export const wrapsInPreview = (field) => field?.type === "text" && Number(field?.max_length) >= 300;
+
+// Spin uploads' Assigned to, as the API reads it (docs section 17)
+export const SPIN_ASSIGNED_HINT =
+  "Assigned to: a vendor name assigns that vendor; Automatic assigns Kraftyz to gift leads and the branch / area vendor to the rest; empty or Unassigned leaves the lead unassigned.";
 
 // ── "Assigned to" choices: Unassigned, each active vendor, Automatic ──────────────
 // Uploads: "Automatic" / "Auto" (or "<vendor> · auto") means automatic, empty or "Unassigned"

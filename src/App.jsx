@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import RequireAuth from "./auth/RequireAuth.jsx";
+import { RETIRED_PATHS } from "./components/layout/leadFlow.js";
 import Login from "./pages/Login.jsx";
 
 // Pages load as separate small files, so the first screen (login or dashboard) opens
@@ -49,15 +50,7 @@ const sourcePages = [
     title: "Spin leads",
     description:
       "Leads from the spin game, read live from the workflow database.",
-    // key: Spin and Wedding gifts share this component; a new key gives each its own state
-    element: <RecentLeads key="spin" source="spin" />,
-  },
-  {
-    path: "/leads/wedding-gifts",
-    title: "Wedding gifts",
-    description:
-      "Spin game leads asking for wedding gifts and return gifts, read live from the workflow database.",
-    element: <RecentLeads key="wedding_gifts" source="wedding_gifts" />,
+    element: <RecentLeads source="spin" />,
   },
   {
     path: "/leads/international",
@@ -164,6 +157,10 @@ function App() {
           }
         />
         {/* Anything else: dashboard (RequireAuth sends logged-out users to /login) */}
+        {/* Retired pages (e.g. Wedding gifts, now part of Spin: docs section 17) */}
+        {Object.entries(RETIRED_PATHS).map(([from, to]) => (
+          <Route key={from} path={from} element={<Navigate to={to} replace />} />
+        ))}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Suspense>

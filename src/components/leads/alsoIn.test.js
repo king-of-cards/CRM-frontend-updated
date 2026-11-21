@@ -13,7 +13,7 @@ const adminAlsoIn = [
 describe("also_in badges", () => {
   test("every place the API sends gets a label, in the API's order", () => {
     expect(alsoInPlaces(adminAlsoIn).map((p) => p.label)).toEqual(["Spin", "International", "Vendors → KOC", "Dhruva → KOC", "KOC → Dhruva"]);
-    expect(alsoInLabel("wedding_gifts")).toBe("Wedding gifts");
+    expect(alsoInLabel("wedding_gifts")).toBe("wedding_gifts"); // gone (docs section 17): no label of its own
     expect(alsoInLabel("wedding_planner")).toBe("Wedding planner");
   });
   test("the tooltip lists all places with counts, vendors only when sent", () => {

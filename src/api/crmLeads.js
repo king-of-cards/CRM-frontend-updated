@@ -4,7 +4,7 @@ import { toQueryString } from "../components/leads/leadFilters.js";
 
 // Leads added or imported in the CRM, for all four sources. Admin only, except export
 // (vendor logins export their own leads).
-// source: "spin" | "wedding_gifts" | "whatsapp" | "wedding" | "wedding_planner". See docs/API_REFERENCE.md.
+// source: "spin" | "whatsapp" | "wedding" | "wedding_planner". See docs/API_REFERENCE.md.
 //
 // JSON calls go through apiRequest. File uploads (multipart) and file downloads (blobs) use
 // fetch here with the same token and the same one-time refresh on 401.

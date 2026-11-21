@@ -200,7 +200,7 @@ export default function KocToDhruvaLeads() {
         theme="koc_to_dhruva"
         icon={Send}
         title="KOC → Dhruva"
-        subtitle="Also listed in Spin / Wedding gifts; this section keeps its own updates"
+        subtitle="Also listed in Spin; this section keeps its own updates"
         action={<div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => runExport("xlsx")} disabled={exporting} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm disabled:opacity-60"><Download size={15} />{exporting ? "Exporting…" : "Export"}</button>
           <button type="button" onClick={() => runExport("csv")} disabled={exporting} className="rounded-full border border-gray-200 bg-white px-3 py-2 text-sm disabled:opacity-60">CSV</button>

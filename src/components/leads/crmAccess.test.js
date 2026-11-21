@@ -39,7 +39,7 @@ describe("panelChanges", () => {
 });
 
 describe("Assigned to: automatic sources", () => {
-  test("source_default (Wedding gifts → its default vendor) is automatic, like the area rules", () => {
+  test("source_default (a gift lead → Kraftyz) is automatic, like the area rules", () => {
     expect(assignedText({ vendor: { id: 9, name: "Kraftyz" }, vendor_source: "source_default" })).toBe("Kraftyz · auto");
     expect(assignedText({ vendor: { id: 2, name: "Phodeo" }, vendor_source: "suggested" })).toBe("Phodeo · auto");
     expect(AUTO_VENDOR_SOURCES).toContain("source_default");

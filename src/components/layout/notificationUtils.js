@@ -2,7 +2,6 @@ import { dateTimeText } from "../vendorToKoc/kocUtils.js";
 
 const SOURCE_PATHS = {
   spin: "/leads/spin",
-  wedding_gifts: "/leads/wedding-gifts",
   whatsapp: "/leads/international",
   wedding: "/leads/wedding",
   wedding_planner: "/leads/wedding-planner",
@@ -86,7 +85,6 @@ export function notificationDestination(notification) {
 
 export const notificationSourceLabel = (source) => ({
   spin: "Spin",
-  wedding_gifts: "Wedding gifts",
   whatsapp: "International",
   wedding: "Wedding",
   wedding_planner: "Wedding planner",

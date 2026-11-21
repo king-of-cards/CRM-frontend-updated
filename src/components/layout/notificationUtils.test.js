@@ -86,11 +86,12 @@ describe("notification destinations", () => {
   });
 });
 
-describe("Wedding gifts notifications", () => {
-  test("label and lead link", () => {
-    expect(notificationSourceLabel("wedding_gifts")).toBe("Wedding gifts");
-    const url = new URL(notificationDestination({ source: "wedding_gifts", lead_ref: { source: "wedding_gifts", lead_key: "41" } }), "https://crm.local");
-    expect(url.pathname).toBe("/leads/wedding-gifts");
+describe("gift leads are Spin leads (docs section 17)", () => {
+  test("a gift lead's notification opens Spin; the old wedding_gifts source has no page", () => {
+    const url = new URL(notificationDestination({ source: "spin", lead_ref: { source: "spin", lead_key: "41" } }), "https://crm.local");
+    expect(url.pathname).toBe("/leads/spin");
     expect(url.searchParams.get("notification_lead_key")).toBe("41");
+    expect(notificationSourceLabel("wedding_gifts")).toBe("Lead");
+    expect(notificationDestination({ source: "wedding_gifts", lead_key: "41" })).toBe("/dashboard");
   });
 });
