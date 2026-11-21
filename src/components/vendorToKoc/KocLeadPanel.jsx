@@ -10,6 +10,7 @@ import LeadActivity from "../leads/LeadActivity.jsx";
 import AlsoInBadges from "../leads/AlsoInBadges.jsx";
 import { alsoInLine, alsoInPlaces } from "../leads/alsoIn.js";
 import { useAuth } from "../../auth/useAuth.js";
+import { flowLabels } from "../layout/leadFlow.js";
 import {
   dateTimeText,
   dayText,
@@ -56,7 +57,8 @@ const amountOf = (text) => {
 
 // isAdmin: the admin view (admins and view-only logins); only logins that can edit get the form
 export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, isHot, hotPending, onToggleHot, showHot = false }) {
-  const { canEdit } = useAuth();
+  const { canEdit, user } = useAuth();
+  const flowName = flowLabels(user?.role === "vendor" ? user.vendor : null).vendors; // "Kraftyz → KOC" for a vendor
   const editable = isAdmin && canEdit;
   const [shown, setShown] = useState(false);
   const [form, setForm] = useState(() => formOf(lead));
@@ -165,7 +167,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
       await downloadLeadPdf({
         title,
         subtitle,
-        source: "Vendors → KOC lead",
+        source: `${flowName} lead`,
         fileName: `vendor-lead-${String(title || "lead")
           .replace(/[^\w]+/g, "-")
           .toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`,
@@ -213,7 +215,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
                 {initials(lead.name || (isAdmin ? lead.vendor_name : lead.city))}
               </span>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">Vendors → KOC lead</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">{flowName} lead</p>
                 <h2 className="truncate text-xl font-semibold">{title}</h2>
                 <p className="truncate text-sm text-white/80">{subtitle}</p>
               </div>

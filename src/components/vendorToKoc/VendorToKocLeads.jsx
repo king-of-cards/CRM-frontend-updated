@@ -19,6 +19,7 @@ import { fieldCls } from "../crmLeads/Drawer.jsx";
 import KocAddLeadDialog from "./KocAddLeadDialog.jsx";
 import KocBulkUploadDialog from "./KocBulkUploadDialog.jsx";
 import KocLeadPanel from "./KocLeadPanel.jsx";
+import { flowLabels } from "../layout/leadFlow.js";
 import { listUsers } from "../../api/users.js";
 import { AmountCell } from "../leads/InlineCrm.jsx";
 import { kpiCards } from "../leads/kpiCards.js";
@@ -328,7 +329,7 @@ export default function VendorToKocLeads() {
     <SectionShell
       theme="whatsapp"
       icon={Handshake}
-      title="Vendors → KOC"
+      title={flowLabels(me?.role === "vendor" ? me.vendor : null).vendors}
       subtitle={seesAll ? "Leads vendors send to KOC" : "Leads you send to KOC"}
       action={
         <div className="flex items-center gap-2">

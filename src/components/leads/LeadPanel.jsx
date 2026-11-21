@@ -18,7 +18,7 @@ import {
 import { useVendors } from "./InlineCrm.jsx";
 import { downloadLeadPdf } from "./leadPdf.js";
 import { useAuth } from "../../auth/useAuth.js";
-import { assignedText, panelChanges } from "./crmAccess.js";
+import { assignedText, assignmentChange, assignmentOf, automaticLabel, AUTOMATIC_CHOICE, panelChanges, UNASSIGNED_CHOICE } from "./crmAccess.js";
 import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "./HotLeadStar.jsx";
 import LeadActivity from "./LeadActivity.jsx";
@@ -60,10 +60,8 @@ const initials = (name) =>
 
 function formFrom(crm) {
   return {
-    vendor_id:
-      crm?.vendor_source === "manual" && crm?.vendor
-        ? String(crm.vendor.id)
-        : "",
+    // Automatic, Unassigned or a vendor id (sent as assigned_to or vendor_id, crmAccess.js)
+    assignment: assignmentOf(crm),
     update_status: crm?.update_status ?? "",
     quoted_amount: crm?.quoted_amount != null ? String(crm.quoted_amount) : "",
     quoted_date: crm?.quoted_date ?? "",
@@ -125,8 +123,6 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
     setForm((f) => ({ ...f, [k]: v }));
     setSaved(false);
   };
-  const automatic =
-    crm && crm.vendor_source !== "manual" ? crm.vendor : crm?.suggested_vendor;
 
   async function save(e) {
     e.preventDefault();
@@ -136,7 +132,6 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
       return digits ? Number(digits) : null;
     };
     const toValues = (f) => ({
-      vendor_id: f.vendor_id ? Number(f.vendor_id) : null,
       update_status: f.update_status || null,
       quoted_amount: amount(f.quoted_amount),
       quoted_date: f.quoted_date || null,
@@ -144,6 +139,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
       notes: f.notes,
     });
     const changes = panelChanges(isAdmin, toValues(formFrom(crm)), toValues(form));
+    if (isAdmin && form.assignment !== formFrom(crm).assignment) Object.assign(changes, assignmentChange(form.assignment));
     if (!Object.keys(changes).length) {
       setError("Nothing to save: no changes.");
       return;
@@ -193,9 +189,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
             rows: [
               [
                 "Assigned to",
-                crm?.vendor
-                  ? `${crm.vendor.name}${crm.vendor_source === "manual" ? "" : " (automatic)"}`
-                  : "Unassigned",
+                assignedText(crm),
               ],
               ["Update", update.label],
               [
@@ -408,13 +402,12 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   Assigned to
                 </span>
                 <select
-                  value={form.vendor_id}
-                  onChange={(e) => set("vendor_id", e.target.value)}
+                  value={form.assignment}
+                  onChange={(e) => set("assignment", e.target.value)}
                   className={`mt-1.5 ${fieldCls}`}
                 >
-                  <option value="">
-                    {automatic ? `Automatic · ${automatic.name}` : "Unassigned"}
-                  </option>
+                  <option value={AUTOMATIC_CHOICE}>{automaticLabel(crm)}</option>
+                  <option value={UNASSIGNED_CHOICE}>Unassigned</option>
                   {vendors.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.name}

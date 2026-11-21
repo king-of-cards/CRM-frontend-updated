@@ -48,7 +48,8 @@ import { BarList, Kpi, Panel, SeriesToggles, toggled } from "../components/dashb
 import FollowUpsCard from "../components/dashboard/FollowUpsCard.jsx";
 import TopCities from "../components/dashboard/TopCities.jsx";
 import { periodFromSearch, periodLabel, periodText, todayIst } from "./dashboardPeriod.js";
-import { outcomeCells, outcomeLink, sourceKpiDestinations } from "./dashboardOutcomes.js";
+import { outcomeCells, outcomeLink, singleSourceKpiLinks, sourceKpiDestinations, tileGridClass } from "./dashboardOutcomes.js";
+import { visibleSources } from "../auth/permissions.js";
 import { aovOf } from "./aov.js";
 import VendorToKocDashboard from "./VendorToKocDashboard.jsx";
 const DhruvaLeadsDashboard = lazy(() => import("./DhruvaLeadsDashboard.jsx"));
@@ -157,6 +158,9 @@ function requestsFor({ all, from, to }) {
     },
   };
 }
+
+// The source behind each "Latest leads" list
+const LIST_SOURCE = { waList: "whatsapp", wdList: "wedding", wpList: "wedding_planner" };
 
 // Everything this tab has seen for the period, or null
 function cachedDashboard(period) {
@@ -295,6 +299,13 @@ export default function Dashboard() {
   // Lead inflow: unticked sources (not kept in the URL)
   const [hiddenSources, setHiddenSources] = useState(() => new Set());
   const [kpiChooser, setKpiChooser] = useState(null);
+  // The KOC → Vendors sources this login sees (/auth/me "sources": vendor logins only theirs)
+  const shownKeys = useMemo(() => {
+    const visible = visibleSources(user);
+    return SOURCE_KEYS.filter((k) => visible.includes(k));
+  }, [user]);
+  // One source: every KPI card opens that list directly
+  const single = shownKeys.length === 1 ? singleSourceKpiLinks(shownKeys[0], period) : null;
 
   useEffect(() => {
     if (!canSeeLeads && !isDhruva) {
@@ -311,8 +322,10 @@ export default function Dashboard() {
       loading: !(cached ?? s.data),
       refreshing: true,
     }));
-    // Vendor logins: no sheet sync status (admin only), so it isn't requested
-    const keys = Object.keys(requests).filter((k) => isAdmin || k !== "sources");
+    // Vendor logins: no sheet sync status (admin only), and no latest list of a source they don't see
+    const keys = Object.keys(requests)
+      .filter((k) => isAdmin || k !== "sources")
+      .filter((k) => !LIST_SOURCE[k] || shownKeys.includes(LIST_SOURCE[k]));
     Promise.allSettled(
       keys.map((k) => requests[k].load(refreshKey > 0)),
     ).then((results) => {
@@ -340,7 +353,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, canSeeLeads, isDhruva, refreshKey, period, flow]);
+  }, [isAdmin, canSeeLeads, isDhruva, refreshKey, period, flow, shownKeys]);
 
   const { loading, refreshing, data } = state;
   const o = data?.overview;
@@ -350,9 +363,9 @@ export default function Dashboard() {
     // Leads that arrived in the period (spin is null when its dates couldn't be read)
     const totals = o.totals;
     const all = o.totals.all;
-    const trendKeys = SOURCE_KEYS.filter((k) => charted(k, o));
+    const trendKeys = shownKeys.filter((k) => charted(k, o));
     // Source mix and the tiles' % bar: leads that arrived in the period
-    const mixAll = (o.source_mix ?? []).filter((m) => SOURCES[m.source]);
+    const mixAll = (o.source_mix ?? []).filter((m) => SOURCES[m.source] && shownKeys.includes(m.source));
     return {
       totals,
       all,
@@ -369,7 +382,7 @@ export default function Dashboard() {
       weekly: o.period?.granularity === "week",
       monthly: o.period?.granularity === "month",
     };
-  }, [o]);
+  }, [o, shownKeys]);
 
   const feed = useMemo(() => {
     const items = [
@@ -396,18 +409,22 @@ export default function Dashboard() {
       })),
     ];
     return items
-      .filter((i) => i.at)
+      .filter((i) => i.at && shownKeys.includes(i.source))
       .sort((a, b) => new Date(b.at) - new Date(a.at))
       .slice(0, 7);
-  }, [data]);
+  }, [data, shownKeys]);
+  // The sheet sources this login sees, for the Latest leads panel (none: no panel)
+  const feedSources = ["whatsapp", "wedding", "wedding_planner"].filter((k) => shownKeys.includes(k));
 
   const kpiLoading = loading && !o;
   const label = periodText(period);
-  const quoteChoices = sourceKpiDestinations(o?.outcomes, "quotes", period);
-  const hotChoices = sourceKpiDestinations(o?.outcomes, "hot", period);
+  const quoteChoices = sourceKpiDestinations(o?.outcomes, "quotes", period, shownKeys);
+  const hotChoices = sourceKpiDestinations(o?.outcomes, "hot", period, shownKeys);
   const kpiAov = aovOf(o?.kpis);
-  const aovChoices = sourceKpiDestinations(o?.outcomes, "aov", period);
-  const chooserAction = (title, choices) => choices.length === 1
+  const aovChoices = sourceKpiDestinations(o?.outcomes, "aov", period, shownKeys);
+  const chooserAction = (title, choices, direct) => direct
+    ? { to: direct }
+    : choices.length === 1
     ? { to: choices[0].to }
     : choices.length > 1
       ? { onClick: () => setKpiChooser({ title, choices }) }
@@ -480,6 +497,7 @@ export default function Dashboard() {
               <Kpi
                 icon={Inbox}
                 label="Total leads"
+                to={single?.total}
                 value={fmt(o?.kpis?.total ?? view?.all)}
                 delta={o?.change_pct?.all ?? null}
                 gradient="from-brand-600 to-brand-800"
@@ -489,6 +507,7 @@ export default function Dashboard() {
               <Kpi
                 icon={ThumbsUp}
                 label="Interested"
+                to={single?.interested}
                 value={fmt(o?.kpis?.interested)}
                 gradient="from-emerald-500 to-emerald-700"
                 loading={kpiLoading}
@@ -496,6 +515,7 @@ export default function Dashboard() {
               <Kpi
                 icon={ThumbsDown}
                 label="Not interested"
+                to={single?.not_interested}
                 value={fmt(o?.kpis?.not_interested)}
                 gradient="from-rose-500 to-rose-700"
                 loading={kpiLoading}
@@ -503,6 +523,7 @@ export default function Dashboard() {
               <Kpi
                 icon={IndianRupee}
                 label="Quoted amount"
+                to={single?.quoted}
                 value={o?.kpis?.quoted_count ? short(o.kpis.quoted_total) : "—"}
                 gradient="from-violet-500 to-violet-700"
                 loading={kpiLoading}
@@ -510,6 +531,7 @@ export default function Dashboard() {
               <Kpi
                 icon={BadgeCheck}
                 label="Converted"
+                to={single?.converted}
                 value={fmt(o?.kpis?.converted)}
                 gradient="from-emerald-500 to-brand-700"
                 loading={kpiLoading}
@@ -517,6 +539,7 @@ export default function Dashboard() {
               <Kpi
                 icon={Wallet}
                 label="Conversion amount"
+                to={single?.conversion}
                 value={o?.kpis?.conversion_count ? short(o.kpis.conversion_total) : "—"}
                 gradient="from-sky-500 to-brand-700"
                 loading={kpiLoading}
@@ -526,7 +549,7 @@ export default function Dashboard() {
                 icon={Calculator}
                 label="AOV"
                 value={kpiAov.value == null ? "—" : short(Math.round(kpiAov.value))}
-                {...chooserAction("AOV", aovChoices)}
+                {...chooserAction("AOV", aovChoices, single?.aov)}
                 gradient="from-cyan-500 to-brand-700"
                 loading={kpiLoading}
               />
@@ -534,7 +557,7 @@ export default function Dashboard() {
                 icon={Send}
                 label="Quotes sent"
                 value={fmt(o?.kpis?.quotes_count)}
-                {...chooserAction("Quotes sent", quoteChoices)}
+                {...chooserAction("Quotes sent", quoteChoices, single?.quotes)}
                 gradient="from-indigo-500 to-indigo-700"
                 loading={kpiLoading}
               />}
@@ -542,7 +565,7 @@ export default function Dashboard() {
                 icon={Flame}
                 label="Hot leads"
                 value={fmt(o?.kpis?.hot_count)}
-                {...chooserAction("Hot leads", hotChoices)}
+                {...chooserAction("Hot leads", hotChoices, single?.hot)}
                 gradient="from-amber-500 to-orange-600"
                 loading={kpiLoading}
               />}
@@ -554,10 +577,10 @@ export default function Dashboard() {
 
             {/* ── Sources ── */}
             <section
-              className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+              className={`mt-6 grid gap-4 ${tileGridClass(shownKeys.length)}`}
               aria-label="Lead sources"
             >
-              {SOURCE_KEYS.map((k) => {
+              {shownKeys.map((k) => {
                 const s = SOURCES[k];
                 const Icon = s.icon;
                 const total = view?.totals[k];
@@ -619,7 +642,7 @@ export default function Dashboard() {
                   </Link>
 
                   {/* CRM outcomes of the period's leads; each value opens the filtered list */}
-                  <dl className="mt-3 grid grid-cols-2 gap-x-2 gap-y-2.5 border-t border-gray-100 pt-3">
+                  <dl className={`mt-3 grid grid-cols-2 gap-x-2 gap-y-2.5 border-t border-gray-100 pt-3 ${shownKeys.length === 1 ? "sm:grid-cols-4" : ""}`}>
                     {outcomeCells(o?.outcomes?.[k]).map((c) => (
                       <div key={c.key} className="min-w-0">
                         <dt className="truncate text-[10px] font-semibold uppercase tracking-wider text-gray-400">
@@ -807,7 +830,7 @@ export default function Dashboard() {
                 right={
                   o && (
                     <Legend
-                      keys={SOURCE_KEYS.filter(
+                      keys={shownKeys.filter(
                         (k) => charted(k, o),
                       )}
                     />
@@ -843,7 +866,7 @@ export default function Dashboard() {
                           content={<ChartTooltip labelFormat={monthLabel} />}
                           cursor={{ fill: "#f8fafc" }}
                         />
-                        {SOURCE_KEYS.filter(
+                        {shownKeys.filter(
                           (k) => charted(k, o),
                         ).map((k, i, arr) => (
                           <Bar
@@ -889,9 +912,9 @@ export default function Dashboard() {
 
             {/* ── Latest + partners ── */}
             <div className="mt-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
-              <Panel
+              {feedSources.length > 0 && <Panel
                 title="Latest leads"
-                subtitle="International · Wedding · Wedding planner"
+                subtitle={feedSources.map((k) => SOURCES[k].label).join(" · ")}
                 icon={Sparkles}
                 flush
               >
@@ -932,7 +955,7 @@ export default function Dashboard() {
                     </li>
                   )}
                 </ul>
-              </Panel>
+              </Panel>}
 
               <Panel
                 title="Partners"

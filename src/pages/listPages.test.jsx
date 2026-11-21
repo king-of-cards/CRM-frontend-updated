@@ -64,12 +64,36 @@ const DASH = {
   by_occasion: [{ value: "Engagement", count: 1 }], inflow: [{ date: "2026-11-20", total: 1 }], by_status: { pending: 5 }, top_cities: [{ city: "Mysuru", count: 1 }],
 };
 
+// GET /analytics/overview: every source, so the page itself must hide a vendor's other sources
+const OVERVIEW = {
+  period: { granularity: "day" }, totals: { spin: 5, whatsapp: 3, wedding: 2, wedding_planner: 1, all: 11 },
+  outcomes: { spin: { interested: 0, converted: 1, hot_count: 1 }, whatsapp: { interested: 1 }, wedding: { interested: 1 }, wedding_planner: { interested: 0 } },
+  kpis: { total: 11, interested: 2, converted: 1, hot_count: 1 }, change_pct: {},
+  source_mix: [{ source: "spin", pct: 45 }, { source: "whatsapp", pct: 27 }, { source: "wedding", pct: 18 }, { source: "wedding_planner", pct: 10 }],
+  trend: [], upcoming_by_month: [], top_cities: [], top_countries: [], occasions: [], partners: [], sharing: { not_shared: 0, shared: 0 }, spin_available: true,
+  sources: ["spin", "whatsapp", "wedding", "wedding_planner"],
+};
+
+// GET /analytics/vendor-to-koc (admin): per_vendor with an inactive vendor, and Dhruva as a partner
+const VK = {
+  received: 6, kpis: { total: 6 }, inflow: [], inflow_vendors: [], by_status: { pending: 2 },
+  per_vendor: [
+    { vendor_id: 2, vendor_name: "Phodeo", is_active: true, leads: 5, interested: 1, converted: 1, pending: 3 },
+    { vendor_id: 9, vendor_name: "Kraftyz", is_active: true, leads: 0, interested: 0, converted: 0, pending: 0 },
+    { vendor_id: 7, vendor_name: "Old Vendor", is_active: false, leads: 1, interested: 0, converted: 0, pending: 1 },
+  ],
+  dhruva: { received: 4, interested: 2, converted: 0, pending: 2 },
+  funnel: { received: 6, updated: 3, engaged: 2, converted: 1 }, latest: [], next_follow_ups: [], follow_ups_due: 0,
+};
+
 let mode = "empty"; // "empty": nothing loaded yet; "data": every request has ANSWER
 const memory = new Map();
 const storage = { getItem: (k) => (memory.has(k) ? memory.get(k) : null), setItem: (k, v) => memory.set(k, String(v)), removeItem: (k) => memory.delete(k) };
 
 let PAGES;
 let KocToDhruvaDashboard;
+let DashboardPage;
+let VendorToKocDashboard;
 beforeAll(async () => {
   globalThis.sessionStorage = storage;
   globalThis.localStorage = storage;
@@ -77,7 +101,7 @@ beforeAll(async () => {
   mock.module("../api/client.js", () => ({
     ...real,
     // Per path: the vendor list is an array, the sheet status { sources }, the rest ANSWER
-    peek: (path) => (mode !== "data" ? undefined : String(path).startsWith("/vendors") ? ANSWER.vendors : String(path).startsWith("/analytics/koc-to-dhruva") ? DASH : ANSWER),
+    peek: (path) => (mode !== "data" ? undefined : String(path).startsWith("/vendors") ? ANSWER.vendors : String(path).startsWith("/analytics/koc-to-dhruva") ? DASH : String(path).startsWith("/analytics/overview") ? OVERVIEW : String(path).startsWith("/analytics/vendor-to-koc") ? VK : ANSWER),
     apiRequest: () => new Promise(() => {}), // never answers: effects don't run in this test anyway
   }));
   PAGES = {
@@ -90,6 +114,8 @@ beforeAll(async () => {
     koc_to_dhruva: (await import("./KocToDhruvaLeads.jsx")).default,
   };
   KocToDhruvaDashboard = (await import("./KocToDhruvaDashboard.jsx")).default;
+  DashboardPage = (await import("./Dashboard.jsx")).default;
+  VendorToKocDashboard = (await import("./VendorToKocDashboard.jsx")).default;
 });
 
 const ROLES = {
@@ -197,5 +223,73 @@ describe("KOC → Dhruva dashboard", () => {
       expect(html).toContain(text);
     for (const name of ["Meera Iyer", "Ravi Kumar", "Old Lead", "Chitradurga", "CTRD-011 · Chitradurga", "No branch", "₹1,50,000"]) expect(html).toContain(name);
     for (const gone of ["Lead inflow", "Top cities", "Leads by occasion", "Engagement", "Mysuru", "Update breakdown", "Reason"]) expect(html).not.toContain(gone);
+  });
+});
+
+describe("KOC → Vendors dashboard per login (/auth/me sources and vendor name)", () => {
+  const LOGINS = {
+    admin: { ...ROLES.admin, sources: ["spin", "whatsapp", "wedding", "wedding_planner"] },
+    kraftyz: { id: 5, role: "vendor", name: "Kraftyz User", email: "k@example.in", vendor: { id: 9, name: "Kraftyz" }, sources: ["spin"] },
+    phodeo: { id: 6, role: "vendor", name: "Phodeo User", email: "p@example.in", vendor: { id: 2, name: "Phodeo" }, sources: ["spin", "whatsapp", "wedding"] },
+  };
+  const renderDashboard = (login) => {
+    mode = "data";
+    return renderToString(
+      <AuthContext.Provider value={authFor(LOGINS[login])}>
+        <MemoryRouter initialEntries={["/dashboard?period=all"]}>
+          <DashboardPage />
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    );
+  };
+  test("Kraftyz: only Spin (tab, one full-width tile, KPI cards straight to Spin), named flows", () => {
+    const html = renderDashboard("kraftyz");
+    expect(html).toContain('href="/leads/spin"');
+    for (const other of ["/leads/international", "/leads/wedding\"", "/leads/wedding-planner"]) expect(html).not.toContain(`href="${other.replace("\\", "")}`);
+    expect(html).toContain("grid-cols-1");
+    expect(html).toContain('href="/leads/spin?update_status=interested"'); // the Interested KPI card
+    expect(html).toContain("KOC → Kraftyz");
+    expect(html).toContain("Kraftyz → KOC");
+    expect(html).toContain("KOC → Kraftyz leads"); // follow-ups card
+    expect(html).not.toContain("KOC → Vendors");
+  });
+  test("Phodeo: three sources, three columns, named flows", () => {
+    const html = renderDashboard("phodeo");
+    for (const path of ["/leads/spin", "/leads/international", "/leads/wedding"]) expect(html).toContain(`href="${path}"`);
+    expect(html).not.toContain('href="/leads/wedding-planner"');
+    expect(html).toContain("lg:grid-cols-3");
+    expect(html).toContain("KOC → Phodeo");
+    expect(html).not.toContain('href="/leads/spin?update_status=interested"'); // several sources: no direct KPI link
+  });
+  test("admin: unchanged (all four sources, generic labels)", () => {
+    const html = renderDashboard("admin");
+    for (const path of ["/leads/spin", "/leads/international", "/leads/wedding", "/leads/wedding-planner"]) expect(html).toContain(`href="${path}"`);
+    expect(html).toContain("xl:grid-cols-4");
+    expect(html).toContain("KOC → Vendors");
+    expect(html).not.toContain("Kraftyz");
+  });
+});
+
+describe("admin: Vendors → KOC tiles and Assigned to", () => {
+  test("a tile per vendor (zeros as —, Inactive badge) plus Dhruva linking to /dhruva-leads", () => {
+    mode = "data";
+    const html = renderToString(
+      <AuthContext.Provider value={authFor(ROLES.admin)}>
+        <MemoryRouter initialEntries={["/dashboard?flow=vendors&period=all"]}>
+          <VendorToKocDashboard period={{ all: true }} refreshKey={0} isAdmin />
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    );
+    for (const name of ["Phodeo", "Kraftyz", "Old Vendor", "Inactive", "Dhruva", "Partner"]) expect(html).toContain(name);
+    expect(html).toContain('href="/dhruva-leads"');
+    expect(html).toContain('href="/dhruva-leads?update_status=interested"');
+  });
+  test("the inline Assigned to offers Automatic, Unassigned and the vendors", () => {
+    mode = "data";
+    memory.clear();
+    const html = render("whatsapp", "admin");
+    expect(html).toContain('<option value="automatic"');
+    expect(html).toContain('<option value="unassigned">Unassigned</option>');
+    expect(html).toContain('<option value="9">Kraftyz</option>');
   });
 });

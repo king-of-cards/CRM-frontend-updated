@@ -27,6 +27,7 @@ import {
   Wallet,
   IndianRupee,
   Sparkles,
+  Star,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -50,7 +51,10 @@ import {
   statusRows,
   VENDOR_COLORS,
   vendorCells,
+  vendorTiles,
+  dhruvaTile,
 } from "./vendorToKocDashboard.js";
+import { useVendors } from "../components/leads/InlineCrm.jsx";
 
 // Vendors → KOC dashboard (GET /analytics/vendor-to-koc), in the style of the KOC → Vendors one.
 // Admins: every card. Vendor logins: what the API returns for them, over their own leads (the
@@ -130,6 +134,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
   const [loading, setLoading] = useState(() => !getKocDashboard.peek(query));
   const [error, setError] = useState("");
   const [hiddenVendors, setHiddenVendors] = useState(() => new Set()); // Lead inflow: unticked vendors
+  const allVendors = useVendors(); // admins: every vendor (active ones always get a tile)
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +163,9 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
   const shownVendors = vendors.filter((v) => !hiddenVendors.has(String(v.id)));
   const points = inflowPoints(d?.inflow);
   const statuses = statusRows(d?.by_status);
+  // Admin tiles: every active vendor (also any the answer leaves out), and Dhruva as a partner
+  const tiles = isAdmin ? vendorTiles(d?.per_vendor, allVendors) : [];
+  const dhruva = isAdmin ? dhruvaTile(d?.dhruva, period) : null;
   const all = { all: true };
   const kpiLinks = dashboardKpiLinks(period);
   const aovValue = aovOf(d?.kpis).value;
@@ -266,19 +274,23 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
             )}
           </section>
 
-          {/* ── Per vendor (admin) ── */}
-          {isAdmin && (d?.per_vendor ?? []).length > 0 && (
+          {/* ── Per vendor (admin): every active vendor (zeros as "—"), inactive ones with leads
+              (badge), and Dhruva as a partner ── */}
+          {isAdmin && (tiles.length > 0 || dhruva) && (
             <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Vendors">
-              {d.per_vendor.map((v) => (
-                <div key={v.vendor_id} className="rounded-2xl bg-white p-4 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60">
+              {tiles.map((v) => (
+                <div key={v.vendor_id} className={`rounded-2xl bg-white p-4 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 ${v.is_active ? "" : "opacity-80"}`}>
                   {/* The name opens this vendor's leads for the period (the count does too) */}
-                  <Link
-                    to={kocListLink({ vendor_id: [String(v.vendor_id)] }, period)}
-                    className="flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-brand-700 hover:underline"
-                  >
-                    <Users size={15} className="text-brand-600" aria-hidden="true" />
-                    {v.vendor_name}
-                  </Link>
+                  <span className="flex items-center justify-between gap-2">
+                    <Link
+                      to={kocListLink({ vendor_id: [String(v.vendor_id)] }, period)}
+                      className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-900 hover:text-brand-700 hover:underline"
+                    >
+                      <Users size={15} className="shrink-0 text-brand-600" aria-hidden="true" />
+                      <span className="truncate">{v.vendor_name}</span>
+                    </Link>
+                    {!v.is_active && <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 ring-1 ring-gray-200">Inactive</span>}
+                  </span>
                   <p className="mt-0.5 text-xl font-bold tabular-nums text-gray-900">
                     <N count={v.leads} filters={{ vendor_id: [String(v.vendor_id)] }} period={period} />
                     <span className="ml-1.5 text-xs font-normal text-gray-400">leads</span>
@@ -295,6 +307,31 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                   </dl>
                 </div>
               ))}
+              {dhruva && (
+                <div className="rounded-2xl bg-white p-4 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60">
+                  <span className="flex items-center justify-between gap-2">
+                    <Link to={dhruva.to} className="flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-brand-700 hover:underline">
+                      <Star size={15} className="text-amber-500" aria-hidden="true" />
+                      {dhruva.name}
+                    </Link>
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 ring-1 ring-amber-200">Partner</span>
+                  </span>
+                  <p className="mt-0.5 text-xl font-bold tabular-nums text-gray-900">
+                    {dhruva.leadsTo ? <Link to={dhruva.leadsTo} className="hover:text-brand-700 hover:underline">{num(dhruva.leads)}</Link> : <span className="text-gray-300">—</span>}
+                    <span className="ml-1.5 text-xs font-normal text-gray-400">leads</span>
+                  </p>
+                  <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
+                    {dhruva.cells.map((c) => (
+                      <div key={c.key} className="min-w-0">
+                        <dt className="truncate text-[10px] font-semibold uppercase tracking-wider text-gray-400">{c.label}</dt>
+                        <dd className="mt-0.5 text-sm font-semibold tabular-nums text-gray-900">
+                          {c.to ? <Link to={c.to} className="hover:text-brand-700 hover:underline">{num(c.count)}</Link> : <span className="text-gray-300">—</span>}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
             </section>
           )}
 

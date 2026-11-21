@@ -3,6 +3,8 @@ import { addKocLead } from "../../api/vendorToKoc.js";
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
 import DateInput from "../shared/DateInput.jsx";
 import { kocErrors } from "./kocUtils.js";
+import { useAuth } from "../../auth/useAuth.js";
+import { flowLabels } from "../layout/leadFlow.js";
 
 // Add one Vendors → KOC lead (vendor logins only; the lead goes to the login's vendor):
 // Name, Date, Phone (required), City.
@@ -15,6 +17,7 @@ const FIELDS = [
 ];
 
 export default function KocAddLeadDialog({ onClose, onAdded }) {
+  const { user } = useAuth(); // vendor logins: the kicker names their vendor ("Kraftyz → KOC")
   const [form, setForm] = useState({ name: "", date: "", phone: "", city: "" });
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState("");
@@ -51,7 +54,7 @@ export default function KocAddLeadDialog({ onClose, onAdded }) {
 
   return (
     <Drawer
-      kicker="Vendors → KOC"
+      kicker={flowLabels(user?.role === "vendor" ? user.vendor : null).vendors}
       title="Add lead"
       onClose={onClose}
       footer={

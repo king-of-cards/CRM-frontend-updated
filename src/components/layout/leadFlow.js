@@ -70,13 +70,34 @@ export function dhruvaDirectionTarget(pathname, value) {
   return DHRUVA_DIRECTIONS.find((d) => d.value === value)?.path ?? "/dhruva-leads";
 }
 
+// The KOC → Vendors source behind each list tab
+export const TAB_SOURCES = {
+  "/leads/spin": "spin",
+  "/leads/international": "whatsapp",
+  "/leads/wedding": "wedding",
+  "/leads/wedding-planner": "wedding_planner",
+};
+
+// The two vendor flows' names: generic, or with the vendor's name for a vendor login
+// ("KOC → Kraftyz", "Kraftyz → KOC"); vendor = /auth/me's vendor ({ id, name }) or null
+export function flowLabels(vendor) {
+  const name = vendor?.name?.trim();
+  return name
+    ? { koc: `KOC → ${name}`, vendors: `${name} → KOC` }
+    : { koc: "KOC → Vendors", vendors: "Vendors → KOC" };
+}
+
 // Tabs for a flow: { path, to, label }. The Dashboard tab keeps the active flow (and the
-// Dhruva direction).
-export function tabsFor(flow, direction = DHRUVA_DIRECTION) {
+// Dhruva direction). sources: the KOC → Vendors sources to show (vendor logins: theirs);
+// labels: flowLabels(…) for the Vendors → KOC tab's name.
+export function tabsFor(flow, direction = DHRUVA_DIRECTION, { sources = null, labels = null } = {}) {
   const tabs =
     flow === "vendors" ? VENDOR_TABS : flow === "dhruva" ? DHRUVA_TABS : KOC_TABS;
-  return tabs.map((t) => ({
+  return tabs
+    .filter((t) => !sources || !TAB_SOURCES[t.path] || sources.includes(TAB_SOURCES[t.path]))
+    .map((t) => ({
     ...t,
+    label: t.path === "/vendor-to-koc" && labels ? labels.vendors : t.label,
     to:
       t.path === "/dashboard" && flow
         ? flow === "dhruva"

@@ -63,7 +63,8 @@ export function outcomeLink(path, filter, period) {
     params.set("date_from", period.from);
     params.set("date_to", period.to);
   }
-  return `${path}?${params.toString()}`;
+  const qs = params.toString();
+  return qs ? `${path}?${qs}` : path;
 }
 
 const SOURCE_PATHS = {
@@ -82,9 +83,11 @@ const KPI_KINDS = {
   aov: { filter: AOV_FILTERS, count: (o) => o.conversion_amount_count ?? 0 },
 };
 
-export function sourceKpiDestinations(outcomes, kind, period) {
+// sources: the sources this login sees (vendor logins: theirs); others are never offered
+export function sourceKpiDestinations(outcomes, kind, period, sources = null) {
   const { filter, count: countOf } = KPI_KINDS[kind] ?? KPI_KINDS.hot;
   return Object.entries(SOURCE_PATHS)
+    .filter(([source]) => !sources || sources.includes(source))
     .filter(([source]) => outcomes?.[source] != null && Number(countOf(outcomes[source])) > 0)
     .map(([source, path]) => ({
       source,
@@ -92,4 +95,32 @@ export function sourceKpiDestinations(outcomes, kind, period) {
       count: Number(countOf(outcomes[source])),
       to: outcomeLink(path, filter, period),
     }));
+}
+
+// One visible source (e.g. a vendor login with only Spin): every KPI card links straight to that
+// list with its filter and the period; null when the source has no list
+export function singleSourceKpiLinks(source, period) {
+  const path = SOURCE_PATHS[source];
+  if (!path) return null;
+  const link = (filter) => outcomeLink(path, filter, period);
+  return {
+    total: link({}),
+    interested: link({ update_status: "interested" }),
+    not_interested: link({ update_status: "not_interested" }),
+    quoted: link({ quote: "has" }),
+    converted: link({ update_status: "converted" }),
+    conversion: link({ conversion: "has" }),
+    aov: link(AOV_FILTERS),
+    quotes: link({ quote: "has" }),
+    hot: link({ hot: "yes" }),
+  };
+}
+
+// The source tiles' grid for any count: one tile spans the row, two and three share it evenly,
+// four keep the 2 / 4 columns
+export function tileGridClass(count) {
+  if (count <= 1) return "grid-cols-1";
+  if (count === 2) return "sm:grid-cols-2";
+  if (count === 3) return "sm:grid-cols-2 lg:grid-cols-3";
+  return "sm:grid-cols-2 xl:grid-cols-4";
 }

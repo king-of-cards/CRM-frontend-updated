@@ -1,4 +1,6 @@
 import { dayText, phoneText } from "../vendorToKoc/kocUtils.js";
+import { visibleSources } from "../../auth/permissions.js";
+import { flowLabels } from "../layout/leadFlow.js";
 
 export const REMINDER_SOURCES = {
   spin: { label: "Spin", path: "/leads/spin" },
@@ -26,10 +28,29 @@ export function reminderScopeFor(flow = "", direction = "dhruva") {
   return direction === "koc_to_dhruva" ? "koc_to_dhruva" : "dhruva";
 }
 
-// The request and card subtitle for a scope (unknown scopes: KOC → Vendors)
-export function reminderRequestFor(flow = "") {
-  return FLOW_REMINDERS[flow] ?? FLOW_REMINDERS[""];
+// The request and card subtitle for a scope (unknown scopes: KOC → Vendors).
+// sources: the KOC → Vendors sources this login sees (vendor logins ask only for theirs);
+// labels: flowLabels(…) so a vendor login reads "KOC → Kraftyz leads" / "Kraftyz → KOC leads".
+export function reminderRequestFor(flow = "", { sources = null, labels = null } = {}) {
+  const base = FLOW_REMINDERS[flow] ?? FLOW_REMINDERS[""];
+  const key = FLOW_REMINDERS[flow] ? flow : "";
+  if (!sources && !labels) return base;
+  const out = { ...base };
+  if (key === "" && sources) out.sources = base.sources.filter((s) => sources.includes(s));
+  if (labels && key === "") out.label = `${labels.koc} leads`;
+  if (labels && key === "vendors") out.label = `${labels.vendors} leads`;
+  return out;
 }
+
+// The request for this login: vendor logins ask only for their sources, with their vendor's name
+export function reminderRequestForUser(flow, user) {
+  if (user?.role !== "vendor") return reminderRequestFor(flow);
+  return reminderRequestFor(flow, { sources: visibleSources(user), labels: flowLabels(user.vendor) });
+}
+
+// Nothing to ask for: a KOC → Vendors request with no sources (a vendor with none of them).
+// Sending an empty list would make the API fall back to its default sources.
+export const reminderRequestEmpty = (request) => !request.dhruva && request.sources.length === 0;
 
 export function reminderTag(daysOverdue) {
   const days = Number(daysOverdue);

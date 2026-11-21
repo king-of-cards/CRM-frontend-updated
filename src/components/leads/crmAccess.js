@@ -1,10 +1,10 @@
 // Who may change which CRM field (see docs/API_REFERENCE.md, "Access: who sees and edits what").
 //   update_status, quoted_amount, quoted_date, conversion_amount: admins and the assigned vendor
-//   vendor_id ("Assigned to"):                       admins only (vendors: read-only)
+//   vendor_id / assigned_to ("Assigned to"):         admins only (vendors: read-only)
 //   notes:                                           both
 
 export const VENDOR_FIELDS = ["update_status", "quoted_amount", "quoted_date", "conversion_amount"];
-export const ADMIN_FIELDS = ["vendor_id"];
+export const ADMIN_FIELDS = ["vendor_id", "assigned_to"];
 export const SHARED_FIELDS = ["notes"];
 
 export function canEdit(isAdmin, field) {
@@ -25,6 +25,31 @@ export const AUTO_VENDOR_SOURCES = ["suggested", "source_default"];
 export function assignedText(crm) {
   if (!crm?.vendor) return "Unassigned";
   return NAMED_VENDOR_SOURCES.includes(crm.vendor_source) ? crm.vendor.name : `${crm.vendor.name} · auto`;
+}
+
+// ── Assigned to: Automatic, Unassigned or a vendor (admins; docs section 5) ──
+// The editors' value: a manual vendor's id, "unassigned" (no vendor and auto_assign false: an
+// admin chose Unassigned, or it was uploaded unassigned), else "automatic"
+export const AUTOMATIC_CHOICE = "automatic";
+export const UNASSIGNED_CHOICE = "unassigned";
+export function assignmentOf(crm) {
+  if (crm?.vendor_source === "manual" && crm?.vendor) return String(crm.vendor.id);
+  if (!crm?.vendor && crm?.auto_assign === false) return UNASSIGNED_CHOICE;
+  return AUTOMATIC_CHOICE;
+}
+
+// What PUT …/crm gets for a choice: assigned_to for Automatic / Unassigned, vendor_id for a vendor
+// (never both: the API answers 422)
+export function assignmentChange(choice) {
+  if (choice === AUTOMATIC_CHOICE) return { assigned_to: "automatic" };
+  if (choice === UNASSIGNED_CHOICE) return { assigned_to: "unassigned" };
+  return { vendor_id: Number(choice) };
+}
+
+// The Automatic option's label: "Automatic · Phodeo" when a rule picks (or would pick) a vendor
+export function automaticLabel(crm) {
+  const auto = crm?.vendor && crm.vendor_source !== "manual" ? crm.vendor : crm?.suggested_vendor;
+  return auto?.name ? `Automatic · ${auto.name}` : "Automatic";
 }
 
 // The side panel's save: only fields that changed and that this login may edit

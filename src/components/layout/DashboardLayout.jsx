@@ -16,12 +16,12 @@ import {
   UserCog,
 } from "lucide-react";
 import { useAuth } from "../../auth/useAuth.js";
-import { navFor } from "../../auth/permissions.js";
+import { navFor, visibleSources } from "../../auth/permissions.js";
 import { ViewOnlyBadge, ViewOnlyToast } from "../shared/ViewOnly.jsx";
 import LeadFlowToggle from "../dashboard/LeadFlowToggle.jsx";
 import DhruvaDirectionSwitch from "../dashboard/DhruvaDirectionSwitch.jsx";
 import NotificationBell from "./NotificationBell.jsx";
-import { dhruvaDirectionOf, dhruvaDirectionTarget, flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
+import { dhruvaDirectionOf, dhruvaDirectionTarget, flowLabels, flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
 import LeadBackButton from "./LeadBackButton.jsx";
 import PageErrorBoundary from "../shared/PageErrorBoundary.jsx";
 import { isLeadRoute } from "./leadBack.js";
@@ -81,7 +81,9 @@ export default function DashboardLayout({
   const flow = rawFlow === "dhruva" && !nav.dhruvaFlow ? "" : rawFlow;
   // The Dhruva flow's direction: the open list, or the Dashboard's ?direction
   const direction = dhruvaDirectionOf(location.pathname, location.search);
-  const visibleTabs = tabsFor(flow, direction).map((t) => ({ ...t, icon: TAB_ICONS[t.path] }));
+  // Vendor logins: only their sources' tabs, and the flows named after their vendor
+  const labels = flowLabels(isVendor ? user?.vendor : null);
+  const visibleTabs = tabsFor(flow, direction, { sources: visibleSources(user), labels }).map((t) => ({ ...t, icon: TAB_ICONS[t.path] }));
   const showDirection = flow === "dhruva" && FLOW_PAGES.includes(location.pathname);
   // Dashboard: switch ?direction in place (keeping the period); a list: open the other list
   function chooseDirection(value) {
@@ -106,7 +108,7 @@ export default function DashboardLayout({
   const topBarExtra = showToggle ? (
     <div className="flex w-full items-center gap-2 lg:w-auto">
       <div className="min-w-0 flex-1 lg:flex-none">
-        <LeadFlowToggle value={flow} onChange={chooseFlow} showDhruva={nav.dhruvaFlow} />
+        <LeadFlowToggle value={flow} onChange={chooseFlow} showDhruva={nav.dhruvaFlow} labels={labels} />
       </div>
       {bellPlacement.besideToggle && (
         <div className="hidden shrink-0 lg:block">

@@ -4,6 +4,8 @@ import { bulkAddKocLeads, downloadKocTemplate, previewKocUpload } from "../../ap
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
 import { readSheetNames } from "../crmLeads/xlsxSheets.js";
 import { fieldErrors, kocErrors, mapKocRecheck, rowKind, rowsToKocCsv } from "./kocUtils.js";
+import { useAuth } from "../../auth/useAuth.js";
+import { flowLabels } from "../layout/leadFlow.js";
 
 // Vendors → KOC bulk upload (docs section 11; vendor logins only): template → file (+ sheet) →
 // preview (nothing saved) → fix / remove rows, re-checked on blur or with "Re-check" →
@@ -27,6 +29,7 @@ function Count({ label, n, cls }) {
 }
 
 export default function KocBulkUploadDialog({ onClose, onImported }) {
+  const { user } = useAuth(); // vendor logins: the kicker names their vendor ("Kraftyz → KOC")
   const [step, setStep] = useState("choose"); // choose | preview | result
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
@@ -219,7 +222,7 @@ export default function KocBulkUploadDialog({ onClose, onImported }) {
 
   return (
     <Drawer
-      kicker="Vendors → KOC"
+      kicker={flowLabels(user?.role === "vendor" ? user.vendor : null).vendors}
       title="Bulk upload"
       onClose={onClose}
       wide={step !== "choose"}

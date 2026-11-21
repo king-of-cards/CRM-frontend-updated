@@ -74,6 +74,7 @@ const sourcePages = [
   {
     path: "/vendor-to-koc",
     title: "Vendors → KOC",
+    flowTitle: "vendors", // vendor logins read "<Vendor> → KOC" (LeadSourcePage)
     description: "Leads vendors send to KOC.",
     element: <VendorToKocLeads />,
   },
@@ -99,7 +100,7 @@ function App() {
             path={p.path}
             element={
               <RequireAuth>
-                <LeadSourcePage title={p.title} description={p.description}>
+                <LeadSourcePage title={p.title} flowTitle={p.flowTitle} description={p.description}>
                   {p.element}
                 </LeadSourcePage>
               </RequireAuth>

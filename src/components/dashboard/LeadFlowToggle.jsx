@@ -10,7 +10,8 @@ const FLOWS = [
   { value: "dhruva", label: "Dhruva leads" },
 ];
 
-export default function LeadFlowToggle({ value, onChange, showDhruva = true }) {
+// labels: flowLabels(…) ("KOC → Kraftyz" / "Kraftyz → KOC" for a vendor login)
+export default function LeadFlowToggle({ value, onChange, showDhruva = true, labels = null }) {
   return (
     <div className="flex w-full items-center gap-1 rounded-full bg-linear-to-r from-amber-200 via-amber-300 to-orange-400 p-1.5 shadow-xl shadow-orange-500/25 ring-1 ring-white/40 lg:w-auto">
       <span className="flex shrink-0 items-center gap-1.5 px-3 text-xs font-semibold text-amber-950/70">
@@ -34,7 +35,7 @@ export default function LeadFlowToggle({ value, onChange, showDhruva = true }) {
               }`}
             >
               {active && <span className="h-1.5 w-1.5 rounded-full bg-amber-300" aria-hidden="true" />}
-              {f.label}
+              {f.value === "" && labels ? labels.koc : f.value === "vendors" && labels ? labels.vendors : f.label}
             </button>
           );
         })}

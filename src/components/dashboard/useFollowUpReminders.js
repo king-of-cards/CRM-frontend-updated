@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getFollowUpReminders } from "../../api/reminders.js";
-import { reminderRequestFor } from "./reminderUtils.js";
+import { reminderRequestEmpty, reminderRequestForUser } from "./reminderUtils.js";
+import { useAuth } from "../../auth/useAuth.js";
 
 // Follow-ups of one scope only ("" = KOC → Vendors, "vendors", "dhruva", "koc_to_dhruva"); see reminderUtils.js.
 // Each answer is kept with the request it belongs to, so another flow's items never show.
 export default function useFollowUpReminders({ flow = "", days = 7 } = {}) {
-  const { dhruva, sources } = reminderRequestFor(flow);
+  const { user } = useAuth();
+  const request = reminderRequestForUser(flow, user);
+  const { dhruva, sources } = request;
+  const empty = reminderRequestEmpty(request); // a vendor with none of the sources: nothing to ask
   const sourcesKey = sources.join(",");
   const requestKey = `${dhruva ? "dhruva" : "general"}:${sourcesKey}:${days}`;
   const [result, setResult] = useState({ key: null, data: null, error: false });
@@ -16,6 +20,10 @@ export default function useFollowUpReminders({ flow = "", days = 7 } = {}) {
 
   const refresh = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
+    if (empty) {
+      setResult({ key: requestKey, data: { items: [], counts: {} }, error: false });
+      return;
+    }
     try {
       const data = await getFollowUpReminders({ dhruva, days, sources: sourcesKey ? sourcesKey.split(",") : [] });
       if (currentKey.current !== requestKey) return; // a late answer for another flow
@@ -24,7 +32,7 @@ export default function useFollowUpReminders({ flow = "", days = 7 } = {}) {
       if (currentKey.current !== requestKey) return;
       setResult((prev) => ({ key: requestKey, data: prev.key === requestKey ? prev.data : null, error: true }));
     }
-  }, [dhruva, sourcesKey, days, requestKey]);
+  }, [dhruva, sourcesKey, days, requestKey, empty]);
 
   useEffect(() => {
     let timer = null;

@@ -30,6 +30,22 @@ export const canManage = (user) => roleOf(user) === "admin";
 // Pages a view-only login can't open: sent to the dashboard
 export const VIEWER_BLOCKED_PATHS = ["/users", "/settings", "/branches"];
 
+// The KOC → Vendors sources and their list pages, in /auth/me's order
+export const KOC_SOURCES = ["spin", "whatsapp", "wedding", "wedding_planner"];
+export const SOURCE_PAGE = {
+  spin: "/leads/spin",
+  whatsapp: "/leads/international",
+  wedding: "/leads/wedding",
+  wedding_planner: "/leads/wedding-planner",
+};
+
+// The KOC → Vendors sources this login sees (docs section 12, /auth/me "sources"): vendor logins
+// only theirs; admins and view-only logins all four (also when an older API sends no list)
+export function visibleSources(user) {
+  if (roleOf(user) !== "vendor" || !Array.isArray(user?.sources)) return KOC_SOURCES;
+  return KOC_SOURCES.filter((s) => user.sources.includes(s));
+}
+
 // The Dhruva flow's lists (Dhruva → KOC, KOC → Dhruva): never for vendor logins
 export const DHRUVA_PATHS = ["/dhruva-leads", "/koc-to-dhruva"];
 
@@ -41,6 +57,11 @@ export function redirectFor(user, pathname) {
   if (!user) return "/login";
   if (roleOf(user) === "dhruva" && !["/dashboard", ...DHRUVA_PATHS].includes(pathname)) return "/dashboard?flow=dhruva";
   if (roleOf(user) === "vendor" && DHRUVA_PATHS.includes(pathname)) return "/dashboard";
+  // Vendor logins: another source's list goes to their dashboard
+  if (roleOf(user) === "vendor") {
+    const source = Object.keys(SOURCE_PAGE).find((s) => SOURCE_PAGE[s] === pathname);
+    if (source && !visibleSources(user).includes(source)) return "/dashboard";
+  }
   if (isViewer(user) && VIEWER_BLOCKED_PATHS.includes(pathname)) return "/dashboard";
   return null;
 }

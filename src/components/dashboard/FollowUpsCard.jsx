@@ -3,7 +3,8 @@ import { Link } from "react-router";
 import { useState } from "react";
 import { Panel } from "./DashboardParts.jsx";
 import useFollowUpReminders from "./useFollowUpReminders.js";
-import { reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderRequestFor, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
+import { reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderRequestForUser, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
+import { useAuth } from "../../auth/useAuth.js";
 
 const tones = { red: "bg-rose-50 text-rose-700 ring-rose-200", amber: "bg-amber-50 text-amber-800 ring-amber-200", neutral: "bg-gray-100 text-gray-600 ring-gray-200" };
 
@@ -12,7 +13,8 @@ const tones = { red: "bg-rose-50 text-rose-700 ring-rose-200", amber: "bg-amber-
 export default function FollowUpsCard({ flow = "" }) {
   const { data, loading, error, refresh } = useFollowUpReminders({ flow });
   const [showSources, setShowSources] = useState(false);
-  const request = reminderRequestFor(flow);
+  const { user } = useAuth();
+  const request = reminderRequestForUser(flow, user); // vendor logins: their sources, their vendor's name
   const rows = (data?.items ?? []).slice(0, 8);
   const counts = data?.counts ?? {};
   const sources = [...new Set((data?.items ?? []).map((item) => item.source))];

@@ -16,7 +16,8 @@ import {
   unreadBadge,
 } from "./notificationUtils.js";
 import { getFollowUpReminders } from "../../api/reminders.js";
-import { reminderDashboardDestination, reminderRequestFor, reminderScopeFor } from "../dashboard/reminderUtils.js";
+import { reminderDashboardDestination, reminderRequestEmpty, reminderRequestForUser, reminderScopeFor } from "../dashboard/reminderUtils.js";
+import { useAuth } from "../../auth/useAuth.js";
 import { dhruvaDirectionOf, flowOf } from "./leadFlow.js";
 
 const PAGE_SIZE = 10;
@@ -38,7 +39,9 @@ export default function NotificationBell({ variant = "default" }) {
   // Dhruva flow its direction (Dhruva → KOC or KOC → Dhruva, ?direction / the open list).
   // Counts are kept with their scope, so another scope's counts show as "—", never as this one's.
   const flow = reminderScopeFor(flowOf(location.pathname, location.search), dhruvaDirectionOf(location.pathname, location.search));
-  const followUpRequest = reminderRequestFor(flow);
+  const { user } = useAuth();
+  const followUpRequest = reminderRequestForUser(flow, user); // vendor logins: only their sources
+  const followUpEmpty = reminderRequestEmpty(followUpRequest);
   const followUpDhruva = followUpRequest.dhruva;
   const followUpSources = followUpRequest.sources.join(",");
   const [followUps, setFollowUps] = useState({ flow: null, counts: null, error: false });
@@ -79,6 +82,10 @@ export default function NotificationBell({ variant = "default" }) {
   const refreshFollowUps = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
     const key = flow;
+    if (followUpEmpty) {
+      setFollowUps({ flow: key, counts: {}, error: false });
+      return;
+    }
     try {
       const result = await getFollowUpReminders({
         days: 7,
@@ -91,7 +98,7 @@ export default function NotificationBell({ variant = "default" }) {
       if (followUpKey.current !== key) return;
       setFollowUps({ flow: key, counts: null, error: true });
     }
-  }, [flow, followUpDhruva, followUpSources]);
+  }, [flow, followUpDhruva, followUpSources, followUpEmpty]);
 
   useEffect(() => {
     let timer = null;
