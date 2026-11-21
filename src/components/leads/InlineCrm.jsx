@@ -3,7 +3,7 @@ import { ChevronDown, Loader2 } from "lucide-react";
 import { PENDING_UPDATE, UPDATE_OPTIONS, updateInfo } from "../../api/leadCrm.js";
 import { listVendors } from "../../api/vendors.js";
 import { useAuth } from "../../auth/useAuth.js";
-import { assignedText, assignmentChange, assignmentOf, automaticLabel, AUTOMATIC_CHOICE, UNASSIGNED_CHOICE } from "./crmAccess.js";
+import { assignableVendors, assignedText, assignmentChange, assignmentOf, automaticLabel, AUTOMATIC_CHOICE, UNASSIGNED_CHOICE } from "./crmAccess.js";
 
 // The editable CRM cells in every lead table: Assigned to, Update, Quoted amount, Conversion amount.
 // Each change is saved at once (only that field) and the row updates in place.
@@ -137,9 +137,10 @@ export function VendorCell({ crm, save }) {
       >
         <option value={AUTOMATIC_CHOICE}>{choice === AUTOMATIC_CHOICE ? (crm.vendor ? assignedText(crm) : automaticLabel(crm)) : automaticLabel(crm)}</option>
         <option value={UNASSIGNED_CHOICE}>Unassigned</option>
-        {vendors.map((v) => (
-          <option key={v.id} value={v.id}>
-            {v.name}
+        {/* Active vendors only; the lead's own inactive vendor stays visible but can't be picked */}
+        {assignableVendors(vendors, crm.vendor_source === "manual" ? crm.vendor : null).map((v) => (
+          <option key={v.id} value={v.id} disabled={v.inactive}>
+            {v.inactive ? `${v.name} (inactive)` : v.name}
           </option>
         ))}
       </PillSelect>

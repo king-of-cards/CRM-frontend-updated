@@ -10,6 +10,7 @@ import {
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn, Spinner } from "./Drawer.jsx";
 import { defaultSheet, readSheetNames } from "./xlsxSheets.js";
 import { useVendors } from "../leads/InlineCrm.jsx";
+import { assignableVendors } from "../leads/crmAccess.js";
 import { PENDING_UPDATE, UPDATE_OPTIONS, updateInfo } from "../../api/leadCrm.js";
 import {
   assignedChoice,
@@ -104,7 +105,9 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
   } else if (field.type === "assigned") {
     // Unassigned, each active vendor, Automatic ("<vendor> · auto" in the file shows as Automatic)
     const choice = assignedChoice(value);
-    const known = choice === "Unassigned" || choice === AUTOMATIC || vendors.some((v) => v.name === choice);
+    // Active vendors only: an inactive vendor in the file shows as unknown (the API's row error)
+    const active = assignableVendors(vendors);
+    const known = choice === "Unassigned" || choice === AUTOMATIC || active.some((v) => v.name === choice);
     input = (
       <select
         value={choice}
@@ -115,7 +118,7 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
       >
         <option value="Unassigned">Unassigned</option>
         {!known && <option value={choice}>{choice} (unknown)</option>}
-        {vendors.map((v) => (
+        {active.map((v) => (
           <option key={v.id} value={v.name}>
             {v.name}
           </option>

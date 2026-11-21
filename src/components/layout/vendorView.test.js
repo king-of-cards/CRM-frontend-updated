@@ -3,7 +3,7 @@ import { KOC_SOURCES, redirectFor, visibleSources } from "../../auth/permissions
 import { flowLabels, tabsFor } from "./leadFlow.js";
 import { outcomeLink, singleSourceKpiLinks, sourceKpiDestinations, tileGridClass } from "../../pages/dashboardOutcomes.js";
 import { reminderRequestEmpty, reminderRequestFor, reminderRequestForUser } from "../dashboard/reminderUtils.js";
-import { assignedText, assignmentChange, assignmentOf, automaticLabel } from "../leads/crmAccess.js";
+import { assignableVendors, assignedText, assignmentChange, assignmentOf, automaticLabel } from "../leads/crmAccess.js";
 import { dhruvaTile, vendorTiles } from "../../pages/vendorToKocDashboard.js";
 
 // The vendors in the checklist: Kraftyz has only gift leads (Spin); Phodeo has three sources
@@ -130,5 +130,24 @@ describe("4) Vendors → KOC dashboard tiles (admin)", () => {
       ["PENDING", 2, "/dhruva-leads?update_status=pending&date_from=2026-11-01&date_to=2026-11-21"],
     ]);
     expect(dhruvaTile(null, { all: true })).toBeNull();
+  });
+});
+
+describe("Assigned to: only active vendors can be chosen", () => {
+  const vendors = [
+    { id: 2, name: "Phodeo", is_active: true },
+    { id: 7, name: "Old Vendor", is_active: false },
+    { id: 9, name: "Kraftyz" }, // no flag (older API): active
+  ];
+  test("inactive vendors are hidden from the choices", () => {
+    expect(assignableVendors(vendors).map((v) => v.name)).toEqual(["Phodeo", "Kraftyz"]);
+    expect(assignableVendors(undefined)).toEqual([]);
+  });
+  test("a lead's own inactive vendor stays visible (flagged) so its name never disappears", () => {
+    expect(assignableVendors(vendors, { id: 7, name: "Old Vendor" })).toEqual([
+      { id: 2, name: "Phodeo", is_active: true }, { id: 9, name: "Kraftyz" }, { id: 7, name: "Old Vendor", inactive: true },
+    ]);
+    expect(assignableVendors(vendors, { id: 2, name: "Phodeo" }).some((v) => v.inactive)).toBe(false);
+    expect(assignedText({ vendor: { id: 7, name: "Old Vendor" }, vendor_source: "manual" })).toBe("Old Vendor");
   });
 });

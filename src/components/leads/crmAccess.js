@@ -46,6 +46,17 @@ export function assignmentChange(choice) {
   return { vendor_id: Number(choice) };
 }
 
+// The vendors a manual assignment may pick: active ones only (an inactive vendor_id answers 422).
+// current: the lead's manually assigned vendor ({ id, name }) or null; when it's inactive it is
+// kept, flagged inactive: true, so the dropdown still shows it (disabled) instead of losing it.
+export function assignableVendors(vendors, current = null) {
+  const active = (vendors ?? []).filter((v) => v && v.is_active !== false);
+  if (current?.id != null && !active.some((v) => String(v.id) === String(current.id))) {
+    return [...active, { id: current.id, name: current.name, inactive: true }];
+  }
+  return active;
+}
+
 // The Automatic option's label: "Automatic · Phodeo" when a rule picks (or would pick) a vendor
 export function automaticLabel(crm) {
   const auto = crm?.vendor && crm.vendor_source !== "manual" ? crm.vendor : crm?.suggested_vendor;

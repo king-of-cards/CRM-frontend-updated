@@ -43,7 +43,7 @@ const ANSWER = {
   countries: [{ value: "India", count: 1 }], branches: [{ id: 1, name: "Chamrajpet", count: 1 }],
   pincodes: [{ value: "560018", count: 1 }], budgets: [{ value: "70-100", count: 1 }],
   other_services: [{ value: "Wedding Gifts & Return Gifts", count: 1 }], updates: [{ value: "interested", count: 1 }],
-  origins: [{ value: "workflow", count: 1 }], vendors: [{ id: 9, name: "Kraftyz" }], occasions: [{ value: "Wedding", count: 1 }],
+  origins: [{ value: "workflow", count: 1 }], vendors: [{ id: 9, name: "Kraftyz", is_active: true }, { id: 7, name: "Old Vendor", is_active: false }], occasions: [{ value: "Wedding", count: 1 }],
   event_types: [{ value: "Wedding", count: 1 }], last_steps: [], shared_with: [],
   quantity_range: { min: 1000, max: 5000 },
   sources: [], // GET /sheets/sources (sheet sync status)
@@ -291,5 +291,28 @@ describe("admin: Vendors → KOC tiles and Assigned to", () => {
     expect(html).toContain('<option value="automatic"');
     expect(html).toContain('<option value="unassigned">Unassigned</option>');
     expect(html).toContain('<option value="9">Kraftyz</option>');
+  });
+});
+
+describe("Assigned to with an inactive vendor", () => {
+  test("not offered for new choices", () => {
+    mode = "data";
+    memory.clear();
+    const html = render("whatsapp", "admin");
+    expect(html).toContain('<option value="9">Kraftyz</option>');
+    expect(html).not.toContain("Old Vendor");
+  });
+  test("a lead already assigned to it keeps its name: selected but disabled for admins, the read-only chip for view-only logins", () => {
+    mode = "data";
+    memory.clear();
+    const saved = ROW.crm;
+    ROW.crm = { ...saved, vendor: { id: 7, name: "Old Vendor" }, vendor_source: "manual" };
+    try {
+      const adminHtml = render("whatsapp", "admin");
+      expect(adminHtml).toMatch(/<option value="7" disabled="" selected="">Old Vendor \(inactive\)<\/option>/);
+      expect(render("whatsapp", "viewer")).toContain(">Old Vendor</span>");
+    } finally {
+      ROW.crm = saved;
+    }
   });
 });

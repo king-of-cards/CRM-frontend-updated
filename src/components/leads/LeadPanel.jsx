@@ -18,7 +18,7 @@ import {
 import { useVendors } from "./InlineCrm.jsx";
 import { downloadLeadPdf } from "./leadPdf.js";
 import { useAuth } from "../../auth/useAuth.js";
-import { assignedText, assignmentChange, assignmentOf, automaticLabel, AUTOMATIC_CHOICE, panelChanges, UNASSIGNED_CHOICE } from "./crmAccess.js";
+import { assignableVendors, assignedText, assignmentChange, assignmentOf, automaticLabel, AUTOMATIC_CHOICE, panelChanges, UNASSIGNED_CHOICE } from "./crmAccess.js";
 import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "./HotLeadStar.jsx";
 import LeadActivity from "./LeadActivity.jsx";
@@ -408,9 +408,10 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                 >
                   <option value={AUTOMATIC_CHOICE}>{automaticLabel(crm)}</option>
                   <option value={UNASSIGNED_CHOICE}>Unassigned</option>
-                  {vendors.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}
+                  {/* Active vendors only; the lead's own inactive vendor stays visible but can't be picked */}
+                  {assignableVendors(vendors, crm?.vendor_source === "manual" ? crm.vendor : null).map((v) => (
+                    <option key={v.id} value={v.id} disabled={v.inactive}>
+                      {v.inactive ? `${v.name} (inactive)` : v.name}
                       {v.coverage ? ` · ${v.coverage}` : ""}
                     </option>
                   ))}
