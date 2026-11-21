@@ -25,6 +25,7 @@ import { kpiCards } from "../leads/kpiCards.js";
 import { dateTimeText, dayText, kocErrors, PENDING, phoneText, statusLabel, STATUSES } from "./kocUtils.js";
 import { setKocLeadHot } from "../../api/hotLeads.js";
 import HotLeadStar from "../leads/HotLeadStar.jsx";
+import AlsoInBadges from "../leads/AlsoInBadges.jsx";
 import { toggleHotOptimistically } from "../leads/hotLeadToggle.js";
 
 // Vendors → KOC leads (docs/API_REFERENCE.md section 11). Admins see every vendor's leads and
@@ -419,7 +420,7 @@ export default function VendorToKocLeads() {
                 <td className="px-4 py-3 tabular-nums text-gray-500">{l.sl_no ?? "—"}</td>
                 {seesAll && <td className="whitespace-nowrap px-4 py-3 text-gray-800">{l.vendor_name ?? "—"}</td>}
                 <td className="whitespace-nowrap px-4 py-3 text-gray-800">{dayText(l.lead_date)}</td>
-                <td className="px-4 py-3 font-medium text-gray-900">{l.name || "—"}</td>
+                <td className="px-4 py-3 font-medium text-gray-900">{l.name || "—"}<AlsoInBadges alsoIn={l.also_in} /></td>
                 <td className="whitespace-nowrap px-4 py-3 tabular-nums text-gray-800">{phoneText(l.phone)}</td>
                 <td className="px-4 py-3 text-gray-700">{l.city || "—"}</td>
                 {isAdmin && canEdit ? (

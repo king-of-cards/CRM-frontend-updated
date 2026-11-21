@@ -8,6 +8,8 @@ import {
   KOC,
   NOT_SHARED,
   ORIGIN_LABELS,
+  REASON_LABELS,
+  FOLLOW_UP_LABELS,
   UPDATE_LABELS,
   parseQuote,
   periodOfFilters,
@@ -109,6 +111,11 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
   if (has("shared_with"))
     add("partner", `Sheet partner: ${filters.shared_with === NOT_SHARED ? "Not shared yet" : filters.shared_with}`, ["shared_with"]);
   if (has("hide_repeats")) add("repeats", "Hide repeats", ["hide_repeats"]);
+  // KOC → Dhruva
+  if (has("quantity_min") || has("quantity_max"))
+    add("quantity", `Quantity: ${numberRange(filters.quantity_min, filters.quantity_max, false)}`, ["quantity_min", "quantity_max"]);
+  if (has("reason")) add("reason", `Reason: ${REASON_LABELS[filters.reason] ?? filters.reason}`, ["reason"]);
+  if (has("follow_up")) add("follow_up", `Follow-up: ${FOLLOW_UP_LABELS[filters.follow_up] ?? filters.follow_up}`, ["follow_up"]);
 
   // CRM filters
   if (isAdmin && (has("vendor_id") || has("unassigned"))) {

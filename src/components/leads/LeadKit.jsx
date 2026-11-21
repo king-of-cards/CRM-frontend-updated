@@ -19,6 +19,7 @@ import { useAuth } from "../../auth/useAuth.js";
 import { setSourceLeadHot } from "../../api/hotLeads.js";
 import HotLeadStar from "./HotLeadStar.jsx";
 import { toggleHotOptimistically } from "./hotLeadToggle.js";
+import AlsoInBadges from "./AlsoInBadges.jsx";
 
 // One design for every lead section (Spin, International, Wedding, Wedding planner):
 // the section frame, stat chips, toolbar, the table with contact buttons + CRM columns,
@@ -160,6 +161,12 @@ export const THEMES = {
     tag: "Wedding planner",
     chip: "from-amber-500 to-amber-600",
     tagCls: "bg-amber-50 text-amber-700 ring-amber-200",
+  },
+  // KOC → Dhruva (docs section 18)
+  koc_to_dhruva: {
+    tag: "KOC → Dhruva",
+    chip: "from-indigo-500 to-indigo-700",
+    tagCls: "bg-indigo-50 text-indigo-700 ring-indigo-200",
   },
 };
 
@@ -527,6 +534,7 @@ export function emptyCrm(leadKey) {
  * crmKey(row) -> the lead's key, used when crm(row) is missing (backend not sending "crm" yet)
  * onCrmSaved(leadKey, crm)                      update the row in the page's data
  * panel(row) -> { sourceLabel, title, subtitle, sections: [{ title, rows: [[label, value]] }], extra? }
+ * Each row's also_in (from the API) shows as "Also in …" badges under the name and in the panel.
  * Clicking a row opens the side panel. The CRM cells are edited right in the table.
  */
 export function LeadTable({
@@ -642,6 +650,7 @@ export function LeadTable({
       email: c.email || null,
       sections: p.sections ?? [],
       extra: p.extra,
+      alsoIn: row.also_in,
       isHot: isHot(row),
       hotPending: Boolean(hotPending[hotKey(row)]),
       onToggleHot: canToggleHot ? () => toggleHot(row) : null,
@@ -710,6 +719,7 @@ export function LeadTable({
                     className={`sticky left-0 z-10 px-4 py-3 transition-colors group-hover:bg-brand-50 ${isOpen ? "bg-brand-50" : "bg-white"}`}
                   >
                     <LeadIdentity theme={theme} {...id} />
+                    <AlsoInBadges alsoIn={row.also_in} />
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <ContactActions

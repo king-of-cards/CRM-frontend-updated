@@ -12,6 +12,8 @@ import HotLeadStar from "../leads/HotLeadStar.jsx";
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
 import { dateTimeText, dayText, dhruvaErrors, dhruvaFieldAccess, phoneText, rupeesText, statusLabel, STATUSES, PENDING } from "../../pages/dhruvaUtils.js";
 import LeadActivity from "../leads/LeadActivity.jsx";
+import AlsoInBadges from "../leads/AlsoInBadges.jsx";
+import { alsoInLine, alsoInPlaces } from "../leads/alsoIn.js";
 import { useAuth } from "../../auth/useAuth.js";
 import { ViewOnlyBadge } from "../shared/ViewOnly.jsx";
 
@@ -144,6 +146,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
         sections: [
           { title: "Lead details", rows: [["Name", lead.name || "—"], ["Venue", lead.venue || "—"], ["Event date", lead.event_date_text || dayText(lead.event_date) || "—"], ["Phone", phoneText(lead.phone) || "—"], ["Alt phone", phoneText(lead.alt_phone) || "—"], ["Event type", lead.event_type || "—"], ["Received", dateTimeText(lead.created_at) || "—"]] },
           { title: "Update", rows: [["Update", statusLabel(lead.update_status)], ["Additional comments", lead.additional_comments || "—"], ["Quoted amount", rupeesText(lead.quoted_amount)], ["Conversion amount", rupeesText(lead.conversion_amount)], ["Follow-up date", dayText(lead.follow_up_date) || "—"]] },
+          { title: "Also in", rows: alsoInPlaces(lead.also_in).map((p) => [p.label, alsoInLine(p).slice(p.label.length + 2)]) },
         ],
       });
     } catch (err) {
@@ -154,7 +157,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
   }
 
   return (
-    <Drawer kicker="Dhruva leads" title={lead.name || "Lead details"} onClose={onClose} wide headerActions={<>{!canEdit && <ViewOnlyBadge inverted />}{(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}<LeadPdfButton onClick={pdf} loading={downloading} /></>}
+    <Drawer kicker="Dhruva → KOC" title={lead.name || "Lead details"} onClose={onClose} wide headerActions={<>{!canEdit && <ViewOnlyBadge inverted />}{(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}<LeadPdfButton onClick={pdf} loading={downloading} /></>}
       footer={<>
         {access.archive && <button type="button" onClick={archive} disabled={archiveBusy} className={secondaryBtn}>{lead.archived ? <RotateCcw size={15} className="mr-1 inline" /> : <Archive size={15} className="mr-1 inline" />}{lead.archived ? "Unarchive" : "Archive"}</button>}
         <button type="button" onClick={onClose} className={secondaryBtn}>Close</button>
@@ -174,6 +177,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
             {basicFields.map(([key, label]) => <div key={key}><dt className="text-xs font-medium text-gray-500">{label}</dt><dd className="mt-1 break-words text-sm text-gray-900">{key === "phone" || key === "alt_phone" ? (form[key] ? phoneText(form[key]) : "—") : form[key] || "—"}</dd></div>)}
           </dl>
         )}
+        {alsoInPlaces(lead.also_in).length > 0 && <section className="rounded-2xl bg-white p-4 ring-1 ring-gray-100"><h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-700">Also in</h3><AlsoInBadges alsoIn={lead.also_in} variant="panel" /></section>}
         <p className="text-xs text-gray-500">Received {dateTimeText(lead.created_at)} · Added by {lead.created_by_name || "—"}</p>
         {access.editAdmin && <section className="space-y-4 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100">
           <h3 className="text-sm font-semibold text-gray-900">Admin update</h3>

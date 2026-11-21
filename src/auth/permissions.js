@@ -4,7 +4,7 @@
 //   admin   sees everything, changes everything, manages Team / Settings / Branches
 //   viewer  "View only": sees what an admin sees, changes nothing, no Team / Settings / Branches
 //   vendor  their vendor's leads (CRM details, hot, Vendors → KOC add)
-//   dhruva  the Dhruva section only
+//   dhruva  the Dhruva section only (both directions: Dhruva → KOC and KOC → Dhruva)
 
 export const ROLES = ["admin", "vendor", "dhruva", "viewer"];
 export const ROLE_LABELS = { admin: "Admin", vendor: "Vendor", dhruva: "Dhruva", viewer: "View only" };
@@ -30,10 +30,17 @@ export const canManage = (user) => roleOf(user) === "admin";
 // Pages a view-only login can't open: sent to the dashboard
 export const VIEWER_BLOCKED_PATHS = ["/users", "/settings", "/branches"];
 
+// The Dhruva flow's lists (Dhruva → KOC, KOC → Dhruva): never for vendor logins
+export const DHRUVA_PATHS = ["/dhruva-leads", "/koc-to-dhruva"];
+
+// May this login use the Dhruva flow at all? (Vendors never: no switch option, tabs or pages.)
+export const canSeeDhruva = (user) => Boolean(user) && roleOf(user) !== "vendor";
+
 // Where to send this login instead of `pathname`, or null when it may open it
 export function redirectFor(user, pathname) {
   if (!user) return "/login";
-  if (roleOf(user) === "dhruva" && !["/dashboard", "/dhruva-leads"].includes(pathname)) return "/dashboard?flow=dhruva";
+  if (roleOf(user) === "dhruva" && !["/dashboard", ...DHRUVA_PATHS].includes(pathname)) return "/dashboard?flow=dhruva";
+  if (roleOf(user) === "vendor" && DHRUVA_PATHS.includes(pathname)) return "/dashboard";
   if (isViewer(user) && VIEWER_BLOCKED_PATHS.includes(pathname)) return "/dashboard";
   return null;
 }
@@ -49,6 +56,8 @@ export function navFor(user) {
     bell: role === "admin" || linkedVendor,
     // The Lead flow toggle (all three flows): admins, viewers and linked vendors
     flowToggle: role === "admin" || role === "viewer" || linkedVendor,
+    // The Dhruva flow ("Dhruva leads" in the switch): everyone but vendors
+    dhruvaFlow: canSeeDhruva(user),
     viewOnlyBadge: role === "viewer",
   };
 }

@@ -27,6 +27,7 @@ const VendorToKocLeads = lazy(
   () => import("./components/vendorToKoc/VendorToKocLeads.jsx"),
 );
 const DhruvaLeads = lazy(() => import("./pages/DhruvaLeads.jsx"));
+const KocToDhruvaLeads = lazy(() => import("./pages/KocToDhruvaLeads.jsx"));
 
 // Shown for a split second while a page's code downloads
 function PageLoader() {
@@ -126,6 +127,15 @@ function App() {
           element={
             <RequireAuth role={["admin", "dhruva", "viewer"]}>
               <DhruvaLeads />
+            </RequireAuth>
+          }
+        />
+        {/* KOC → Dhruva (docs section 18): admins, Dhruva and view-only logins; vendors go to their dashboard */}
+        <Route
+          path="/koc-to-dhruva"
+          element={
+            <RequireAuth role={["admin", "dhruva", "viewer"]}>
+              <KocToDhruvaLeads />
             </RequireAuth>
           }
         />

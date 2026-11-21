@@ -10,6 +10,7 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Send,
   Settings,
   Star,
   Target,
@@ -19,8 +20,9 @@ import { useAuth } from "../../auth/useAuth.js";
 import { navFor } from "../../auth/permissions.js";
 import { ViewOnlyBadge, ViewOnlyToast } from "../shared/ViewOnly.jsx";
 import LeadFlowToggle from "../dashboard/LeadFlowToggle.jsx";
+import DhruvaDirectionSwitch from "../dashboard/DhruvaDirectionSwitch.jsx";
 import NotificationBell from "./NotificationBell.jsx";
-import { flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
+import { dhruvaDirectionOf, dhruvaDirectionTarget, flowOf, FLOW_PAGES, tabsFor } from "./leadFlow.js";
 import LeadBackButton from "./LeadBackButton.jsx";
 import { isLeadRoute } from "./leadBack.js";
 import { notificationBellPlacement } from "./notificationUtils.js";
@@ -49,6 +51,7 @@ const TAB_ICONS = {
   "/leads/wedding-planner": ClipboardList,
   "/vendor-to-koc": Handshake,
   "/dhruva-leads": Star,
+  "/koc-to-dhruva": Send,
 };
 
 const STORAGE_KEY = "crm-sidebar-collapsed";
@@ -74,8 +77,24 @@ export default function DashboardLayout({
   // the Lead flow switch shows on the Dashboard and the lead lists (but not for Dhruva logins).
   const location = useLocation();
   const [, setSearchParams] = useSearchParams();
-  const flow = flowOf(location.pathname, location.search);
-  const visibleTabs = tabsFor(flow).map((t) => ({ ...t, icon: TAB_ICONS[t.path] }));
+  // Vendors never get the Dhruva flow (their Dashboard ignores ?flow=dhruva)
+  const rawFlow = flowOf(location.pathname, location.search);
+  const flow = rawFlow === "dhruva" && !nav.dhruvaFlow ? "" : rawFlow;
+  // The Dhruva flow's direction: the open list, or the Dashboard's ?direction
+  const direction = dhruvaDirectionOf(location.pathname, location.search);
+  const visibleTabs = tabsFor(flow, direction).map((t) => ({ ...t, icon: TAB_ICONS[t.path] }));
+  const showDirection = flow === "dhruva" && FLOW_PAGES.includes(location.pathname);
+  // Dashboard: switch ?direction in place (keeping the period); a list: open the other list
+  function chooseDirection(value) {
+    if (location.pathname === "/dashboard") {
+      setSearchParams((prev) => {
+        const params = new URLSearchParams(prev);
+        if (value === "koc_to_dhruva") params.set("direction", value);
+        else params.delete("direction");
+        return params;
+      });
+    } else navigate(dhruvaDirectionTarget(location.pathname, value));
+  }
 
   // The toggle is hidden for Dhruva logins (they only have the Dhruva flow)
   const showToggle = !isDhruva && (canSeeLeads || isAdmin || nav.flowToggle) && FLOW_PAGES.includes(location.pathname);
@@ -88,7 +107,7 @@ export default function DashboardLayout({
   const topBarExtra = showToggle ? (
     <div className="flex w-full items-center gap-2 lg:w-auto">
       <div className="min-w-0 flex-1 lg:flex-none">
-        <LeadFlowToggle value={flow} onChange={chooseFlow} />
+        <LeadFlowToggle value={flow} onChange={chooseFlow} showDhruva={nav.dhruvaFlow} />
       </div>
       {bellPlacement.besideToggle && (
         <div className="hidden shrink-0 lg:block">
@@ -107,6 +126,7 @@ export default function DashboardLayout({
         const params = new URLSearchParams(prev);
         if (value) params.set("flow", value);
         else params.delete("flow");
+        if (value !== "dhruva") params.delete("direction");
         return params;
       });
     } else {
@@ -306,6 +326,11 @@ export default function DashboardLayout({
         </header>
 
         <main className="flex-1 px-6 pb-10 pt-8">
+          {showDirection && (
+            <div className="mb-4">
+              <DhruvaDirectionSwitch value={direction} onChange={chooseDirection} />
+            </div>
+          )}
           {/* Page heading */}
           {(title || actions) && (
             <div className="mb-2 flex flex-wrap items-end justify-between gap-4">

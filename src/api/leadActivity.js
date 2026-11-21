@@ -5,7 +5,9 @@ export function getLeadActivity({ source, leadKey, page = 1, pageSize = 25 }) {
     ? "/vendor-to-koc/leads"
     : source === "dhruva"
       ? "/dhruva/leads"
-      : `/leads/${encodeURIComponent(source)}`;
+      : source === "koc_to_dhruva"
+        ? "/koc-to-dhruva/leads"
+        : `/leads/${encodeURIComponent(source)}`;
   const id = encodeURIComponent(leadKey);
   return apiRequest(`${root}/${id}/activity`, { query: { page, page_size: pageSize } });
 }

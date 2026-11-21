@@ -42,6 +42,17 @@ export const DHRUVA_KEYS = [
   "venue", "event_type", "update_status", "quote", "conversion",
   "follow_up_from", "follow_up_to", "follow_up_due", "has_phone", "hot", "also_in",
 ];
+// KOC → Dhruva (docs section 18): the shared filters plus Spin's and its own; never vendor_id /
+// unassigned (the API answers 400: these leads are never assigned)
+export const KOC_TO_DHRUVA = "koc_to_dhruva";
+export const KOC_TO_DHRUVA_KEYS = [
+  "search", "date_from", "date_to", "event_from", "event_to", "upcoming_days",
+  "update_status", "quote", "conversion", "follow_up", "hot", "also_in", "origin",
+  "branch", "pincode", "budget", "occasion", "quantity_min", "quantity_max", "reason",
+];
+export const REASON_LABELS = { budget: "Budget ≥ ₹70", quantity: "Quantity ≥ 1000" };
+// follow_up: the follow-up date relative to today (docs section 10)
+export const FOLLOW_UP_LABELS = { due: "Due", overdue: "Overdue", today: "Today", upcoming: "Upcoming" };
 export const KOC_KEYS = [
   "search",
   "date_from",
@@ -78,7 +89,13 @@ export function pageSizeOf(params) {
 }
 
 export const keysFor = (source) =>
-  source === KOC ? KOC_KEYS : source === DHRUVA ? DHRUVA_KEYS : [...COMMON_KEYS, ...(SOURCE_KEYS[source] ?? [])];
+  source === KOC
+    ? KOC_KEYS
+    : source === DHRUVA
+      ? DHRUVA_KEYS
+      : source === KOC_TO_DHRUVA
+        ? KOC_TO_DHRUVA_KEYS
+        : [...COMMON_KEYS, ...(SOURCE_KEYS[source] ?? [])];
 
 export const hasFilterValue = (filters, keys) => keys.some((key) =>
   Array.isArray(filters[key]) ? filters[key].length > 0 : Boolean(filters[key]),
@@ -136,6 +153,13 @@ export function activeCount(filters, source) {
       ["date_from", "date_to"], ["event_from", "event_to", "upcoming_days"], ["venue"],
       ["event_type"], ["update_status"], ["quote"], ["conversion"],
       ["follow_up_from", "follow_up_to", "follow_up_due"], ["has_phone"], ["hot"], ["also_in"],
+    ].filter((group) => group.some(has)).length;
+  }
+  if (source === KOC_TO_DHRUVA) {
+    return [
+      ["date_from", "date_to"], ["event_from", "event_to", "upcoming_days"], ["update_status"],
+      ["quote"], ["conversion"], ["follow_up"], ["hot"], ["also_in"], ["origin"], ["branch"],
+      ["pincode"], ["budget"], ["occasion"], ["quantity_min", "quantity_max"], ["reason"],
     ].filter((group) => group.some(has)).length;
   }
   const groups = [

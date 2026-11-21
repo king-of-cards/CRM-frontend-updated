@@ -53,6 +53,7 @@ import { outcomeCells, outcomeLink, sourceKpiDestinations } from "./dashboardOut
 import { aovOf } from "./aov.js";
 import VendorToKocDashboard from "./VendorToKocDashboard.jsx";
 const DhruvaLeadsDashboard = lazy(() => import("./DhruvaLeadsDashboard.jsx"));
+const KocToDhruvaDashboard = lazy(() => import("./KocToDhruvaDashboard.jsx"));
 
 // Overview of every lead source, built from GET /analytics/overview, for a period
 // (?from=YYYY-MM-DD&to=YYYY-MM-DD; default the last 30 days). See dashboardPeriod.js.
@@ -242,7 +243,7 @@ const monthLabel = (m) =>
 export default function Dashboard() {
   const location = useLocation();
   // isAdmin: sheet sync status (Settings data, admins only); seesAll: admin cards (admins and viewers)
-  const { user, isAdmin, seesAll, canSeeLeads, isDhruva } = useAuth();
+  const { user, isAdmin, seesAll, canSeeLeads, isDhruva, isVendor } = useAuth();
   const firstName = user?.name?.split(" ")[0];
   const [showIntro, setShowIntro] = useState(
     Boolean(location.state?.fromLogin),
@@ -264,9 +265,20 @@ export default function Dashboard() {
     [periodParam, fromParam, toParam, todayDate],
   );
   // Lead flow: kept in the URL with the period (switched from the top bar, see DashboardLayout)
-  // Dhruva logins always stay on the Dhruva flow
+  // Dhruva logins always stay on the Dhruva flow; vendor logins never get it (sent to their own)
   const rawFlow = searchParams.get("flow");
-  const flow = isDhruva ? "dhruva" : rawFlow === "vendors" ? "vendors" : rawFlow === "dhruva" ? "dhruva" : "";
+  const flow = isDhruva ? "dhruva" : rawFlow === "vendors" ? "vendors" : rawFlow === "dhruva" && !isVendor ? "dhruva" : "";
+  // The Dhruva flow's direction (?direction=koc_to_dhruva = KOC → Dhruva; default Dhruva → KOC)
+  const direction = flow === "dhruva" && searchParams.get("direction") === "koc_to_dhruva" ? "koc_to_dhruva" : "dhruva";
+  useEffect(() => {
+    if (!isVendor || rawFlow !== "dhruva") return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("flow");
+      next.delete("direction");
+      return next;
+    }, { replace: true });
+  }, [isVendor, rawFlow, setSearchParams]);
   useEffect(() => {
     if (!isDhruva || rawFlow === "dhruva") return;
     setSearchParams((prev) => {
@@ -280,8 +292,9 @@ export default function Dashboard() {
       setSearchParams({
         ...(next.all ? { period: "all" } : { from: next.from, to: next.to }),
         ...(flow ? { flow } : {}),
+        ...(direction === "koc_to_dhruva" ? { direction } : {}),
       }),
-    [setSearchParams, flow],
+    [setSearchParams, flow, direction],
   );
   // Show the last numbers instantly (if this tab has seen them), then refresh in the background
   const [state, setState] = useState(() => {
@@ -440,8 +453,11 @@ export default function Dashboard() {
           )
         }
       >
-        {flow === "dhruva" && (canSeeLeads || isDhruva) && (
+        {flow === "dhruva" && direction === "dhruva" && (canSeeLeads || isDhruva) && (
           <DhruvaLeadsDashboard period={period} refreshKey={refreshKey} />
+        )}
+        {flow === "dhruva" && direction === "koc_to_dhruva" && (canSeeLeads || isDhruva) && (
+          <KocToDhruvaDashboard period={period} refreshKey={refreshKey} />
         )}
         {flow === "vendors" && canSeeLeads && (
           <VendorToKocDashboard period={period} refreshKey={refreshKey} isAdmin={seesAll} />

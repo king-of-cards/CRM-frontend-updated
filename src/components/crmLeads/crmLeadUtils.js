@@ -1,6 +1,8 @@
 // Pure helpers for leads added or imported in the CRM (no React, no network), so they can be
 // unit-tested with `bun test`. API reference: docs/API_REFERENCE.md.
 
+import { ALSO_IN_LABELS } from "../leads/alsoIn.js";
+
 export const SOURCE_NAMES = {
   spin: "Spin leads",
   wedding_gifts: "Wedding gifts",
@@ -107,7 +109,8 @@ export function otherSources(warnings) {
   return w?.sources ?? [];
 }
 
-export const sourceList = (sources) => sources.map((s) => SOURCE_NAMES[s] ?? s).join(", ");
+// Other places (also Vendors → KOC, Dhruva → KOC, KOC → Dhruva) use the also_in labels
+export const sourceList = (sources) => sources.map((s) => SOURCE_NAMES[s] ?? ALSO_IN_LABELS[s] ?? s).join(", ");
 
 // ── Upload rows ────────────────────────────────────────────────────────
 // Counts for the rows still in the table (rows can be removed, so recount here)

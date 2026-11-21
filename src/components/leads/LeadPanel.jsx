@@ -24,6 +24,8 @@ import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "./HotLeadStar.jsx";
 import LeadActivity from "./LeadActivity.jsx";
 import { ReadOnlyFields } from "../shared/ViewOnly.jsx";
+import AlsoInBadges from "./AlsoInBadges.jsx";
+import { alsoInPlaces, alsoInLine } from "./alsoIn.js";
 
 // Who edits what: Assigned to = admins (vendors see it as text); Update, Quoted amount/date,
 // Conversion amount and Notes = admins and the assigned vendor. Only changed, allowed fields are sent.
@@ -36,6 +38,7 @@ import { ReadOnlyFields } from "../shared/ViewOnly.jsx";
 //   title, subtitle, phone (digits with country code), email,
 //   sections: [{ title, rows: [[label, value], ...] }],   // shown and put in the PDF
 //   extra?: node                                           // e.g. the planner's events
+//   alsoIn?: [{ source, count, vendors? }]                 // the API's also_in (shown and in the PDF)
 // }
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -212,6 +215,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
               ["Notes", crm?.notes],
             ],
           },
+          { title: "Also in", rows: alsoInPlaces(lead.alsoIn).map((p) => [p.label, alsoInLine(p).slice(p.label.length + 2)]) },
           ...lead.sections,
         ],
       });
@@ -531,6 +535,16 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                 </button>
               </div>
             </form>
+          )}
+
+          {/* Other places with the same phone (the API's also_in) */}
+          {alsoInPlaces(lead.alsoIn).length > 0 && (
+            <section>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-brand-700">Also in</h3>
+              <div className="mt-2 rounded-2xl bg-white/80 px-4 py-3 ring-1 ring-gray-100">
+                <AlsoInBadges alsoIn={lead.alsoIn} variant="panel" />
+              </div>
+            </section>
           )}
 
           {/* Extra block (e.g. planner events) */}

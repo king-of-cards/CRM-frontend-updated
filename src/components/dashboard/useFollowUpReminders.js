@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getFollowUpReminders } from "../../api/reminders.js";
 import { reminderRequestFor } from "./reminderUtils.js";
 
-// Follow-ups of one Lead flow only ("" = KOC → Vendors, "vendors", "dhruva"); see reminderUtils.js.
+// Follow-ups of one scope only ("" = KOC → Vendors, "vendors", "dhruva", "koc_to_dhruva"); see reminderUtils.js.
 // Each answer is kept with the request it belongs to, so another flow's items never show.
 export default function useFollowUpReminders({ flow = "", days = 7 } = {}) {
   const { dhruva, sources } = reminderRequestFor(flow);

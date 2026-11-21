@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { FLOW_REMINDERS, reminderDashboardDestination, reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderRequestFor, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
+import { FLOW_REMINDERS, reminderDashboardDestination, reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderRequestFor, reminderScopeFor, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
 
 describe("follow-ups per Lead flow", () => {
   test("KOC → Vendors asks for its five sources only, Wedding gifts included", () => {
@@ -15,8 +15,29 @@ describe("follow-ups per Lead flow", () => {
   test("Vendors → KOC asks for vendor_to_koc only", () => {
     expect(reminderRequestFor("vendors")).toMatchObject({ dhruva: false, sources: ["vendor_to_koc"] });
   });
-  test("Dhruva uses the Dhruva endpoint", () => {
-    expect(reminderRequestFor("dhruva")).toMatchObject({ dhruva: true, sources: [] });
+  test("Dhruva → KOC: the Dhruva endpoint with sources=dhruva only", () => {
+    expect(reminderRequestFor("dhruva")).toMatchObject({ dhruva: true, sources: ["dhruva"] });
+  });
+  test("KOC → Dhruva: the Dhruva endpoint with sources=koc_to_dhruva only", () => {
+    expect(reminderRequestFor("koc_to_dhruva")).toMatchObject({ dhruva: true, sources: ["koc_to_dhruva"], label: "KOC → Dhruva leads" });
+  });
+  test("the Dhruva flow's scope follows the direction; other flows ignore it", () => {
+    expect(reminderScopeFor("dhruva", "dhruva")).toBe("dhruva");
+    expect(reminderScopeFor("dhruva", "koc_to_dhruva")).toBe("koc_to_dhruva");
+    expect(reminderScopeFor("dhruva")).toBe("dhruva");
+    expect(reminderScopeFor("", "koc_to_dhruva")).toBe("");
+    expect(reminderScopeFor("vendors", "koc_to_dhruva")).toBe("vendors");
+  });
+  test("KOC → Dhruva reminders: label, list, lead and dashboard links", () => {
+    expect(reminderSourceLabel("koc_to_dhruva")).toBe("KOC → Dhruva");
+    expect(reminderSourceLabel("dhruva")).toBe("Dhruva → KOC");
+    expect(reminderListDestination("koc_to_dhruva")).toBe("/koc-to-dhruva?follow_up=due");
+    const url = new URL(reminderLeadDestination({ source: "koc_to_dhruva", lead_key: "crm-7", name: "Meera" }), "https://crm.local");
+    expect(url.pathname).toBe("/koc-to-dhruva");
+    expect(url.searchParams.get("notification_lead_key")).toBe("crm-7");
+    expect(url.searchParams.get("search")).toBe("Meera");
+    expect(reminderDashboardDestination("koc_to_dhruva")).toBe("/dashboard?flow=dhruva&direction=koc_to_dhruva#follow-ups");
+    expect(reminderDashboardDestination("dhruva")).toBe("/dashboard?flow=dhruva#follow-ups");
   });
   test("an unknown flow falls back to KOC → Vendors", () => {
     expect(reminderRequestFor()).toBe(FLOW_REMINDERS[""]);
@@ -26,12 +47,15 @@ describe("follow-ups per Lead flow", () => {
     const koc = reminderRequestFor("").sources;
     expect(koc).not.toContain("vendor_to_koc");
     expect(koc).not.toContain("dhruva");
+    expect(koc).not.toContain("koc_to_dhruva");
     expect(reminderRequestFor("vendors").sources).not.toContain("dhruva");
+    expect(reminderRequestFor("dhruva").sources).not.toContain("koc_to_dhruva");
+    expect(reminderRequestFor("koc_to_dhruva").sources).not.toContain("dhruva");
   });
   test("each flow names its own leads", () => {
     expect(reminderRequestFor("").label).toBe("KOC → Vendors leads");
     expect(reminderRequestFor("vendors").label).toBe("Vendors → KOC leads");
-    expect(reminderRequestFor("dhruva").label).toBe("Dhruva leads");
+    expect(reminderRequestFor("dhruva").label).toBe("Dhruva → KOC leads");
   });
 });
 

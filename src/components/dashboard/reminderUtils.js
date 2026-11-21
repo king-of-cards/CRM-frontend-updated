@@ -7,18 +7,27 @@ export const REMINDER_SOURCES = {
   wedding: { label: "Wedding", path: "/leads/wedding" },
   wedding_planner: { label: "Wedding planner", path: "/leads/wedding-planner" },
   vendor_to_koc: { label: "Vendors → KOC", path: "/vendor-to-koc" },
-  dhruva: { label: "Dhruva", path: "/dhruva-leads" },
+  dhruva: { label: "Dhruva → KOC", path: "/dhruva-leads" },
+  koc_to_dhruva: { label: "KOC → Dhruva", path: "/koc-to-dhruva" },
 };
 
 // Each Lead flow's follow-ups, kept separate: "" = KOC → Vendors, "vendors" = Vendors → KOC,
-// "dhruva" = the Dhruva endpoint. sources goes to GET /reminders/follow-ups?sources=…
+// and the Dhruva flow's two directions on the Dhruva endpoint: "dhruva" = Dhruva → KOC,
+// "koc_to_dhruva" = KOC → Dhruva (docs section 18). sources goes to …/follow-ups?sources=…
 export const FLOW_REMINDERS = {
   "": { dhruva: false, sources: ["spin", "wedding_gifts", "whatsapp", "wedding", "wedding_planner"], label: "KOC → Vendors leads" },
   vendors: { dhruva: false, sources: ["vendor_to_koc"], label: "Vendors → KOC leads" },
-  dhruva: { dhruva: true, sources: [], label: "Dhruva leads" },
+  dhruva: { dhruva: true, sources: ["dhruva"], label: "Dhruva → KOC leads" },
+  koc_to_dhruva: { dhruva: true, sources: ["koc_to_dhruva"], label: "KOC → Dhruva leads" },
 };
 
-// The request and card subtitle for a flow (unknown flows: KOC → Vendors)
+// The follow-ups scope of a page: its flow, or in the Dhruva flow its direction
+export function reminderScopeFor(flow = "", direction = "dhruva") {
+  if (flow !== "dhruva") return flow;
+  return direction === "koc_to_dhruva" ? "koc_to_dhruva" : "dhruva";
+}
+
+// The request and card subtitle for a scope (unknown scopes: KOC → Vendors)
 export function reminderRequestFor(flow = "") {
   return FLOW_REMINDERS[flow] ?? FLOW_REMINDERS[""];
 }
@@ -63,8 +72,12 @@ export function reminderListDestination(source) {
   return `${meta.path}?${params.toString()}`;
 }
 
+// The Dashboard's follow-ups card for a scope (a flow, or a Dhruva direction)
 export function reminderDashboardDestination(flow = "") {
   const params = new URLSearchParams();
-  if (flow) params.set("flow", flow);
+  if (flow === "koc_to_dhruva") {
+    params.set("flow", "dhruva");
+    params.set("direction", "koc_to_dhruva");
+  } else if (flow) params.set("flow", flow);
   return `/dashboard${params.size ? `?${params.toString()}` : ""}#follow-ups`;
 }

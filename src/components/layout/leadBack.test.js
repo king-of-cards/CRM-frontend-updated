@@ -8,11 +8,12 @@ describe("lead back button", () => {
   });
   test("direct links fall back to the matching section dashboard", () => {
     expect(backTarget(0, leadDashboardFallback("/dhruva-leads"))).toBe("/dashboard?flow=dhruva");
+    expect(backTarget(0, leadDashboardFallback("/koc-to-dhruva"))).toBe("/dashboard?flow=dhruva&direction=koc_to_dhruva");
     expect(backTarget(null, leadDashboardFallback("/vendor-to-koc"))).toBe("/dashboard?flow=vendors");
     expect(backTarget(undefined, leadDashboardFallback("/leads/spin"))).toBe("/dashboard");
   });
   test("detects the requested lead pages", () => {
-    expect(["/leads/spin", "/leads/international", "/vendor-to-koc", "/dhruva-leads"].every(isLeadRoute)).toBe(true);
+    expect(["/leads/spin", "/leads/international", "/vendor-to-koc", "/dhruva-leads", "/koc-to-dhruva"].every(isLeadRoute)).toBe(true);
     expect(isLeadRoute("/dashboard")).toBe(false);
     expect(isLeadRoute("/leads")).toBe(false);
   });

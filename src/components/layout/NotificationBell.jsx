@@ -16,8 +16,8 @@ import {
   unreadBadge,
 } from "./notificationUtils.js";
 import { getFollowUpReminders } from "../../api/reminders.js";
-import { reminderDashboardDestination, reminderRequestFor } from "../dashboard/reminderUtils.js";
-import { flowOf } from "./leadFlow.js";
+import { reminderDashboardDestination, reminderRequestFor, reminderScopeFor } from "../dashboard/reminderUtils.js";
+import { dhruvaDirectionOf, flowOf } from "./leadFlow.js";
 
 const PAGE_SIZE = 10;
 
@@ -34,9 +34,10 @@ export default function NotificationBell({ variant = "default" }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
-  // Follow-ups follow the current Lead flow (?flow): KOC → Vendors, Vendors → KOC or Dhruva.
-  // Counts are kept with their flow, so another flow's counts show as "—", never as this one's.
-  const flow = flowOf(location.pathname, location.search);
+  // Follow-ups follow the current Lead flow (?flow): KOC → Vendors, Vendors → KOC, or in the
+  // Dhruva flow its direction (Dhruva → KOC or KOC → Dhruva, ?direction / the open list).
+  // Counts are kept with their scope, so another scope's counts show as "—", never as this one's.
+  const flow = reminderScopeFor(flowOf(location.pathname, location.search), dhruvaDirectionOf(location.pathname, location.search));
   const followUpRequest = reminderRequestFor(flow);
   const followUpDhruva = followUpRequest.dhruva;
   const followUpSources = followUpRequest.sources.join(",");

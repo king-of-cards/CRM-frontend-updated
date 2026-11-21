@@ -4,6 +4,7 @@ const SOURCE_LABELS = {
   wedding: "Wedding",
   wedding_planner: "Wedding planner",
   vendor_to_koc: "Vendors → KOC",
+  koc_to_dhruva: "KOC → Dhruva",
 };
 
 export function topCityTooltipData(row, defaultSource = null) {
@@ -26,6 +27,8 @@ export function topCitiesSubtitle(sources, fallback = "All sources") {
 export const TOP_CITIES_DEFAULTS = {
   "": ["spin", "wedding_gifts", "wedding", "wedding_planner"],
   vendors: ["vendor_to_koc"],
+  // The KOC → Dhruva dashboard's own leads (/analytics/koc-to-dhruva)
+  koc_to_dhruva: ["koc_to_dhruva"],
 };
 
 // Subtitle for a flow: the API's top_cities_sources, else that flow's default sources

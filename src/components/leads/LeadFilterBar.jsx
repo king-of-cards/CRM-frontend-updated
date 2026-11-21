@@ -7,7 +7,7 @@ import { SearchBox } from "./LeadKit.jsx";
 import { SOURCES as KOC_SOURCES } from "../vendorToKoc/kocUtils.js";
 import FilterDropdown from "./FilterDropdown.jsx";
 import { buildFilterButtons } from "./filterButtons.js";
-import { DHRUVA, KOC, NOT_SHARED, ORIGIN_LABELS, UPDATE_LABELS } from "./leadFilters.js";
+import { DHRUVA, FOLLOW_UP_LABELS, KOC, KOC_TO_DHRUVA, NOT_SHARED, ORIGIN_LABELS, REASON_LABELS, UPDATE_LABELS } from "./leadFilters.js";
 
 const input = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20";
 const text = (v) => String(v ?? "");
@@ -60,8 +60,19 @@ function FilterContents({ button, source, filters, update, options, isAdmin }) {
     if (k === "occasion") opts = countOptions(options.occasions);
     if (k === "budget") opts = countOptions(options.budgets);
     const active = text(filters[key]);
-    const freeText = ["venue", "city", "pincode"].includes(k);
+    // KOC → Dhruva's occasion filter matches "contains", so it can be typed too
+    const freeText = ["venue", "city", "pincode"].includes(k) || (k === "occasion" && source === KOC_TO_DHRUVA);
     return <div className="space-y-2">{freeText && <input value={active} onChange={(e) => update({ [key]: e.target.value })} aria-label={button.label} placeholder={`Filter ${button.label.toLowerCase()}`} className={input} />}{opts.length > 0 && single(key, opts, true)}{!freeText && !opts.length && single(key, opts, true)}</div>;
+  }
+  if (k === "reason") {
+    const fromApi = (options.reasons ?? []).map((r) => (typeof r === "object" ? r : { value: r })).filter((r) => r.value);
+    const list = fromApi.length ? fromApi : Object.keys(REASON_LABELS).map((value) => ({ value }));
+    return single("reason", list.map((r) => ({ value: String(r.value), label: `${r.label ?? REASON_LABELS[r.value] ?? r.value}${r.count == null ? "" : ` (${r.count})`}` })));
+  }
+  if (k === "follow_when") return single("follow_up", Object.entries(FOLLOW_UP_LABELS).map(([value, label]) => ({ value, label })));
+  if (k === "quantity") {
+    const range = options.quantity_range ?? {};
+    return <div className="grid grid-cols-2 gap-2"><input value={filters.quantity_min || ""} onChange={(e) => update({ quantity_min: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder={range.min != null ? `Min (${range.min})` : "Min"} aria-label="Quantity minimum" className={input} /><input value={filters.quantity_max || ""} onChange={(e) => update({ quantity_max: e.target.value.replace(/\D/g, "") })} inputMode="numeric" placeholder={range.max != null ? `Max (${range.max})` : "Max"} aria-label="Quantity maximum" className={input} /></div>;
   }
   if (k === "event_type") return multi("event_type", countOptions(options.event_types), true);
   if (k === "source") return multi("source", (options.sources ?? KOC_SOURCES).map((o) => ({ value: String(o.value), label: o.label ?? String(o.value) })));

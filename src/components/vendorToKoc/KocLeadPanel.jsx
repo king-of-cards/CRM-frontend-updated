@@ -7,6 +7,8 @@ import LeadPdfButton from "../leads/LeadPdfButton.jsx";
 import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "../leads/HotLeadStar.jsx";
 import LeadActivity from "../leads/LeadActivity.jsx";
+import AlsoInBadges from "../leads/AlsoInBadges.jsx";
+import { alsoInLine, alsoInPlaces } from "../leads/alsoIn.js";
 import { useAuth } from "../../auth/useAuth.js";
 import {
   dateTimeText,
@@ -170,6 +172,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
         sections: [
           { title: "Lead details", rows: details },
           { title: "KOC follow-up", rows: followRows },
+          { title: "Also in", rows: alsoInPlaces(lead.also_in).map((p) => [p.label, alsoInLine(p).slice(p.label.length + 2)]) },
         ],
       });
     } catch (err) {
@@ -260,6 +263,14 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
               </span>
             )}
           </div>
+
+          {/* Other places with the same phone (the API's also_in) */}
+          {alsoInPlaces(lead.also_in).length > 0 && (
+            <section className="rounded-3xl bg-white/80 p-5 ring-1 ring-gray-100">
+              <h3 className="mb-2 text-sm font-semibold text-gray-900">Also in</h3>
+              <AlsoInBadges alsoIn={lead.also_in} variant="panel" />
+            </section>
+          )}
 
           {/* KOC follow-up: admins only (view-only logins read it in the list below) */}
           {editable && (

@@ -4,6 +4,7 @@ import {
   VIEW_ONLY_MESSAGE,
   canEdit,
   canManage,
+  canSeeDhruva,
   isViewOnlyError,
   isViewer,
   navFor,
@@ -54,7 +55,7 @@ describe("redirectFor (route guard)", () => {
     for (const path of ["/users", "/settings", "/branches"]) expect(redirectFor(viewer, path)).toBe("/dashboard");
   });
   test("viewers open the dashboard, every lead section and Explore all fields", () => {
-    for (const path of ["/dashboard", "/leads/spin", "/leads/international", "/leads/wedding", "/leads/wedding-planner", "/vendor-to-koc", "/dhruva-leads", "/leads"]) {
+    for (const path of ["/dashboard", "/leads/spin", "/leads/international", "/leads/wedding", "/leads/wedding-planner", "/vendor-to-koc", "/dhruva-leads", "/koc-to-dhruva", "/leads"]) {
       expect(redirectFor(viewer, path)).toBeNull();
     }
   });
@@ -65,7 +66,19 @@ describe("redirectFor (route guard)", () => {
   test("Dhruva logins stay on their dashboard and list", () => {
     expect(redirectFor(dhruva, "/dashboard")).toBeNull();
     expect(redirectFor(dhruva, "/dhruva-leads")).toBeNull();
+    expect(redirectFor(dhruva, "/koc-to-dhruva")).toBeNull();
     expect(redirectFor(dhruva, "/leads/spin")).toBe("/dashboard?flow=dhruva");
+  });
+  test("vendors never open the Dhruva flow's lists: sent to their dashboard", () => {
+    for (const user of [vendor, unlinkedVendor]) {
+      expect(redirectFor(user, "/dhruva-leads")).toBe("/dashboard");
+      expect(redirectFor(user, "/koc-to-dhruva")).toBe("/dashboard");
+    }
+    expect(redirectFor(admin, "/koc-to-dhruva")).toBeNull();
+  });
+  test("the Dhruva flow: everyone but vendors", () => {
+    for (const user of [admin, viewer, dhruva]) expect(canSeeDhruva(user)).toBe(true);
+    for (const user of [vendor, unlinkedVendor, null]) expect(canSeeDhruva(user)).toBe(false);
   });
   test("logged out: login", () => {
     expect(redirectFor(null, "/dashboard")).toBe("/login");
@@ -74,17 +87,17 @@ describe("redirectFor (route guard)", () => {
 
 describe("navFor (role-based visibility)", () => {
   test("viewer: flow toggle and View only badge; no Team, Settings or bell", () => {
-    expect(navFor(viewer)).toEqual({ team: false, settings: false, bell: false, flowToggle: true, viewOnlyBadge: true });
+    expect(navFor(viewer)).toEqual({ team: false, settings: false, bell: false, flowToggle: true, dhruvaFlow: true, viewOnlyBadge: true });
   });
   test("admin: everything except the badge", () => {
-    expect(navFor(admin)).toEqual({ team: true, settings: true, bell: true, flowToggle: true, viewOnlyBadge: false });
+    expect(navFor(admin)).toEqual({ team: true, settings: true, bell: true, flowToggle: true, dhruvaFlow: true, viewOnlyBadge: false });
   });
-  test("vendor: Settings, bell and toggle when linked; no Team", () => {
-    expect(navFor(vendor)).toEqual({ team: false, settings: true, bell: true, flowToggle: true, viewOnlyBadge: false });
-    expect(navFor(unlinkedVendor)).toMatchObject({ bell: false, flowToggle: false, settings: true });
+  test("vendor: Settings, bell and toggle when linked; no Team, never the Dhruva flow", () => {
+    expect(navFor(vendor)).toEqual({ team: false, settings: true, bell: true, flowToggle: true, dhruvaFlow: false, viewOnlyBadge: false });
+    expect(navFor(unlinkedVendor)).toMatchObject({ bell: false, flowToggle: false, dhruvaFlow: false, settings: true });
   });
-  test("Dhruva: none of them", () => {
-    expect(navFor(dhruva)).toEqual({ team: false, settings: false, bell: false, flowToggle: false, viewOnlyBadge: false });
+  test("Dhruva: none of them (only their own flow)", () => {
+    expect(navFor(dhruva)).toEqual({ team: false, settings: false, bell: false, flowToggle: false, dhruvaFlow: true, viewOnlyBadge: false });
   });
 });
 

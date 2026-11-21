@@ -2,14 +2,15 @@ import { ArrowLeftRight } from "lucide-react";
 
 // The Dashboard's "Lead flow" switch, shown in the top bar next to the nav pill:
 // KOC → Vendors (value "") | Vendors → KOC (value "vendors") | Dhruva leads (value "dhruva").
-// Hidden for Dhruva logins (they have no other section to switch to).
+// Hidden for Dhruva logins (they have no other section to switch to). showDhruva false (vendor
+// logins): no "Dhruva leads" option.
 const FLOWS = [
   { value: "", label: "KOC → Vendors" },
   { value: "vendors", label: "Vendors → KOC" },
   { value: "dhruva", label: "Dhruva leads" },
 ];
 
-export default function LeadFlowToggle({ value, onChange }) {
+export default function LeadFlowToggle({ value, onChange, showDhruva = true }) {
   return (
     <div className="flex w-full items-center gap-1 rounded-full bg-linear-to-r from-amber-200 via-amber-300 to-orange-400 p-1.5 shadow-xl shadow-orange-500/25 ring-1 ring-white/40 lg:w-auto">
       <span className="flex shrink-0 items-center gap-1.5 px-3 text-xs font-semibold text-amber-950/70">
@@ -17,7 +18,7 @@ export default function LeadFlowToggle({ value, onChange }) {
         Lead flow
       </span>
       <div role="tablist" aria-label="Lead flow" className="flex flex-1 items-center gap-1 lg:flex-none">
-        {FLOWS.map((f) => {
+        {FLOWS.filter((f) => showDhruva || f.value !== "dhruva").map((f) => {
           const active = value === f.value;
           return (
             <button

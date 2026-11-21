@@ -7,7 +7,8 @@ import { reminderDate, reminderLeadDestination, reminderListDestination, reminde
 
 const tones = { red: "bg-rose-50 text-rose-700 ring-rose-200", amber: "bg-amber-50 text-amber-800 ring-amber-200", neutral: "bg-gray-100 text-gray-600 ring-gray-200" };
 
-// One Lead flow's follow-ups only: flow "" = KOC → Vendors, "vendors" = Vendors → KOC, "dhruva"
+// One Lead flow's follow-ups only: flow "" = KOC → Vendors, "vendors" = Vendors → KOC,
+// "dhruva" = Dhruva → KOC, "koc_to_dhruva" = KOC → Dhruva (see reminderUtils.js)
 export default function FollowUpsCard({ flow = "" }) {
   const { data, loading, error, refresh } = useFollowUpReminders({ flow });
   const [showSources, setShowSources] = useState(false);
@@ -15,8 +16,8 @@ export default function FollowUpsCard({ flow = "" }) {
   const rows = (data?.items ?? []).slice(0, 8);
   const counts = data?.counts ?? {};
   const sources = [...new Set((data?.items ?? []).map((item) => item.source))];
-  // A flow with a single list (Vendors → KOC, Dhruva): "View all" opens it directly
-  const singleList = request.dhruva ? "dhruva" : request.sources.length === 1 ? request.sources[0] : null;
+  // A scope with a single list (Vendors → KOC, Dhruva → KOC, KOC → Dhruva): "View all" opens it directly
+  const singleList = request.sources.length === 1 ? request.sources[0] : null;
   return (
     <Panel title="Follow-ups" subtitle={request.label} icon={AlarmClock} right={
       singleList ? <Link id="follow-ups-view-all" to={reminderListDestination(singleList)} className="text-xs font-semibold text-brand-700 hover:underline">View all</Link> : (

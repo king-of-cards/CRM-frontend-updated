@@ -7,6 +7,7 @@ import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import { exportDhruvaLeads, getDhruvaFilterOptions, getDhruvaStats, listDhruvaLeads, updateDhruvaLead } from "../api/dhruva.js";
 import { setDhruvaLeadHot } from "../api/hotLeads.js";
 import HotLeadStar from "../components/leads/HotLeadStar.jsx";
+import AlsoInBadges from "../components/leads/AlsoInBadges.jsx";
 import { toggleHotOptimistically } from "../components/leads/hotLeadToggle.js";
 import { parseSort } from "../components/dashboard/FilterSelect.jsx";
 import { fmt, Pagination, SectionShell } from "../components/leads/LeadKit.jsx";
@@ -109,7 +110,7 @@ export default function DhruvaLeads() {
   const colCount = 12 + (showHot ? 1 : 0);
   const saveAmount = (lead) => async (changes) => onSaved(await updateDhruvaLead(lead.id, changes));
 
-  return <DashboardLayout title="Dhruva leads" description={seesAll ? "Leads added by Dhruva team members" : "Leads you and your team have added"}><SectionShell theme="whatsapp" icon={Star} title="Dhruva leads" subtitle={seesAll ? "Leads added by Dhruva team members" : "Leads you and your team have added"}
+  return <DashboardLayout title="Dhruva → KOC" description={seesAll ? "Leads added by Dhruva team members" : "Leads you and your team have added"}><SectionShell theme="whatsapp" icon={Star} title="Dhruva → KOC" subtitle={seesAll ? "Leads added by Dhruva team members" : "Leads you and your team have added"}
     action={<div className="flex flex-wrap gap-2">{canEdit && <button type="button" onClick={() => setDialog("single")} className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-4 py-2 text-sm font-medium text-white"><Plus size={15} />Add lead</button>}{canEdit && <button type="button" onClick={() => setDialog("bulk")} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm"><FileUp size={15} />Bulk upload</button>}<button type="button" onClick={() => runExport("xlsx")} disabled={exporting} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm disabled:opacity-60"><Download size={15} />{exporting ? "Exporting…" : "Export"}</button><button type="button" onClick={() => runExport("csv")} disabled={exporting} className="rounded-full border border-gray-200 bg-white px-3 py-2 text-sm disabled:opacity-60">CSV</button></div>}
     message={message ?? error} stats={statsCards}
     toolbar={<LeadFilterBar source={DHRUVA} filters={filters} update={update} clear={clear} apply={apply} clearFilters={clearFilters} count={count} options={options} isAdmin={seesAll} sorts={sorts} sortValue={sortValue} placeholder="Search name, venue, event type or phone…" />}
@@ -121,7 +122,7 @@ export default function DhruvaLeads() {
         {items.map((l) => <tr key={l.id} onClick={() => setOpenLead(l)} className="cursor-pointer border-b border-gray-50 align-top hover:bg-brand-50/40">
           {showHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(l)} pending={Boolean(hotPending[String(l.id)])} onToggle={canToggleHot ? () => toggleHot(l) : null} /></td>}
           <td className="px-3 py-3 tabular-nums text-gray-500">{l.sl_no ?? "—"}</td>
-          <td className="px-3 py-3 font-medium text-gray-900">{l.name || "—"}{(!l.phone && !l.alt_phone) && <span className="ml-2 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] text-sky-700">No phone</span>}</td>
+          <td className="px-3 py-3 font-medium text-gray-900">{l.name || "—"}{(!l.phone && !l.alt_phone) && <span className="ml-2 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] text-sky-700">No phone</span>}<AlsoInBadges alsoIn={l.also_in} /></td>
           <td className="px-3 py-3">{l.venue || "—"}</td><td className="whitespace-nowrap px-3 py-3">{l.event_date_text || dayText(l.event_date)}</td>
           <td className="whitespace-nowrap px-3 py-3">{phoneText(l.phone)}{l.alt_phone && <span className="block text-xs text-gray-500">Alt: {phoneText(l.alt_phone)}</span>}</td>
           <td className="px-3 py-3">{l.event_type || "—"}<span className="mt-1 inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{l.source === "bulk_upload" ? "Bulk upload" : "Manual"}</span></td>
