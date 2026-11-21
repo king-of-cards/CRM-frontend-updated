@@ -38,7 +38,7 @@ import { useLeadFilters } from "../leads/useLeadFilters.js";
 const PAGE_SIZE = 10; // the default page size (10 / 25 / 50 / 100)
 
 // What differs per source. branchVendor: Spin's leads go to their branch's vendor automatically;
-// Wedding gifts go to their source's default vendor (Kraftzy), so branch rules don't apply.
+// Wedding gifts go to their source's default vendor (from the API), so branch rules don't apply.
 // explore: the "Explore all fields" page reads Spin's table only.
 const SPIN_PAGES = {
   spin: {

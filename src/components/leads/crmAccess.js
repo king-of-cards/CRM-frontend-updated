@@ -16,12 +16,12 @@ export function canEdit(isAdmin, field) {
 
 // How the vendor was chosen (crm.vendor_source). Named: by hand, the sheet or the branch.
 // Automatic: area rules ("suggested") or the source's default vendor ("source_default", e.g. every
-// Wedding gifts lead goes to Kraftzy, docs section 17).
+// Wedding gifts lead goes to its default vendor, docs section 17).
 export const NAMED_VENDOR_SOURCES = ["manual", "sheet", "branch"];
 export const AUTO_VENDOR_SOURCES = ["suggested", "source_default"];
 
 // The "Assigned to" chip text: "Phodeo" (manual, sheet or branch), "Phodeo · auto"
-// (area rules), "Kraftzy · auto" (source default), or "Unassigned"
+// (area rules), "<vendor> · auto" (source default), or "Unassigned"
 export function assignedText(crm) {
   if (!crm?.vendor) return "Unassigned";
   return NAMED_VENDOR_SOURCES.includes(crm.vendor_source) ? crm.vendor.name : `${crm.vendor.name} · auto`;

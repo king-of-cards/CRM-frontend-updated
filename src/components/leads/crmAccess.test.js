@@ -39,13 +39,13 @@ describe("panelChanges", () => {
 });
 
 describe("Assigned to: automatic sources", () => {
-  test("source_default (Wedding gifts → Kraftzy) is automatic, like the area rules", () => {
-    expect(assignedText({ vendor: { id: 9, name: "Kraftzy" }, vendor_source: "source_default" })).toBe("Kraftzy · auto");
+  test("source_default (Wedding gifts → its default vendor) is automatic, like the area rules", () => {
+    expect(assignedText({ vendor: { id: 9, name: "Kraftyz" }, vendor_source: "source_default" })).toBe("Kraftyz · auto");
     expect(assignedText({ vendor: { id: 2, name: "Phodeo" }, vendor_source: "suggested" })).toBe("Phodeo · auto");
     expect(AUTO_VENDOR_SOURCES).toContain("source_default");
   });
   test("chosen vendors keep their plain name; no vendor is Unassigned", () => {
-    for (const how of NAMED_VENDOR_SOURCES) expect(assignedText({ vendor: { id: 9, name: "Kraftzy" }, vendor_source: how })).toBe("Kraftzy");
+    for (const how of NAMED_VENDOR_SOURCES) expect(assignedText({ vendor: { id: 9, name: "Kraftyz" }, vendor_source: how })).toBe("Kraftyz");
     expect(assignedText({ vendor: null, vendor_source: "source_default" })).toBe("Unassigned");
   });
 });
