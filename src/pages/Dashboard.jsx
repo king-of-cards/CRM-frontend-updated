@@ -1,4 +1,5 @@
 import { lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { formatDay, MONTHS } from "../components/shared/dates.js";
 import { Link, useLocation, useSearchParams } from "react-router";
 import {
   Area,
@@ -130,10 +131,7 @@ function timeAgo(iso) {
   if (hours < 24) return `${hours} h ago`;
   const days = Math.round(hours / 24);
   if (days < 7) return `${days} d ago`;
-  return new Date(iso).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-  });
+  return formatDay(iso);
 }
 
 const valueOf = (r) => (r.status === "fulfilled" ? r.value : null);
@@ -216,22 +214,14 @@ function Legend({ keys }) {
   );
 }
 
-const dayLabel = (d) =>
-  new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-  });
+// Axis ticks: "19 Nov" (short, so they fit); tooltips show the full "19 Nov 2026"
+const dayLabel = (d) => formatDay(String(d).slice(0, 10)).replace(/ d{4}$/, "");
 // "2026-11-01" -> "Nov 2026" (monthly Lead inflow tooltip)
-const monthName = (d) =>
-  new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString("en-IN", {
-    month: "short",
-    year: "numeric",
-  });
-const monthLabel = (m) =>
-  new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", {
-    month: "short",
-    year: "2-digit",
-  });
+const monthName = (d) => {
+  const [y, m] = String(d).slice(0, 7).split("-");
+  return MONTHS[Number(m) - 1] ? `${MONTHS[Number(m) - 1]} ${y}` : String(d);
+};
+const monthLabel = (m) => monthName(m);
 
 // ── Page ───────────────────────────────────────────────────────────────
 export default function Dashboard() {
@@ -491,7 +481,7 @@ export default function Dashboard() {
           <>
             {/* ── KPIs ── */}
             <section
-              className={`mt-6 grid gap-4 sm:grid-cols-2 ${seesAll ? "xl:grid-cols-4" : "xl:grid-cols-6"}`}
+              className={`mt-6 grid gap-4 sm:grid-cols-2 ${seesAll ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
               aria-label="Key numbers"
             >
               <Kpi
@@ -746,7 +736,7 @@ export default function Dashboard() {
                                   ? monthName(d)
                                   : view.weekly
                                     ? periodLabel(d, point?.end ?? d)
-                                    : dayLabel(d)
+                                    : formatDay(String(d).slice(0, 10))
                               }
                             />
                           }
@@ -986,12 +976,12 @@ export default function Dashboard() {
           </>
         )}
         {kpiChooser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`${kpiChooser.title} source choices`}>
+          <div className="fixed inset-0 z-50 flex items-stretch justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={`${kpiChooser.title} source choices`}>
             <button type="button" aria-label="Close" onClick={() => setKpiChooser(null)} className="absolute inset-0 bg-gray-900/35 backdrop-blur-sm" />
-            <section className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-gray-200">
-              <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-semibold text-gray-900">{kpiChooser.title}</h2><button type="button" onClick={() => setKpiChooser(null)} className="rounded-full px-2 py-1 text-sm text-gray-500 hover:bg-gray-100">Close</button></div>
+            <section className="relative h-full w-full overflow-y-auto bg-white p-5 shadow-2xl ring-1 ring-gray-200 sm:h-auto sm:max-w-sm sm:rounded-2xl">
+              <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-semibold text-gray-900">{kpiChooser.title}</h2><button type="button" onClick={() => setKpiChooser(null)} className="min-h-11 rounded-full px-3 text-sm text-gray-500 hover:bg-gray-100">Close</button></div>
               <ul className="divide-y divide-gray-100">
-                {kpiChooser.choices.map((choice) => <li key={choice.source}><Link onClick={() => setKpiChooser(null)} to={choice.to} className="flex items-center justify-between py-3 text-sm hover:text-brand-700"><span>{choice.label}</span><span className="font-semibold tabular-nums">{fmt(choice.count)}</span></Link></li>)}
+                {kpiChooser.choices.map((choice) => <li key={choice.source}><Link onClick={() => setKpiChooser(null)} to={choice.to} className="flex min-h-11 items-center justify-between py-3 text-sm hover:text-brand-700"><span>{choice.label}</span><span className="font-semibold tabular-nums">{fmt(choice.count)}</span></Link></li>)}
               </ul>
             </section>
           </div>

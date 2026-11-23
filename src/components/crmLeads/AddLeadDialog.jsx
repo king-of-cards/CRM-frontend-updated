@@ -11,6 +11,7 @@ import {
   SOURCE_NAMES,
   sourceList,
 } from "./crmLeadUtils.js";
+import { duplicateMessage } from "../shared/duplicates.js";
 
 // Add one lead. On a duplicate phone (409) the existing lead is shown with "Add anyway".
 export default function AddLeadDialog({ source, onClose, onAdded, onOpenLead }) {
@@ -127,7 +128,7 @@ export default function AddLeadDialog({ source, onClose, onAdded, onOpenLead }) 
 
           {duplicate && (
             <Alert kind="warning">
-              <p className="font-semibold">{duplicate.message}</p>
+              <p className="font-semibold">{duplicateMessage(duplicate)}</p>
               <p className="mt-1">
                 {duplicateWhere(duplicate.duplicate)}
                 {duplicate.duplicate.lead_key && (

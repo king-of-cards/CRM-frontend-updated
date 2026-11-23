@@ -24,11 +24,11 @@ export const canEdit = (user) => Boolean(user) && !isViewer(user);
 // Sees admin data: admin columns, filters, fields and dashboard cards (admins and viewers)
 export const seesAdminData = (user) => ["admin", "viewer"].includes(roleOf(user));
 
-// Team, Settings and Branches: admins only
+// Team, Vendors, Settings and Branches: admins only
 export const canManage = (user) => roleOf(user) === "admin";
 
 // Pages a view-only login can't open: sent to the dashboard
-export const VIEWER_BLOCKED_PATHS = ["/users", "/settings", "/branches"];
+export const VIEWER_BLOCKED_PATHS = ["/users", "/vendors", "/settings", "/branches"];
 
 // The KOC → Vendors sources and their list pages, in /auth/me's order
 export const KOC_SOURCES = ["spin", "whatsapp", "wedding", "wedding_planner"];

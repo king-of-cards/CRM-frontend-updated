@@ -2,6 +2,8 @@
 // unit-tested with `bun test`. API reference: docs/API_REFERENCE.md.
 
 import { ALSO_IN_LABELS } from "../leads/alsoIn.js";
+import { duplicateText } from "../shared/duplicates.js";
+import { formatDay } from "../shared/dates.js";
 
 export const SOURCE_NAMES = {
   spin: "Spin leads",
@@ -72,13 +74,11 @@ export function toIstInput(iso) {
 }
 
 // ── Duplicates and warnings ────────────────────────────────────────────
+// A preview row's duplicate: the API's text when it has one, else
+// "Already exists (same phone, no conflicting details)" / "Repeated in this file (same as row 2)"
 export function duplicateLabel(duplicate) {
   if (!duplicate) return null;
-  if (duplicate.reason === "in_file")
-    return duplicate.duplicate_of_row != null
-      ? `Repeated in this file (same as row ${duplicate.duplicate_of_row})`
-      : "Repeated in this file";
-  return "Already exists";
+  return duplicateText(duplicate);
 }
 
 export function duplicateWhere(duplicate) {
@@ -89,7 +89,7 @@ export function duplicateWhere(duplicate) {
     case "existing_workflow":
       return "In the spin game";
     case "existing_added": {
-      const day = ddmmyyyy(duplicate.created_at);
+      const day = formatDay(duplicate.created_at);
       const when = day ? `Added on ${day}` : "Added in the CRM";
       return duplicate.archived ? `${when} (archived)` : when;
     }

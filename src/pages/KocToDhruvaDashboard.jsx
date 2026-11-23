@@ -12,6 +12,7 @@ import {
   branchRows, budgetBandRows, budgetQuantityText, dashboardKpiCards, daysSince, entryStatus, funnelRows,
   leadLink, monthlyPoints, num, pctText, potentialText,
 } from "./kocToDhruvaUtils.js";
+import { kpiGridCols } from "../components/shared/kpiGrid.js";
 
 // KOC → Dhruva dashboard (GET /analytics/koc-to-dhruva, docs section 18): the shared period
 // (All time by default), the KPI cards (each opens the filtered list where an exact filter
@@ -85,7 +86,7 @@ export default function KocToDhruvaDashboard({ period, refreshKey }) {
   return (
     <>
       {error && <p role="alert" className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">{error}</p>}
-      <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5" aria-label="KOC → Dhruva key numbers">
+      <section className={`mt-6 grid gap-4 ${kpiGridCols(cards.length)}`} aria-label="KOC → Dhruva key numbers">
         {cards.map((c, i) => <Kpi key={c.key} icon={KPI_ICONS[c.key]} label={c.label} value={c.value} to={c.to} gradient={kpiGradient(c.key, i)} loading={kpiLoading} />)}
       </section>
       <div className="mt-6"><FollowUpsCard flow="koc_to_dhruva" /></div>

@@ -68,7 +68,7 @@ function RowBadges({ row }) {
         </Badge>
       )}
       {row.status === "duplicate" && (
-        <Badge tone="dup" title={duplicateWhere(row.duplicate)}>
+        <Badge tone="dup" title={[duplicateLabel(row.duplicate), duplicateWhere(row.duplicate)].filter(Boolean).join(" · ")}>
           {duplicateLabel(row.duplicate)}
         </Badge>
       )}

@@ -8,9 +8,10 @@ import FollowUpsCard from "../components/dashboard/FollowUpsCard.jsx";
 import { dateTimeText, dayText, dhruvaErrors, dhruvaListLink, phoneText, statusLabel } from "./dhruvaUtils.js";
 import { dashboardKpiCards, num, statusRows } from "./dhruvaDashboard.js";
 import { periodLabel } from "./dashboardPeriod.js";
+import { MONTHS } from "../components/shared/dates.js";
 
 const COLORS = ["#0f766e", "#8b5cf6", "#f59e0b", "#e11d48", "#0284c7", "#16a34a", "#d97706", "#64748b"];
-const chartDate = (v) => v?.length === 7 ? new Date(`${v}-01T00:00:00`).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : dayText(v);
+const chartDate = (v) => v?.length === 7 ? `${MONTHS[Number(v.slice(5, 7)) - 1] ?? ""} ${v.slice(0, 4)}`.trim() : dayText(v);
 function LinkedBarList({ rows, period, color = "#0f766e" }) {
   const max = Math.max(1, ...rows.map((x) => x.count));
   return <div className="space-y-3">{rows.length ? rows.map((r) => <div key={r.key ?? r.value}>
@@ -49,7 +50,7 @@ export default function DhruvaLeadsDashboard({ period, refreshKey }) {
   const latest = data?.latest ?? [];
   return <>
     {error && <p role="alert" className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">{error}</p>}
-    <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Dhruva key numbers">
+    <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Dhruva key numbers">
       {cards.map((c, i) => <Kpi key={c.label} icon={kpiIcons[i]} label={c.label} value={c.value} to={c.to} gradient={kpiGradient(c, i)} loading={kpiLoading} />)}
     </section>
     <div className="mt-6"><FollowUpsCard flow="dhruva" /></div>

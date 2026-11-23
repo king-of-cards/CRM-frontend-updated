@@ -67,3 +67,9 @@
     }
   }
 }
+/* Phones (360-430 px): the page itself never scrolls sideways; wide tables scroll inside their
+   card (overflow-x-auto). clip, not hidden, so sticky headers keep working. */
+html,
+body {
+  overflow-x: clip;
+}

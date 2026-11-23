@@ -16,6 +16,7 @@ import AlsoInBadges from "../leads/AlsoInBadges.jsx";
 import { alsoInLine, alsoInPlaces } from "../leads/alsoIn.js";
 import { useAuth } from "../../auth/useAuth.js";
 import { ViewOnlyBadge } from "../shared/ViewOnly.jsx";
+import { duplicateMessage } from "../shared/duplicates.js";
 
 const basicFields = [
   ["name", "Name", "text"],
@@ -108,7 +109,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
       setFieldErrors(parsed.fields);
       if (err.status === 409 && parsed.duplicate && !allowDuplicate) {
         setDuplicate(parsed.duplicate);
-        setError(parsed.message || "This phone number matches another lead.");
+        setError(duplicateMessage(err.detail));
       } else {
         setError(parsed.message || Object.values(parsed.fields).join(" ") || err.message);
       }

@@ -104,7 +104,7 @@ function BranchForm({ branch, presetId, vendors, onClose, onSaved }) {
         onSubmit={submit}
         className="relative flex h-full w-full max-w-md flex-col bg-linear-to-b from-white via-white to-brand-50 shadow-2xl"
       >
-        <div className="flex items-center justify-between bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-6 py-5 text-white">
+        <div className="flex items-center justify-between bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 py-4 text-white sm:px-6 sm:py-5">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">
               Branch
@@ -117,13 +117,13 @@ function BranchForm({ branch, presetId, vendors, onClose, onSaved }) {
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-full p-1.5 text-white/80 hover:bg-white/10 hover:text-white"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-6">
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
           <div className="grid grid-cols-[110px_1fr] gap-3">
             <label className="block">
               <span className="text-xs font-medium text-gray-600">
@@ -248,7 +248,7 @@ function BranchForm({ branch, presetId, vendors, onClose, onSaved }) {
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-gray-100 px-6 py-4">
+        <div className="flex justify-end gap-2 border-t border-gray-100 px-4 py-3 sm:px-6 sm:py-4">
           <button
             type="button"
             onClick={onClose}

@@ -20,6 +20,8 @@ import { setSourceLeadHot } from "../../api/hotLeads.js";
 import HotLeadStar from "./HotLeadStar.jsx";
 import { toggleHotOptimistically } from "./hotLeadToggle.js";
 import AlsoInBadges from "./AlsoInBadges.jsx";
+import { formatDateTime, formatDay } from "../shared/dates.js";
+import { kpiGridCols } from "../shared/kpiGrid.js";
 
 // One design for every lead section (Spin, International, Wedding, Wedding planner):
 // the section frame, stat chips, toolbar, the table with contact buttons + CRM columns,
@@ -47,35 +49,19 @@ export function timeAgo(iso) {
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours} h ago`;
-  return new Date(iso).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-  });
+  return formatDay(iso);
 }
 
+// "19 Nov 2026, 10:30 am" (India time); null when empty
 export function dateTime(iso) {
   if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso);
-  return d.toLocaleString("en-IN", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTime(iso);
 }
 
+// "19 Nov 2026"; null when empty
 export function dayDate(isoDate) {
   if (!isoDate) return null;
-  const d = new Date(
-    String(isoDate).length === 10 ? `${isoDate}T00:00:00` : isoDate,
-  );
-  if (Number.isNaN(d.getTime())) return String(isoDate);
-  return d.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDay(isoDate);
 }
 
 // "in 12 days" / "Passed" for an event date
@@ -249,7 +235,7 @@ export function SectionShell({
       {/* Coloured strip */}
       <div className={`h-1 bg-linear-to-r ${t.chip}`} />
 
-      <div className="flex flex-wrap items-start justify-between gap-4 px-6 pt-5">
+      <div className="flex flex-wrap items-start justify-between gap-4 px-4 pt-5 sm:px-6">
         <div className="flex items-start gap-3">
           <span
             className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br text-white shadow-md ${t.chip}`}
@@ -284,7 +270,7 @@ export function SectionShell({
 
       {stats?.length > 0 && (
         <div
-          className={`mt-5 grid grid-cols-2 gap-3 px-6 ${stats.length === 8 ? "sm:grid-cols-4" : stats.length === 6 ? "sm:grid-cols-3 xl:grid-cols-6" : stats.length >= 5 ? "sm:grid-cols-3 lg:grid-cols-5" : stats.length === 4 ? "lg:grid-cols-4" : "sm:grid-cols-3"}`}
+          className={`mt-5 grid gap-3 px-4 sm:px-6 ${kpiGridCols(stats.length)}`}
         >
           {stats.map((s) => {
             const tone =
@@ -311,7 +297,7 @@ export function SectionShell({
       )}
 
       {toolbar && (
-        <div className="mt-5 flex flex-wrap items-center gap-3 px-6">
+        <div className="mt-5 flex flex-wrap items-center gap-3 px-4 sm:px-6">
           {toolbar}
         </div>
       )}
@@ -838,7 +824,7 @@ export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled
   return (
     <nav
       aria-label="Pages"
-      className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-6 py-3 text-sm text-gray-500"
+      className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 text-sm text-gray-500 sm:px-6"
     >
       <span className="flex items-center gap-3 tabular-nums">
         {fmt(from)}–{fmt(to)} of {fmt(total)}

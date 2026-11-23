@@ -301,7 +301,9 @@ export default function VendorToKocLeads() {
 
   // "Added by" as a name, never an id. Vendor logins can't list logins: "You" for their own,
   // else "Another team member" (no vendor name).
+  // The API's created_by_name comes first (every role sees it; "Deleted user" for a removed login).
   const people = (id, lead) => {
+    if (lead?.created_by_name) return lead.created_by_name;
     if (id == null) return null;
     if (seesAll) return userNames[id] ?? "—";
     return id === me?.id ? "You" : "Another team member";

@@ -78,12 +78,13 @@ describe("dates", () => {
 describe("duplicates", () => {
   test("labels and tooltips", () => {
     expect(duplicateLabel({ reason: "in_file", duplicate_of_row: 2 })).toBe("Repeated in this file (same as row 2)");
-    expect(duplicateLabel({ reason: "existing_sheet" })).toBe("Already exists");
+    expect(duplicateLabel({ reason: "existing_sheet" })).toBe("Already exists (same phone, no conflicting details)");
+    expect(duplicateLabel({ reason: "existing_added", message: "This lead already exists." })).toBe("This lead already exists.");
     expect(duplicateWhere({ reason: "existing_sheet" })).toBe("In the sheet");
     expect(duplicateWhere({ reason: "existing_workflow" })).toBe("In the spin game");
-    expect(duplicateWhere({ reason: "existing_added", created_at: "2026-11-14T05:00:00+00:00" })).toBe("Added on 14-11-2026");
+    expect(duplicateWhere({ reason: "existing_added", created_at: "2026-11-14T05:00:00+00:00" })).toBe("Added on 14 Nov 2026");
     expect(duplicateWhere({ reason: "existing_added", created_at: "2026-11-14T05:00:00+00:00", archived: true })).toBe(
-      "Added on 14-11-2026 (archived)",
+      "Added on 14 Nov 2026 (archived)",
     );
   });
 });

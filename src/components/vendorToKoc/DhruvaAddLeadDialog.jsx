@@ -3,6 +3,7 @@ import { addDhruvaLead } from "../../api/dhruva.js";
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
 import { dhruvaErrors } from "../../pages/dhruvaUtils.js";
 import DateInput from "../shared/DateInput.jsx";
+import { duplicateMessage } from "../shared/duplicates.js";
 
 const FIELDS = [
   ["name", "Name", "text"], ["venue", "Venue", "text"], ["date", "Event date", "text"],
@@ -28,8 +29,10 @@ export default function DhruvaAddLeadDialog({ onClose, onAdded }) {
     } catch (err) {
       const parsed = dhruvaErrors(err);
       setErrors(parsed.fields);
-      setMessage(parsed.message || Object.values(parsed.fields).join(" ") || err.message);
-      setDuplicate(err.status === 409 && Boolean(parsed.duplicate) && !allowDuplicate);
+      const isDuplicate = err.status === 409 && Boolean(parsed.duplicate) && !allowDuplicate;
+      // A duplicate's message shows in its own box (with Save anyway), not twice
+      setMessage(isDuplicate ? "" : parsed.message || Object.values(parsed.fields).join(" ") || err.message);
+      setDuplicate(isDuplicate ? duplicateMessage(err.detail) : false);
     } finally {
       setSaving(false);
     }
@@ -38,7 +41,7 @@ export default function DhruvaAddLeadDialog({ onClose, onAdded }) {
   return <Drawer kicker="Dhruva leads" title="Add lead" onClose={onClose} footer={<><button type="button" onClick={onClose} className={secondaryBtn}>Cancel</button><button type="submit" form="dhruva-add-lead" disabled={saving} className={primaryBtn}>{saving ? "Adding…" : "Add lead"}</button></>}>
     <form id="dhruva-add-lead" onSubmit={submit} className="space-y-4">
       {message && <Alert>{message}</Alert>}
-      {duplicate && <div className="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200"><p className="text-sm text-amber-900">A matching lead exists. Add this lead anyway?</p><button type="button" disabled={saving} onClick={() => submit(undefined, true)} className={`${primaryBtn} mt-3`}>Save anyway</button></div>}
+      {duplicate && <div className="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200"><p className="text-sm font-semibold text-amber-900">{duplicate}</p><p className="mt-1 text-sm text-amber-900">Add this lead anyway?</p><button type="button" disabled={saving} onClick={() => submit(undefined, true)} className={`${primaryBtn} mt-3`}>Save anyway</button></div>}
       <p className="text-xs text-gray-500">Enter a name or phone. Leads without a phone can still be added.</p>
       {FIELDS.map(([key, label, type]) => {
         const FieldInput = key === "date" ? DateInput : "input";

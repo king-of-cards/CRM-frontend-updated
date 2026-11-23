@@ -92,6 +92,7 @@ export default function KocToDhruvaLeadPanel({ lead, onClose, onSaved, isHot = f
               ["Quoted date", dayText(crm.quoted_date)],
               ["Conversion amount", rupeesText(crm.conversion_amount)],
               ["Follow-up date", dayText(crm.follow_up_date)],
+              ["Last updated by", crm.updated_by_name || "—"],
             ],
           },
           { title: "Also in", rows: alsoInPlaces(lead.also_in).map((p) => [p.label, alsoInLine(p).slice(p.label.length + 2)]) },
@@ -155,6 +156,13 @@ export default function KocToDhruvaLeadPanel({ lead, onClose, onSaved, isHot = f
               <div className="sm:col-span-3"><dt className="text-xs font-medium text-gray-500">Additional comments</dt><dd className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{crm.notes || "—"}</dd></div>
             </dl>
           </section>
+        )}
+        {/* Who last saved the update details (the API's name; "Deleted user" for a removed login) */}
+        {crm.updated_by_name && (
+          <p className="text-xs text-gray-500">
+            Last updated by {crm.updated_by_name}
+            {crm.updated_at ? ` · ${dateTimeText(crm.updated_at)}` : ""}
+          </p>
         )}
       </div>
       <div className="mt-5"><LeadActivity source="koc_to_dhruva" leadKey={lead.lead_key} refreshKey={activityKey} /></div>

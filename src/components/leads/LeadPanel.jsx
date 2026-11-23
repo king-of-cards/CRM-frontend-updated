@@ -22,9 +22,19 @@ import { assignableVendors, assignedText, assignmentChange, assignmentOf, automa
 import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "./HotLeadStar.jsx";
 import LeadActivity from "./LeadActivity.jsx";
+import { vendorNameLookup } from "./activityUtils.js";
 import { ReadOnlyFields } from "../shared/ViewOnly.jsx";
 import AlsoInBadges from "./AlsoInBadges.jsx";
 import { alsoInPlaces, alsoInLine } from "./alsoIn.js";
+import { formatDateTime, formatDay, personName } from "../shared/dates.js";
+
+// Who last saved the CRM details (docs section 5: crm.updated_by_name, "Deleted user" from the
+// API) and when: "Asha · 19 Nov 2026, 10:30 am". null when nobody saved them yet.
+function lastUpdated(crm) {
+  const name = personName(crm?.updated_by_name, "");
+  if (!name) return null;
+  return crm?.updated_at ? `${name} · ${formatDateTime(crm.updated_at)}` : name;
+}
 
 // Who edits what: Assigned to = admins (vendors see it as text); Update, Quoted amount/date,
 // Conversion amount and Notes = admins and the assigned vendor. Only changed, allowed fields are sent.
@@ -198,7 +208,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   ? inr.format(crm.quoted_amount)
                   : null,
               ],
-              ["Quoted date", crm?.quoted_date],
+              ["Quoted date", formatDay(crm?.quoted_date)],
               [
                 "Conversion amount",
                 crm?.conversion_amount != null
@@ -206,6 +216,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   : null,
               ],
               ["Notes", crm?.notes],
+              ["Last updated by", lastUpdated(crm)],
             ],
           },
           { title: "Also in", rows: alsoInPlaces(lead.alsoIn).map((p) => [p.label, alsoInLine(p).slice(p.label.length + 2)]) },
@@ -243,7 +254,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
         }`}
       >
         {/* Header */}
-        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-6 pb-5 pt-5 text-white">
+        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 pb-5 pt-5 text-white sm:px-6">
           <span
             aria-hidden="true"
             className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl"
@@ -285,7 +296,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                 type="button"
                 onClick={close}
                 aria-label="Close"
-                className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
               >
                 <X size={18} />
               </button>
@@ -315,7 +326,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
           )}
         </header>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+        <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
           {/* Contact */}
           <div className="flex gap-2">
             {lead.phone ? (
@@ -372,9 +383,10 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                 ["Assigned to", assignedText(crm)],
                 ["Update", updateInfo(crm.update_status).label],
                 ["Quoted amount", crm.quoted_amount != null ? inr.format(crm.quoted_amount) : null],
-                ["Quoted date", crm.quoted_date],
+                ["Quoted date", formatDay(crm.quoted_date)],
                 ["Conversion amount", crm.conversion_amount != null ? inr.format(crm.conversion_amount) : null],
                 ["Notes", crm.notes],
+                ["Last updated by", lastUpdated(crm)],
               ]}
             />
           )}
@@ -527,6 +539,9 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   {saving ? "Saving…" : "Save changes"}
                 </button>
               </div>
+              {lastUpdated(crm) && (
+                <p className="mt-3 text-right text-xs text-gray-500">Last updated by {lastUpdated(crm)}</p>
+              )}
             </form>
           )}
 
@@ -575,7 +590,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
             source={lead.source}
             leadKey={crm?.lead_key}
             refreshKey={activityRefreshKey}
-            vendorName={crm?.vendor?.name ?? crm?.suggested_vendor?.name}
+            vendorName={vendorNameLookup(vendors, crm?.vendor, crm?.suggested_vendor)}
           />
         </div>
       </aside>

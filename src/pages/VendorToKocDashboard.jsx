@@ -183,7 +183,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
         <>
           {/* ── KPIs ── */}
           <section
-            className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+            className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
             aria-label="Key numbers"
           >
             <Kpi
@@ -277,7 +277,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
           {/* ── Per vendor (admin): every active vendor (zeros as "—"), inactive ones with leads
               (badge), and Dhruva as a partner ── */}
           {isAdmin && (tiles.length > 0 || dhruva) && (
-            <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Vendors">
+            <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Vendors">
               {tiles.map((v) => (
                 <div key={v.vendor_id} className={`rounded-2xl bg-white p-4 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 ${v.is_active ? "" : "opacity-80"}`}>
                   {/* The name opens this vendor's leads for the period (the count does too) */}

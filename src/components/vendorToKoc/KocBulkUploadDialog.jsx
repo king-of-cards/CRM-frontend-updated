@@ -6,6 +6,7 @@ import { readSheetNames } from "../crmLeads/xlsxSheets.js";
 import { fieldErrors, kocErrors, mapKocRecheck, rowKind, rowsToKocCsv } from "./kocUtils.js";
 import { useAuth } from "../../auth/useAuth.js";
 import { flowLabels } from "../layout/leadFlow.js";
+import { duplicateText } from "../shared/duplicates.js";
 
 // Vendors → KOC bulk upload (docs section 11; vendor logins only): template → file (+ sheet) →
 // preview (nothing saved) → fix / remove rows, re-checked on blur or with "Re-check" →
@@ -321,6 +322,7 @@ export default function KocBulkUploadDialog({ onClose, onImported }) {
                         <td className="px-3 py-2 text-gray-500">{r.row}</td>
                         <td className="px-3 py-2">
                           <span
+                            title={kind === "duplicate" ? duplicateText(r.duplicate) : undefined}
                             className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${
                               kind === "valid"
                                 ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
@@ -331,6 +333,9 @@ export default function KocBulkUploadDialog({ onClose, onImported }) {
                           >
                             {kind === "valid" ? "Valid" : kind === "invalid" ? "Invalid" : "Duplicate"}
                           </span>
+                          {kind === "duplicate" && (
+                            <span className="mt-1 block max-w-[220px] text-[11px] leading-tight text-gray-600">{duplicateText(r.duplicate)}</span>
+                          )}
                           {r.dirty && <span className="mt-1 block text-[10px] text-gray-500">Edited · not re-checked</span>}
                         </td>
                         {COLS.map((c) => {

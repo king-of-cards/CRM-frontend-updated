@@ -8,6 +8,7 @@ import {
   Search,
 } from "lucide-react";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
+import { formatDateTime, formatDay } from "../components/shared/dates.js";
 import { listSpinLeads } from "../api/spinLeads.js";
 
 const PAGE_SIZE = 25;
@@ -33,18 +34,8 @@ function formatCell(value, col) {
     const d = new Date(value);
     if (!Number.isNaN(d.getTime())) {
       return col.type.toUpperCase() === "DATE"
-        ? d.toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })
-        : d.toLocaleString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
+        ? formatDay(String(value).slice(0, 10))
+        : formatDateTime(value);
     }
   }
   return String(value);

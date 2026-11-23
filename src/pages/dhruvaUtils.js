@@ -1,4 +1,5 @@
 // Dhruva leads helpers (docs/API_REFERENCE.md section 13). Pure, no React.
+import { formatDateTime, formatDay } from "../components/shared/dates.js";
 
 export const DHRUVA_PATH = "/dhruva-leads";
 
@@ -21,35 +22,14 @@ export const dhruvaFieldAccess = (role) => ({
 export const statusLabel = (v) =>
   v == null || v === PENDING ? "Pending" : (STATUSES.find((s) => s.value === v)?.label ?? v);
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 // "2026-12-13" -> "13 Dec 2026"; anything else returned as-is
 export function dayText(value) {
-  if (!value) return "—";
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
-  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : String(value);
+  return formatDay(value, "—");
 }
 
 // ISO date-time -> "14 Nov 2026, 10:30 am" (India time)
 export function dateTimeText(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso);
-  const day = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(d);
-  const time = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  })
-    .format(d)
-    .toLowerCase();
-  return `${day}, ${time}`;
+  return formatDateTime(iso, "—");
 }
 
 // Format a phone as +91XXXXXXXXXX if 10 digits, else as-is, else "—"

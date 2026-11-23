@@ -123,8 +123,12 @@ function show(value, col) {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "object") return JSON.stringify(value);
-  if (col && !col.json_field && /TIMESTAMP/i.test(col.type ?? ""))
+  if (col && !col.json_field && /TIMESTAMP|DATETIME/i.test(col.type ?? ""))
     return dateTime(value);
+  // Dates (typed DATE, or ISO text in any field) read "19 Nov 2026", never raw ISO
+  if (col && !col.json_field && /^DATE$/i.test(col.type ?? "")) return dayDate(value);
+  if (/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}.*)?$/.test(String(value)))
+    return String(value).length > 10 ? dateTime(value) : dayDate(value);
   if (col?.type === "range")
     return /^\d/.test(String(value))
       ? `₹${String(value).replace(/[-_]/g, "–")}`

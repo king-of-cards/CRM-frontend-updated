@@ -207,7 +207,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
           shown ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-6 pb-5 pt-5 text-white">
+        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 pb-5 pt-5 text-white sm:px-6">
           <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
           <div className="relative flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -224,7 +224,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
               {(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}
               <LeadBackButton inverted />
               <LeadPdfButton onClick={download} loading={downloading} />
-              <button type="button" onClick={close} aria-label="Close" className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white">
+              <button type="button" onClick={close} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -239,7 +239,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
           )}
         </header>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+        <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
           <div className="flex gap-2">
             {digits ? (
               <a href={`tel:+${digits}`} className={`${btn} bg-sky-50 text-sky-700 ring-1 ring-sky-100 hover:bg-sky-100`}>

@@ -5,6 +5,36 @@ import { activityActorRole, activityDescription, activityTime, groupActivityByDa
 
 const PAGE_SIZE = 25;
 
+// The entries, grouped by day. vendorName(id) -> name turns vendor ids into names (optional).
+export function ActivityList({ items, vendorName }) {
+  const groups = groupActivityByDay(items ?? []);
+  return (
+    <>
+      {groups.map((group) => (
+        <div key={group.key}>
+          <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">{group.title}</h4>
+          <ol className="space-y-3 border-l border-gray-200 pl-4">
+            {group.items.map((item, index) => {
+              const time = activityTime(item.created_at);
+              return (
+                <li key={`${item.created_at}-${item.field}-${index}`} className="relative">
+                  <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-brand-500 ring-4 ring-white" aria-hidden="true" />
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+                    <span className="font-medium text-gray-700">{item.actor_name || "Unknown"}</span>
+                    {item.actor_role && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{activityActorRole(item.actor_role)}</span>}
+                    <time className="ml-auto" dateTime={item.created_at} title={time.exact}>{time.relative}</time>
+                  </div>
+                  <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-800">{activityDescription(item, vendorName)}</p>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      ))}
+    </>
+  );
+}
+
 export default function LeadActivity({ source, leadKey, refreshKey = 0, vendorName }) {
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(0);
@@ -29,7 +59,6 @@ export default function LeadActivity({ source, leadKey, refreshKey = 0, vendorNa
   }, [source, leadKey]);
 
   useEffect(() => { setItems([]); setPage(0); setPages(0); load(1); }, [load, refreshKey]);
-  const groups = groupActivityByDay(items);
 
   return (
     <section aria-label="Activity" className="rounded-3xl bg-white/80 p-5 ring-1 ring-gray-100 shadow-sm">
@@ -46,27 +75,7 @@ export default function LeadActivity({ source, leadKey, refreshKey = 0, vendorNa
         <p className="mt-3 text-sm text-gray-500">No changes recorded yet</p>
       ) : (
         <div className="mt-4 space-y-5">
-          {groups.map((group) => (
-            <div key={group.key}>
-              <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">{group.title}</h4>
-              <ol className="space-y-3 border-l border-gray-200 pl-4">
-                {group.items.map((item, index) => {
-                  const time = activityTime(item.created_at);
-                  return (
-                    <li key={`${item.created_at}-${item.field}-${index}`} className="relative">
-                      <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-brand-500 ring-4 ring-white" aria-hidden="true" />
-                      <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
-                        <span className="font-medium text-gray-700">{item.actor_name || "Unknown"}</span>
-                        {item.actor_role && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{activityActorRole(item.actor_role)}</span>}
-                        <time className="ml-auto" dateTime={item.created_at} title={time.exact}>{time.relative}</time>
-                      </div>
-                      <p className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-800">{activityDescription(item, vendorName)}</p>
-                    </li>
-                  );
-                })}
-              </ol>
-            </div>
-          ))}
+          <ActivityList items={items} vendorName={vendorName} />
           {page < pages && <button type="button" onClick={() => load(page + 1)} disabled={loading} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50">Load more</button>}
         </div>
       )}

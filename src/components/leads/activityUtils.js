@@ -10,6 +10,7 @@ const FIELD_LABELS = {
   additional_comments: "Additional comments",
   notes: "Notes",
   vendor_id: "Assigned to",
+  assigned_to: "Assigned to",
   name: "Name",
   phone: "Phone",
   alt_phone: "Alt phone",
@@ -22,6 +23,23 @@ const FIELD_LABELS = {
 
 const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
+// A vendor in the activity: a vendor id goes through vendorName(id) (a lookup function; anything
+// else is ignored, so a stray string can never crash the panel), text the API already wrote
+// ("Phodeo", "Unassigned", "Automatic": docs section 5, assigned_to) is shown as written.
+function vendorText(value, vendorName) {
+  const text = String(value).trim();
+  if (!/^\d+$/.test(text)) return text;
+  const name = typeof vendorName === "function" ? vendorName(text) : null;
+  return typeof name === "string" && name.trim() ? name : `Vendor #${text}`;
+}
+
+// vendorName for LeadActivity: id -> name from the vendors list (active and inactive), falling
+// back to the lead's own vendor (e.g. an inactive vendor missing from an active-only list)
+export function vendorNameLookup(vendors, ...known) {
+  const all = [...(Array.isArray(vendors) ? vendors : []), ...known.filter(Boolean)];
+  return (id) => all.find((v) => v && v.id != null && String(v.id) === String(id))?.name ?? null;
+}
+
 function valueText(field, value, vendorName) {
   if (field === "update_status" && (value == null || value === "")) return "Pending";
   if (value == null || value === "") return "—";
@@ -31,7 +49,7 @@ function valueText(field, value, vendorName) {
     return Number.isFinite(amount) ? inr.format(amount) : String(value);
   }
   if (field === "follow_up_date" || field === "quoted_date" || field === "lead_date" || field === "date") return dayText(value);
-  if (field === "vendor_id") return vendorName?.(value) ?? `Vendor #${value}`;
+  if (field === "vendor_id" || field === "assigned_to") return vendorText(value, vendorName);
   if (field === "is_hot") return String(value) === "true" ? "Hot" : "Not hot";
   return String(value);
 }
@@ -43,9 +61,13 @@ export function activityDescription(activity, vendorName) {
   if (activity.action === "hot_on") return "Marked as hot";
   if (activity.action === "hot_off") return "Removed hot mark";
   if (activity.action === "assigned") {
-    return activity.new_value == null
-      ? "Unassigned"
-      : `Assigned to ${valueText("vendor_id", activity.new_value, vendorName)}`;
+    // assigned_to changes carry both sides as text: "Assigned to: Phodeo → Unassigned"
+    if (activity.field === "assigned_to" && activity.old_value != null && activity.old_value !== "") {
+      return `Assigned to: ${valueText("assigned_to", activity.old_value, vendorName)} → ${valueText("assigned_to", activity.new_value, vendorName)}`;
+    }
+    if (activity.new_value == null || activity.new_value === "") return "Unassigned";
+    const text = valueText("vendor_id", activity.new_value, vendorName);
+    return text === "Unassigned" ? "Unassigned" : `Assigned to ${text}`;
   }
   const label = FIELD_LABELS[activity.field] ?? activity.field ?? "Lead";
   return `${label}: ${valueText(activity.field, activity.old_value, vendorName)} → ${valueText(activity.field, activity.new_value, vendorName)}`;
