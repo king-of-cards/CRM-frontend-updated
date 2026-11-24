@@ -1,9 +1,11 @@
 import { apiRequest } from "./client.js";
 
-export function setSourceLeadHot(source, leadKey, isHot) {
+// The hot star of one copy (docs section 19). vendor (admins, several vendors): whose copy, sent as
+// ?vendor=<id>; without it a lead with several vendors answers 422. Vendor logins never send it.
+export function setSourceLeadHot(source, leadKey, isHot, { vendor } = {}) {
   return apiRequest(
     `/leads/${encodeURIComponent(source)}/${encodeURIComponent(leadKey)}/hot`,
-    { method: isHot ? "POST" : "DELETE" },
+    { method: isHot ? "POST" : "DELETE", query: vendor != null ? { vendor } : undefined },
   );
 }
 

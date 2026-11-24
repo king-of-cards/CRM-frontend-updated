@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { isMultiVendor } from "./leadVendors.js";
 import ContactActions from "../shared/ContactActions.jsx";
 import { useSearchParams } from "react-router";
 import {
@@ -500,13 +501,17 @@ export function LeadTable({
     return saved[String(key)] ?? fromApi ?? emptyCrm(key);
   };
   const hotKey = (row) => String(crmOf(row)?.lead_key ?? crmKey?.(row) ?? row.lead_key ?? row.id);
-  const isHot = (row) => hotOverrides[hotKey(row)] ?? Boolean(row.is_hot ?? crmOf(row)?.is_hot);
+  // Several vendors (docs section 19): the star is per vendor, set in the panel's cards; the row
+  // shows the overall one (hot on any copy) from the crm object, which the cards keep fresh
+  const severalVendors = (row) => Boolean(seesAll) && isMultiVendor(crmOf(row));
+  const isHot = (row) =>
+    hotOverrides[hotKey(row)] ?? Boolean(severalVendors(row) ? crmOf(row)?.is_hot : (row.is_hot ?? crmOf(row)?.is_hot));
   // Hot column: admins, viewers and vendors; only those who can edit may toggle it
   const showHot = seesAll || isVendor;
   const canToggleHot = (isAdmin || isVendor) && canEdit;
   const toggleHot = (row) => {
     const key = hotKey(row);
-    if (!canToggleHot || hotPending[key]) return;
+    if (!canToggleHot || severalVendors(row) || hotPending[key]) return;
     setHotPending((current) => ({ ...current, [key]: true }));
     toggleHotOptimistically(isHot(row), (next) => setSourceLeadHot(source, key, next), (next) => setHotOverrides((current) => ({ ...current, [key]: next })))
       .catch(() => {})
@@ -558,7 +563,7 @@ export function LeadTable({
       alsoIn: row.also_in,
       isHot: isHot(row),
       hotPending: Boolean(hotPending[hotKey(row)]),
-      onToggleHot: canToggleHot ? () => toggleHot(row) : null,
+      onToggleHot: canToggleHot && !severalVendors(row) ? () => toggleHot(row) : null,
       showHot,
     };
   })();
@@ -619,7 +624,7 @@ export function LeadTable({
                   onClick={() => setOpenRow(k)}
                   className={`group cursor-pointer border-b border-gray-50 transition-colors hover:bg-brand-50/40 ${isOpen ? "bg-brand-50/60" : ""}`}
                 >
-                  {showHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(row)} pending={Boolean(hotPending[hotKey(row)])} onToggle={canToggleHot ? () => toggleHot(row) : null} /></td>}
+                  {showHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(row)} pending={Boolean(hotPending[hotKey(row)])} onToggle={canToggleHot && !severalVendors(row) ? () => toggleHot(row) : null} note={severalVendors(row) && canToggleHot ? "Per vendor: set it in the lead panel" : undefined} /></td>}
                   <td
                     className={`sticky left-0 z-10 px-4 py-3 transition-colors group-hover:bg-brand-50 ${isOpen ? "bg-brand-50" : "bg-white"}`}
                   >

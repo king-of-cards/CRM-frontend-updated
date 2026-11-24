@@ -3,12 +3,36 @@ import { ChevronDown, Loader2 } from "lucide-react";
 import { PENDING_UPDATE, UPDATE_OPTIONS, updateInfo } from "../../api/leadCrm.js";
 import { listVendors } from "../../api/vendors.js";
 import { useAuth } from "../../auth/useAuth.js";
-import { assignableVendors, assignedText, assignmentChange, assignmentOf, automaticLabel, AUTOMATIC_CHOICE, UNASSIGNED_CHOICE } from "./crmAccess.js";
+import { assignableVendors, assignmentChange, assignmentOf, automaticLabel, assignedText, AUTOMATIC_CHOICE, UNASSIGNED_CHOICE } from "./crmAccess.js";
+import { isMultiVendor, vendorChips } from "./leadVendors.js";
 
 // The editable CRM cells in every lead table: Assigned to, Update, Quoted amount, Conversion amount.
 // Each change is saved at once (only that field) and the row updates in place.
 // Who edits what: Assigned to = admins only (vendor logins don't get this column); Update and the
 // amounts = admins and the assigned vendor. Save errors (403/404/422…) are shown under the cell.
+// A lead with several vendors (docs section 19): Assigned to shows one chip per vendor, and Update
+// and the amounts (the overall values) are read-only here: each vendor's copy is saved in the lead
+// panel's cards (a save here couldn't say whose copy, which the API answers with 422).
+const SEVERAL = "Several vendors: change each vendor's copy in the lead panel";
+
+const CHIP_TONES = {
+  manual: "bg-brand-700 text-white ring-brand-700",
+  auto: "bg-brand-50 text-brand-800 ring-brand-200",
+  none: "bg-amber-50 text-amber-700 ring-amber-200",
+};
+
+// "Assigned to" chips: one per vendor ("Unassigned" when none)
+export function VendorChips({ crm }) {
+  return (
+    <span className="flex max-w-[16rem] flex-wrap gap-1 whitespace-normal" aria-label="Assigned to">
+      {vendorChips(crm).map((c) => (
+        <span key={c.key} className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ${CHIP_TONES[c.tone]}`}>
+          {c.text}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -105,13 +129,12 @@ export function VendorCell({ crm, save }) {
       : crm.vendor
         ? "bg-brand-50 text-brand-800 ring-brand-200"
         : "bg-amber-50 text-amber-700 ring-amber-200";
-  // Vendors and view-only logins: read-only chip
-  if (!isAdmin || !canEdit) {
+  // View-only logins, and leads with several vendors: one chip per vendor (several vendors are
+  // added or changed in the lead panel, so one pick here can't drop the others by accident)
+  if (!isAdmin || !canEdit || isMultiVendor(crm)) {
     return (
-      <span
-        className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ${cls}`}
-      >
-        {assignedText(crm)}
+      <span title={isMultiVendor(crm) && isAdmin && canEdit ? "Several vendors: change them in the lead panel" : undefined}>
+        <VendorChips crm={crm} />
       </span>
     );
   }
@@ -150,13 +173,13 @@ export function VendorCell({ crm, save }) {
 }
 
 // Update: Pending or one of the 7 values (null = Pending)
-export function UpdateCell({ crm, save }) {
+export function UpdateCell({ crm, save, readOnly = false }) {
   const { canEdit } = useAuth();
   const { busy, error, run } = useSaver(save);
   const info = updateInfo(crm.update_status);
-  // View only: the status as a plain pill, not a picker
-  if (!canEdit) {
-    return <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ${info.style}`}>{info.label}</span>;
+  // View only (or several vendors): the status as a plain pill, not a picker
+  if (!canEdit || readOnly) {
+    return <span title={readOnly ? SEVERAL : undefined} className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ring-1 ${info.style}`}>{info.label}</span>;
   }
   return (
     <span title={error || undefined}>
@@ -182,7 +205,7 @@ export function UpdateCell({ crm, save }) {
 // An amount in rupees (quoted_amount or conversion_amount): click to edit, Enter / blur saves,
 // Escape cancels, empty clears. The first quote also sets today as the quoted date
 // (setQuotedDate: false where the lead has no quoted date, e.g. Vendors → KOC).
-export function AmountCell({ crm, save, field, label, setQuotedDate = true }) {
+export function AmountCell({ crm, save, field, label, setQuotedDate = true, readOnly = false }) {
   const { canEdit } = useAuth();
   const { busy, error, run } = useSaver(save);
   const [editing, setEditing] = useState(false);
@@ -194,10 +217,10 @@ export function AmountCell({ crm, save, field, label, setQuotedDate = true }) {
     if (editing) input.current?.focus();
   }, [editing]);
 
-  // View only: the amount as plain text, not clickable
-  if (!canEdit) {
+  // View only (or several vendors): the amount as plain text, not clickable
+  if (!canEdit || readOnly) {
     return (
-      <span className="inline-flex min-w-[88px] justify-end px-2.5 py-1 text-xs tabular-nums" aria-label={label}>
+      <span title={readOnly ? SEVERAL : undefined} className="inline-flex min-w-[88px] justify-end px-2.5 py-1 text-xs tabular-nums" aria-label={label}>
         {current != null ? <span className="text-sm font-semibold text-gray-900">{inr.format(current)}</span> : <span className="text-gray-400">—</span>}
       </span>
     );
@@ -280,6 +303,7 @@ export function CrmHeaderCells({ className }) {
 // The four cells for one row. save(changes) -> Promise
 export function InlineCrmCells({ crm, save, className = "px-4 py-3" }) {
   const { seesAll } = useAuth(); // vendor logins don't get the Assigned to column (admins and viewers do)
+  const several = Boolean(seesAll) && isMultiVendor(crm); // vendor logins only ever see their own copy
   if (!crm) {
     return (seesAll ? [0, 1, 2, 3] : [1, 2, 3]).map((i) => (
       <td key={i} className={`${className} text-gray-300`}>
@@ -290,18 +314,18 @@ export function InlineCrmCells({ crm, save, className = "px-4 py-3" }) {
   return (
     <>
       {seesAll && (
-        <td className={`whitespace-nowrap ${className}`}>
+        <td className={`${several ? "" : "whitespace-nowrap"} ${className}`}>
           <VendorCell crm={crm} save={save} />
         </td>
       )}
       <td className={`whitespace-nowrap ${className}`}>
-        <UpdateCell crm={crm} save={save} />
+        <UpdateCell crm={crm} save={save} readOnly={several} />
       </td>
       <td className={`whitespace-nowrap text-right ${className}`}>
-        <AmountCell crm={crm} save={save} field="quoted_amount" label="Quoted amount" />
+        <AmountCell crm={crm} save={save} field="quoted_amount" label="Quoted amount" readOnly={several} />
       </td>
       <td className={`whitespace-nowrap text-right ${className}`}>
-        <AmountCell crm={crm} save={save} field="conversion_amount" label="Conversion amount" />
+        <AmountCell crm={crm} save={save} field="conversion_amount" label="Conversion amount" readOnly={several} />
       </td>
     </>
   );
