@@ -95,13 +95,13 @@ export default function ContactActions({ phone, phones, email, name, showNumber 
   return (
     <div className={`flex flex-col gap-1 ${className}`} onClick={stop} onKeyDown={stopKeys}>
       {rows.map((r, i) => (
-        <div key={i} className="flex items-center gap-2">
+        <div key={i} className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {showNumber && (
             <span className="min-w-[96px] tabular-nums text-sm text-gray-800">
               {displayPhone(r.phone) || <span className="text-gray-300">No number</span>}
             </span>
           )}
-          {r.links.length > 0 && <div className="flex items-center gap-1"><Buttons links={r.links} variant="row" /></div>}
+          {r.links.length > 0 && <div className="flex flex-wrap items-center gap-1"><Buttons links={r.links} variant="row" /></div>}
         </div>
       ))}
     </div>
