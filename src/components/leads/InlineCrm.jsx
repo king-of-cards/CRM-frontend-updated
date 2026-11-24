@@ -3,7 +3,7 @@ import { ChevronDown, Loader2 } from "lucide-react";
 import { PENDING_UPDATE, UPDATE_OPTIONS, updateInfo } from "../../api/leadCrm.js";
 import { listVendors } from "../../api/vendors.js";
 import { useAuth } from "../../auth/useAuth.js";
-import { assignedText } from "./crmAccess.js";
+import { assignableVendors, assignedText, assignmentChange, assignmentOf, automaticLabel, AUTOMATIC_CHOICE, UNASSIGNED_CHOICE } from "./crmAccess.js";
 
 // The editable CRM cells in every lead table: Assigned to, Update, Quoted amount, Conversion amount.
 // Each change is saved at once (only that field) and the row updates in place.
@@ -97,10 +97,8 @@ export function VendorCell({ crm, save }) {
   const { isAdmin, canEdit } = useAuth();
   const vendors = useVendors();
   const { busy, error, run } = useSaver(save);
-  const manual =
-    crm.vendor_source === "manual" && crm.vendor ? String(crm.vendor.id) : "";
-  const auto =
-    crm.vendor_source !== "manual" ? crm.vendor : crm.suggested_vendor;
+  // Automatic, Unassigned or a vendor (crmAccess.js); Unassigned reads "Unassigned", never "· auto"
+  const choice = assignmentOf(crm);
   const cls =
     crm.vendor_source === "manual"
       ? "bg-brand-700 text-white ring-brand-700"
@@ -125,20 +123,24 @@ export function VendorCell({ crm, save }) {
           ? "Assigned in the CRM"
           : crm.vendor_source === "sheet"
             ? "From the sheet"
-            : "Automatic (area rules)")
+            : crm.vendor_source === "source_default"
+              ? "Automatic (gift lead: Wedding Gifts & Return Gifts)"
+              : "Automatic (area rules)")
       }
     >
       <PillSelect
         label="Assigned to"
-        value={manual}
+        value={choice}
         busy={busy}
-        onChange={(v) => run({ vendor_id: v ? Number(v) : null })}
+        onChange={(v) => run(assignmentChange(v))}
         className={`${cls} ${error ? "ring-red-400" : ""}`}
       >
-        <option value="">{auto ? `${auto.name} · auto` : "Unassigned"}</option>
-        {vendors.map((v) => (
-          <option key={v.id} value={v.id}>
-            {v.name}
+        <option value={AUTOMATIC_CHOICE}>{choice === AUTOMATIC_CHOICE ? (crm.vendor ? assignedText(crm) : automaticLabel(crm)) : automaticLabel(crm)}</option>
+        <option value={UNASSIGNED_CHOICE}>Unassigned</option>
+        {/* Active vendors only; the lead's own inactive vendor stays visible but can't be picked */}
+        {assignableVendors(vendors, crm.vendor_source === "manual" ? crm.vendor : null).map((v) => (
+          <option key={v.id} value={v.id} disabled={v.inactive}>
+            {v.inactive ? `${v.name} (inactive)` : v.name}
           </option>
         ))}
       </PillSelect>

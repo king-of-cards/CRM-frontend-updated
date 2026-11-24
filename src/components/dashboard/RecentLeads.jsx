@@ -2,15 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   ArrowUpRight,
-  Building2,
   MapPin,
   Target,
 } from "lucide-react";
-import { listSpinLeads } from "../../api/spinLeads.js";
 import { getFilterOptions, getLeadStats, listLeads, listQuery } from "../../api/leadLists.js";
 import { listBranches } from "../../api/branches.js";
 import { pincodeArea } from "../leads/pincode.js";
 import { storeFor } from "../leads/stores.js";
+import BranchCell from "../leads/BranchCell.jsx";
 import { useVendors } from "../leads/InlineCrm.jsx";
 import LeadSearch from "../leads/LeadSearch.jsx";
 import { useAuth } from "../../auth/useAuth.js";
@@ -29,13 +28,31 @@ import { kpiCards } from "../leads/kpiCards.js";
 import CrmRowBadge from "../crmLeads/CrmRowBadge.jsx";
 import LeadFilterBar from "../leads/LeadFilterBar.jsx";
 import { useLeadFilters } from "../leads/useLeadFilters.js";
+import { isGiftService, servicesOf } from "../leads/otherServices.js";
 
-// Spin leads: read live from the workflow database (read-only). The CRM columns come from
-// our own database next to each lead (sidecar), matched by the lead's id.
+// Spin leads: read live from the workflow database (read-only), plus the leads added or uploaded
+// in the CRM. The CRM columns come from our own database next to each lead (sidecar), matched by
+// the lead's id. Gift leads (Other wedding services naming "Wedding Gifts & Return Gifts") are
+// Spin leads too; only their automatic vendor differs (Kraftyz, docs section 17).
 
 const PAGE_SIZE = 10; // the default page size (10 / 25 / 50 / 100)
 
-const CREATED_KEY = "crm-spin-created-column"; // remembered so later loads need one request
+// The page's look. branchVendor: Spin's leads go to their branch's vendor automatically (gift
+// leads excepted: the API's "source_default" vendor is kept). explore: "Explore all fields".
+const SPIN_PAGES = {
+  spin: {
+    theme: "spin",
+    icon: Target,
+    title: "Spin leads",
+    leadLabel: "Spin lead",
+    emptyName: "spin leads",
+    branchVendor: true,
+    explore: true,
+  },
+};
+
+// Remembered so later loads need one request
+const createdKey = (source) => `crm-${source}-created-column`;
 
 // Which spin field is which. Matching ignores case, "_" and the "additional_details." prefix.
 const FIELDS = {
@@ -64,6 +81,7 @@ const FIELDS = {
   pincode: ["pincode", "pin", "zipcode"],
   city: ["city", "location", "eventcity"],
   budget: ["estimatedbudgetpercard", "servicebudget", "budget"],
+  otherServices: ["otherweddingservices"],
   created: ["createdat", "created", "createdon", "submittedat"],
   branch: ["branchid", "spinbranchid", "branch", "storeid", "store"],
 };
@@ -105,8 +123,12 @@ function show(value, col) {
   if (value === null || value === undefined || value === "") return null;
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "object") return JSON.stringify(value);
-  if (col && !col.json_field && /TIMESTAMP/i.test(col.type ?? ""))
+  if (col && !col.json_field && /TIMESTAMP|DATETIME/i.test(col.type ?? ""))
     return dateTime(value);
+  // Dates (typed DATE, or ISO text in any field) read "19 Nov 2026", never raw ISO
+  if (col && !col.json_field && /^DATE$/i.test(col.type ?? "")) return dayDate(value);
+  if (/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}.*)?$/.test(String(value)))
+    return String(value).length > 10 ? dateTime(value) : dayDate(value);
   if (col?.type === "range")
     return /^\d/.test(String(value))
       ? `₹${String(value).replace(/[-_]/g, "–")}`
@@ -129,7 +151,7 @@ function locationOf(lead, f, branches) {
 // A spin lead goes to its branch's vendor automatically (RJ / Phodeo / OHP), unless someone
 // assigned a vendor in the CRM. The backend does this too; this covers older backends.
 function withBranchVendor(crm, branch, vendors) {
-  if (crm && ["manual", "sheet", "branch"].includes(crm.vendor_source))
+  if (crm && ["manual", "sheet", "branch", "source_default"].includes(crm.vendor_source))
     return crm;
   const vendor = branch?.vendor
     ? vendors.find((v) => v.name.toLowerCase() === branch.vendor.toLowerCase())
@@ -142,27 +164,29 @@ function withBranchVendor(crm, branch, vendors) {
   };
 }
 
-function storedCreated() {
+function storedCreated(source) {
   try {
-    const v = sessionStorage.getItem(CREATED_KEY);
+    const v = sessionStorage.getItem(createdKey(source));
     return v === null ? undefined : v || null; // "" = no created column
   } catch {
     return undefined;
   }
 }
 
-export default function RecentLeads() {
+export default function RecentLeads({ source = "spin" }) {
+  const look = SPIN_PAGES[source] ?? SPIN_PAGES.spin;
+  const Icon = look.icon;
   const { seesAll, canSeeLeads } = useAuth(); // admins and viewers: Explore all fields and the admin filters
-  const [createdCol, setCreatedCol] = useState(storedCreated);
+  const [createdCol, setCreatedCol] = useState(() => storedCreated(source));
   const [page, setPage] = useState(1);
   // Filters, kept in the URL; the same for the list and the export
   // Rows per page live in the URL too (?page_size=25)
   const { filters, query, queryKey, update, clear, apply, clearFilters, count, pageSize, setPageSize } =
-    useLeadFilters("spin");
+    useLeadFilters(source);
   const sortValue = filters.sort || "created:desc";
   const [openKey, setOpenKey] = useState(null); // lead to open (picked from the search suggestions)
-  const [options, setOptions] = useState(() => getFilterOptions.peek("spin") ?? null);
-  const [stats, setStats] = useState(() => getLeadStats.peek("spin", query) ?? null);
+  const [options, setOptions] = useState(() => getFilterOptions.peek(source) ?? null);
+  const [stats, setStats] = useState(() => getLeadStats.peek(source, query) ?? null);
   const [branches, setBranches] = useState(
     () => listBranches.peek()?.branches ?? [],
   );
@@ -197,7 +221,7 @@ export default function RecentLeads() {
   // Dropdown values: branches, pincodes, budgets, origins, interests, vendors (admins)
   useEffect(() => {
     if (!canSeeLeads) return;
-    getFilterOptions("spin")
+    getFilterOptions(source)
       .then(setOptions)
       .catch(() => {});
   }, [canSeeLeads, reloadKey]);
@@ -231,7 +255,7 @@ export default function RecentLeads() {
     lastParams.current = { ...query, sort, order: sort ? order : undefined };
 
     const cached =
-      createdCol !== undefined ? listLeads.peek("spin", params) : undefined;
+      createdCol !== undefined ? listLeads.peek(source, params) : undefined;
     if (cached) setData(cached);
     setLoading(!cached);
 
@@ -240,19 +264,19 @@ export default function RecentLeads() {
         let res;
         if (createdCol === undefined) {
           // First visit: learn the columns, find the "created" column, then sort by it
-          res = await listSpinLeads({ page: 1, pageSize: PAGE_SIZE });
+          res = await listLeads(source, { page: 1, page_size: PAGE_SIZE });
           const found = pick(res.columns).created;
           try {
-            sessionStorage.setItem(CREATED_KEY, found ?? "");
+            sessionStorage.setItem(createdKey(source), found ?? "");
           } catch {
             // fine: found again next time
           }
           if (!cancelled) setCreatedCol(found ?? null);
           return; // the effect runs again with the column known
         }
-        res = await listLeads("spin", params);
+        res = await listLeads(source, params);
         // Stats over the same filters: GET /spin-leads/stats -> { total, kpis }
-        getLeadStats("spin", query)
+        getLeadStats(source, query)
           .then((st) => !cancelled && setStats(st))
           .catch(() => {});
         if (!cancelled) {
@@ -285,12 +309,12 @@ export default function RecentLeads() {
   // Search suggestions: the best matching leads (name, phone, email, branch)
   function suggestLeads(q) {
     const sort = createdCol || undefined;
-    return listSpinLeads({
+    return listLeads(source, {
       page: 1,
-      pageSize: 10,
+      page_size: 10,
       search: q,
       sort,
-      order: "desc",
+      order: sort ? "desc" : undefined,
     }).then((res) => {
       const ff = pick(res.columns);
       // page_size must be 10 / 25 / 50 / 100: ask for 10, suggest the first 7
@@ -320,13 +344,13 @@ export default function RecentLeads() {
 
   return (
     <SectionShell
-      theme="spin"
-      icon={Target}
-      title="Spin leads"
+      theme={look.theme}
+      icon={Icon}
+      title={look.title}
       subtitle={`Live from the workflow database (read-only) · ${columns.length || "—"} fields per lead`}
       action={
         <div className="flex items-center gap-2">
-          {seesAll && (
+          {seesAll && look.explore && (
             <Link
               to="/leads"
               className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
@@ -335,7 +359,7 @@ export default function RecentLeads() {
             </Link>
           )}
           <CrmLeadActions
-            source="spin"
+            source={source}
             exportParams={() => lastParams.current}
             onChanged={reload}
           />
@@ -346,7 +370,7 @@ export default function RecentLeads() {
       stats={kpiCards(stats?.kpis)}
       toolbar={
         <LeadFilterBar
-          source="spin"
+          source={source}
           filters={filters}
           update={update}
           clear={clear}
@@ -383,13 +407,13 @@ export default function RecentLeads() {
       }
     >
       <LeadTable
-        theme="spin"
+        theme={look.theme}
         rows={items}
         rowKey={(l) => l[pkName] ?? JSON.stringify(l).slice(0, 80)}
         loading={loading && !data}
         dimmed={loading && Boolean(data)}
         identity={(l) => ({
-          badge: <CrmRowBadge source="spin" lead={l} leadKey={l[pkName]} />,
+          badge: <CrmRowBadge source={source} lead={l} leadKey={l[pkName]} />,
           name: (f.name && l[f.name]) || "Unnamed lead",
           subtitle:
             (f.email && l[f.email]) ||
@@ -406,24 +430,7 @@ export default function RecentLeads() {
           {
             id: "branch",
             header: "Branch",
-            render: (l) => {
-              const b = locationOf(l, f, branches).branch;
-              if (!b)
-                return <span className="text-xs text-gray-400">No branch</span>;
-              return (
-                <span className="block leading-tight">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-800 ring-1 ring-sky-100">
-                    <Building2 size={12} aria-hidden="true" />
-                    {b.name}
-                  </span>
-                  {(b.code || b.city) && (
-                    <span className="mt-1 block pl-1 text-[11px] text-gray-500">
-                      {[b.code, b.city].filter(Boolean).join(" · ")}
-                    </span>
-                  )}
-                </span>
-              );
-            },
+            render: (l) => <BranchCell branch={locationOf(l, f, branches).branch} />,
           },
           {
             id: "location",
@@ -471,6 +478,27 @@ export default function RecentLeads() {
             },
           },
           {
+            // Comma-separated services as small chips; the gift service is highlighted
+            id: "other_services",
+            header: "Other wedding services",
+            render: (l) => {
+              const list = servicesOf(f.otherServices ? l[f.otherServices] : null);
+              if (!list.length) return null;
+              return (
+                <span className="flex min-w-[11rem] max-w-[18rem] flex-wrap gap-1 whitespace-normal">
+                  {list.map((s) => (
+                    <span
+                      key={s}
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${isGiftService(s) ? "bg-amber-50 text-amber-800 ring-amber-200" : "bg-gray-50 text-gray-700 ring-gray-200"}`}
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </span>
+              );
+            },
+          },
+          {
             id: "budget",
             header: "Budget",
             align: "right",
@@ -495,14 +523,11 @@ export default function RecentLeads() {
               ) : null,
           },
         ]}
-        source="spin"
-        crm={(l) =>
-          withBranchVendor(
-            l.crm ?? (l.id != null ? emptyCrm(l.id) : null),
-            locationOf(l, f, branches).branch,
-            vendors,
-          )
-        }
+        source={source}
+        crm={(l) => {
+          const crm = l.crm ?? (l.id != null ? emptyCrm(l.id) : null);
+          return look.branchVendor ? withBranchVendor(crm, locationOf(l, f, branches).branch, vendors) : crm;
+        }}
         crmKey={(l) => l.id}
         context={(l) => ({
           pincode: f.pincode ? String(l[f.pincode] ?? "") : undefined,
@@ -510,8 +535,8 @@ export default function RecentLeads() {
         })}
         onCrmSaved={(key, crm) => setData((d) => withCrm(d, key, crm))}
         panel={(l) => ({
-          sourceLabel: "Spin lead",
-          title: (f.name && l[f.name]) || "Spin lead",
+          sourceLabel: look.leadLabel,
+          title: (f.name && l[f.name]) || look.leadLabel,
           subtitle: [
             locationOf(l, f, branches).branch?.name,
             f.occasion && l[f.occasion],
@@ -554,6 +579,7 @@ export default function RecentLeads() {
                     : null,
                 ],
                 ["Pincode", f.pincode ? show(l[f.pincode]) : null],
+                ["Other wedding services", servicesOf(f.otherServices ? l[f.otherServices] : null).join(", ") || null],
                 [
                   "Budget",
                   f.budget
@@ -582,6 +608,7 @@ export default function RecentLeads() {
                       f.eventDate,
                       f.pincode,
                       f.budget,
+                      f.otherServices,
                       createdCol,
                     ].includes(c.name),
                 )
@@ -591,8 +618,8 @@ export default function RecentLeads() {
         })}
         empty={
           count || filters.search
-            ? "No spin leads match these filters."
-            : "No spin leads yet."
+            ? `No ${look.emptyName} match these filters.`
+            : `No ${look.emptyName} yet.`
         }
         openKey={openKey}
         onOpened={() => setOpenKey(null)}

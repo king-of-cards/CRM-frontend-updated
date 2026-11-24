@@ -8,6 +8,7 @@ import {
   XCircle,
 } from "lucide-react";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
+import { formatDateTime as formatDateTimeText } from "../components/shared/dates.js";
 import { useAuth } from "../auth/useAuth.js";
 import { checkDatabase } from "../api/health.js";
 import { readDbHealth } from "../api/readDb.js";
@@ -23,12 +24,7 @@ const SOURCE_LABELS = {
 
 function formatDateTime(iso) {
   if (!iso) return "never";
-  return new Date(iso).toLocaleString("en-IN", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTimeText(iso);
 }
 
 function Card({ icon: Icon, title, subtitle, action, children }) {

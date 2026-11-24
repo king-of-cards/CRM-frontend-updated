@@ -1,4 +1,4 @@
-import { DHRUVA, hasFilterValue, KOC, NOT_SHARED, ORIGIN_LABELS, UPDATE_LABELS } from "./leadFilters.js";
+import { DHRUVA, FOLLOW_UP_LABELS, hasFilterValue, KOC, KOC_TO_DHRUVA, NOT_SHARED, ORIGIN_LABELS, UPDATE_LABELS } from "./leadFilters.js";
 
 const countLabel = (value, list = []) => {
   const found = list.find((item) => String(item.value) === String(value));
@@ -11,13 +11,17 @@ const plural = (label, values) => values.length === 1 ? `${label}: ${values[0]}`
 
 // Describes the controls available in each list and their URL keys. Kept pure so the
 // button inventory and active labels can be verified without rendering React.
-export function buildFilterButtons(source, filters = {}, options = {}, isAdmin = false) {
+export function buildFilterButtons(source, filters = {}, optionsIn = {}, isAdmin = false) {
+  // filter-options may not have loaded yet (null): treat it as empty, never crash the page
+  const options = optionsIn ?? {};
   const specs = source === DHRUVA
-    ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["venue", "Venue", ["venue"]], ["event_type", "Event type", ["event_type"]], ["update", "Update", ["update_status"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["has_phone", "Has phone", ["has_phone"]], ["hot", "Hot only", ["hot"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
+    ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["venue", "Venue", ["venue"]], ["event_type", "Event type", ["event_type"]], ["update", "Update", ["update_status"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["has_phone", "Has phone", ["has_phone"]], ["needs_intervention", "Needs intervention", ["needs_intervention"]], ["hot", "Hot only", ["hot"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
+    : source === KOC_TO_DHRUVA
+      ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["branch", "Branch", ["branch"]], ["pincode", "Pincode", ["pincode"]], ["budget", "Budget", ["budget"]], ["quantity", "Quantity", ["quantity_min", "quantity_max"]], ["occasion", "Occasion", ["occasion"]], ["update", "Update", ["update_status"]], ["hot", "Hot only", ["hot"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_when", "Follow-up", ["follow_up"]], ["origin", "Origin", ["origin"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
     : source === KOC
       ? [["lead_date", "Lead date", ["lead_date_from", "lead_date_to"]], ...(isAdmin ? [["vendor", "Vendor", ["vendor_id"]], ["also_in", "In other sources", ["also_in"]]] : []), ["update", "Update", ["update_status"]], ["hot", "Hot only", ["hot"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["city", "City", ["city"]], ["source", "Source", ["source"]]]
       : [
-          ...(source !== "spin" ? [] : [["branch", "Branch", ["branch"]], ["pincode", "Pincode", ["pincode"]], ["budget", "Budget", ["budget"]]]),
+          ...(source !== "spin" ? [] : [["branch", "Branch", ["branch"]], ["pincode", "Pincode", ["pincode"]], ["budget", "Budget", ["budget"]], ["other_services", "Other services", ["other_services"]]]),
           ...(source === "whatsapp" ? [["country", "Country", ["country"]]] : []),
           ...(source === "wedding" ? [["occasion", "Event type", ["occasion"]], ["city", "City", ["city"]], ["budget_range", "Budget", ["budget_min", "budget_max"]], ["shared_with", "Sheet partner", ["shared_with"]], ["hide_repeats", "Hide repeats", ["hide_repeats"]]] : []),
           ...(source === "wedding_planner" ? [["city", "City", ["city"]], ["guests", "Guests", ["guests_min", "guests_max"]], ["budget_range", "Budget", ["budget_min", "budget_max"]], ["fits_budget", "Budget fit", ["fits_budget"]], ["last_step", "Last step", ["last_step"]], ["shared_with", "Sheet partner", ["shared_with"]]] : []),
@@ -36,11 +40,14 @@ export function buildFilterButtons(source, filters = {}, options = {}, isAdmin =
     if (kind === "event") return filters.upcoming_days ? ["Upcoming 30 days"] : [filters.event_from, filters.event_to].filter(Boolean);
     if (kind === "lead_date") return [filters.lead_date_from, filters.lead_date_to].filter(Boolean);
     if (kind === "follow_up") return filters.follow_up_due ? ["Due"] : [filters.follow_up_from, filters.follow_up_to].filter(Boolean);
+    if (kind === "follow_when") return filters.follow_up ? [FOLLOW_UP_LABELS[filters.follow_up] ?? filters.follow_up] : [];
+    if (kind === "quantity") { const { quantity_min: min, quantity_max: max } = filters; return min || max ? [min && max ? `${min}–${max}` : min ? `≥ ${min}` : `≤ ${max}`] : []; }
     if (kind === "budget_range" || kind === "guests") return [filters[kind === "guests" ? "guests_min" : "budget_min"], filters[kind === "guests" ? "guests_max" : "budget_max"]].filter(Boolean);
     if (kind === "quote" || kind === "conversion") return filters[kind] ? [filters[kind]] : [];
     if (kind === "hot") return filters.hot ? ["Hot only"] : [];
     if (kind === "hide_repeats") return filters.hide_repeats ? ["Hide repeats"] : [];
     if (kind === "has_phone") return filters.has_phone ? [filters.has_phone === "yes" ? "Has phone" : "No phone"] : [];
+    if (kind === "needs_intervention") return filters.needs_intervention ? [filters.needs_intervention === "yes" ? "Yes" : "No"] : [];
     if (kind === "also_in") return filters.also_in ? [filters.also_in === "yes" ? "Yes" : "No"] : [];
     if (kind === "fits_budget") return filters.fits_budget ? [filters.fits_budget === "true" ? "Fits budget" : "Over budget"] : [];
     const v = filters[kind];

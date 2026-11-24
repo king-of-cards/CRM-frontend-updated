@@ -1,5 +1,8 @@
 // Vendors → KOC helpers (docs/API_REFERENCE.md section 11). Pure, no React.
 import { toQueryString } from "../leads/leadFilters.js";
+import { displayPhone } from "../shared/contact.js";
+import { formatDateTime, formatDay } from "../shared/dates.js";
+import { DUPLICATE_TEXT } from "../shared/duplicates.js";
 
 export const KOC_PATH = "/vendor-to-koc";
 
@@ -26,39 +29,19 @@ export const SOURCES = [
 ];
 export const sourceLabel = (v) => SOURCES.find((s) => s.value === v)?.label ?? v;
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 // "2026-12-13" -> "13 Dec 2026" (as the list screens and exports); anything else as given
 export function dayText(value) {
-  if (!value) return "—";
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
-  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : String(value);
+  return formatDay(value, "—");
 }
 
 // ISO date-time -> "14 Nov 2026, 10:30 am" (India time)
 export function dateTimeText(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso);
-  const day = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(d);
-  const time = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kolkata",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  })
-    .format(d)
-    .toLowerCase();
-  return `${day}, ${time}`;
+  return formatDateTime(iso, "—");
 }
 
 // Stored as 10 digits; shown as +91XXXXXXXXXX
-export const phoneText = (p) => (p && /^\d{10}$/.test(String(p)) ? `+91${p}` : p || "—");
+// Indian numbers as 10 digits, others in full; "—" when empty
+export const phoneText = (p) => displayPhone(p) || "—";
 
 // A preview's valid date (YYYY-MM-DD) as a file accepts it (DD-MM-YYYY); other text unchanged
 export function fileDate(value) {
@@ -88,8 +71,9 @@ export function mapKocRecheck(sent, checked) {
 export const fieldErrors = (row, field) =>
   (row.errors ?? []).filter((e) => e.field === field).map((e) => e.message);
 
-// The kind of preview row: "invalid" (errors), "duplicate", or "valid"
-export const rowKind = (r) => ((r.errors ?? []).length ? "invalid" : r.duplicate ? "duplicate" : "valid");
+// The kind of preview row: "duplicate", "invalid" (errors) or "valid". A duplicate wins over field
+// errors (docs section 4: existing > in_file > errors); its errors are still listed, for information.
+export const rowKind = (r) => (r.duplicate ? "duplicate" : (r.errors ?? []).length ? "invalid" : "valid");
 
 // Error text from an ApiError for these endpoints, without matching on the text:
 // detail can be a string, or a list of { field, message } (lead rules) or { loc, msg } (FastAPI)
@@ -105,6 +89,10 @@ export function kocErrors(err) {
       else message = message ? `${message} ${text}` : text;
     }
     if (!message && !Object.keys(fields).length) message = err.message;
+  } else if (d && typeof d === "object" && typeof d.message === "string" && d.message) {
+    message = d.message;
+  } else if (err?.status === 409 && !(typeof d === "string" && d)) {
+    message = DUPLICATE_TEXT;
   } else {
     message = typeof d === "string" && d ? d : (err?.message ?? "Something went wrong.");
   }

@@ -10,6 +10,7 @@ import {
   UPDATED,
 } from "../components/vendorToKoc/kocUtils.js";
 import { AOV_FILTERS } from "./aov.js";
+import { dhruvaListLink } from "./dhruvaUtils.js";
 
 export const num = (n) => (n == null || n === 0 ? "—" : Number(n).toLocaleString("en-IN"));
 
@@ -81,3 +82,43 @@ export const daysText = (d) => (d == null ? "—" : `${d} ${d === 1 ? "day" : "d
 
 // Distinct line colours for vendors (cycled)
 export const VENDOR_COLORS = ["#0ea5e9", "#8b5cf6", "#f43f5e", "#f59e0b", "#10b981", "#6366f1", "#ec4899", "#14b8a6"];
+
+// Admin vendor tiles: one per vendor in per_vendor (every active vendor, zeros included, plus
+// inactive vendors with leads in the period); any active vendor from /vendors that the answer
+// leaves out gets a zero tile too. Order: the API's, then the added ones by name.
+export function vendorTiles(perVendor, vendors = []) {
+  const tiles = (perVendor ?? []).map((v) => ({
+    vendor_id: v.vendor_id,
+    vendor_name: v.vendor_name,
+    is_active: v.is_active !== false,
+    leads: v.leads ?? 0,
+    interested: v.interested ?? 0,
+    converted: v.converted ?? 0,
+    pending: v.pending ?? 0,
+  }));
+  const shown = new Set(tiles.map((t) => String(t.vendor_id)));
+  const missing = (vendors ?? [])
+    .filter((v) => v && v.is_active !== false && !shown.has(String(v.id)))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    .map((v) => ({ vendor_id: v.id, vendor_name: v.name, is_active: true, leads: 0, interested: 0, converted: 0, pending: 0 }));
+  return [...tiles, ...missing];
+}
+
+// The Dhruva partner tile (dashboard "dhruva": received, interested, converted, pending over the
+// Dhruva → KOC leads of the period): every number opens /dhruva-leads with the same period.
+// null when the API sends no summary (vendor logins, older APIs).
+export function dhruvaTile(dhruva, period) {
+  if (!dhruva) return null;
+  const link = (filters, n) => (n ? dhruvaListLink(filters, period) : null);
+  return {
+    name: "Dhruva",
+    to: dhruvaListLink({}, period),
+    leads: dhruva.received ?? 0,
+    leadsTo: link({}, dhruva.received),
+    cells: [
+      { key: "interested", label: "INTERESTED", count: dhruva.interested ?? 0, to: link({ update_status: ["interested"] }, dhruva.interested) },
+      { key: "converted", label: "CONVERTED", count: dhruva.converted ?? 0, to: link({ update_status: ["converted"] }, dhruva.converted) },
+      { key: "pending", label: "PENDING", count: dhruva.pending ?? 0, to: link({ update_status: [PENDING] }, dhruva.pending) },
+    ],
+  };
+}

@@ -50,4 +50,10 @@ describe("Top cities per Lead flow (API defaults)", () => {
     expect(topCitiesSubtitleFor([], "vendors")).toBe("Vendors → KOC");
     expect(topCitiesSubtitleFor(null)).toBe("Spin, Wedding, Wedding planner");
   });
+  test("Wedding gifts is no longer a place: an old key is left out of the tooltip", () => {
+    expect(topCityTooltipData({ count: 3, by_source: { spin: 1, wedding_gifts: 2 } })).toEqual([
+      { source: "spin", label: "Spin", count: 1 },
+    ]);
+    expect(topCitiesSubtitle(["spin", "wedding"])).toBe("Spin, Wedding");
+  });
 });

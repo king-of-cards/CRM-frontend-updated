@@ -34,3 +34,17 @@ export function storeFor(branchId, branches = []) {
   const builtIn = STORES[Number(key)] ?? Object.values(STORES).find((s) => [s.name, s.code].some((x) => norm(x) === k));
   return builtIn ?? { id: key, name: /^\d+$/.test(key) ? `Branch #${key}` : key, code: null, city: null, vendor: null };
 }
+
+// A list item's branch: the API's item.branch ({ id, name, code, city }, as on spin items) when
+// sent, else looked up from item.branch_id; null when the lead has no branch
+export function branchOf(item, branches = []) {
+  const b = item?.branch;
+  if (b && typeof b === "object" && (b.name || b.id != null)) {
+    return b.name ? { id: b.id ?? null, name: b.name, code: b.code ?? null, city: b.city ?? null } : storeFor(b.id, branches);
+  }
+  const id = item?.branch_id ?? (b != null && typeof b !== "object" ? b : null);
+  return storeFor(id, branches);
+}
+
+// One line for panels and PDFs: "Chitradurga · CTRD-011" (name · code), or "—"
+export const branchText = (branch) => (branch?.name ? [branch.name, branch.code].filter(Boolean).join(" · ") : "—");

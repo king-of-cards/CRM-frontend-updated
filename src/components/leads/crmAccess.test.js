@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { assignedText, canEdit, panelChanges } from "./crmAccess.js";
+import { assignedText, AUTO_VENDOR_SOURCES, canEdit, NAMED_VENDOR_SOURCES, panelChanges } from "./crmAccess.js";
 
 describe("who edits what", () => {
   test("admins: everything, including Assigned to", () => {
@@ -35,5 +35,17 @@ describe("panelChanges", () => {
   });
   test("nothing changed", () => {
     expect(panelChanges(false, before, { ...before })).toEqual({});
+  });
+});
+
+describe("Assigned to: automatic sources", () => {
+  test("source_default (a gift lead → Kraftyz) is automatic, like the area rules", () => {
+    expect(assignedText({ vendor: { id: 9, name: "Kraftyz" }, vendor_source: "source_default" })).toBe("Kraftyz · auto");
+    expect(assignedText({ vendor: { id: 2, name: "Phodeo" }, vendor_source: "suggested" })).toBe("Phodeo · auto");
+    expect(AUTO_VENDOR_SOURCES).toContain("source_default");
+  });
+  test("chosen vendors keep their plain name; no vendor is Unassigned", () => {
+    for (const how of NAMED_VENDOR_SOURCES) expect(assignedText({ vendor: { id: 9, name: "Kraftyz" }, vendor_source: how })).toBe("Kraftyz");
+    expect(assignedText({ vendor: null, vendor_source: "source_default" })).toBe("Unassigned");
   });
 });

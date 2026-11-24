@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { editCrmLead, getCrmLead, getCrmLeadFields, unarchiveCrmLead } from "../../api/crmLeads.js";
-import Drawer, { Alert, primaryBtn, secondaryBtn, Spinner } from "./Drawer.jsx";
+import Drawer, { Alert, primaryBtn, secondaryBtn } from "./Drawer.jsx";
 import LeadFieldInput from "./LeadFieldInput.jsx";
 import { duplicateWhere, errorsByField, errorText, formToValues, SOURCE_NAMES, valuesToForm } from "./crmLeadUtils.js";
+import { duplicateMessage } from "../shared/duplicates.js";
+import { FormSkeleton } from "../shared/Skeleton.jsx";
 
 // Edit a lead added or imported in the CRM. Only changed fields are sent.
 // An archived lead shows a banner with "Unarchive".
@@ -52,7 +54,9 @@ export default function EditLeadDialog({ source, leadKey, onClose, onChanged }) 
       onChanged("Lead saved.");
     } catch (err) {
       if (err.status === 409 && err.detail?.duplicate) {
-        setErrors({ phone: `${err.detail.message} ${duplicateWhere(err.detail.duplicate)}.` });
+        setErrors({ phone: duplicateMessage(err.detail) });
+        const where = duplicateWhere(err.detail.duplicate);
+        setError(where ? `Existing lead: ${where}.` : "");
       } else {
         setErrors(errorsByField(err));
         setError(errorText(err));
@@ -95,9 +99,7 @@ export default function EditLeadDialog({ source, leadKey, onClose, onChanged }) 
       }
     >
       {!meta && !loadError && (
-        <div className="flex justify-center py-10">
-          <Spinner />
-        </div>
+        <FormSkeleton />
       )}
       {loadError && <Alert>{loadError}</Alert>}
 

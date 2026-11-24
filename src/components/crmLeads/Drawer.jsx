@@ -6,7 +6,8 @@ import LeadBackButton from "../layout/LeadBackButton.jsx";
 import { isLeadRoute } from "../layout/leadBack.js";
 
 // Right-hand drawer in the same style as the Branches and Vendors forms.
-// Rendered in document.body, so it isn't clipped by the table it may be opened from.
+// Rendered in document.body, so it isn't clipped by the table it may be opened from (inline when
+// there is no document, e.g. server rendering in tests).
 export default function Drawer({ kicker, title, onClose, wide = false, children, footer, headerActions }) {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -20,7 +21,7 @@ export default function Drawer({ kicker, title, onClose, wide = false, children,
     };
   }, [onClose]);
 
-  return createPortal(
+  const drawer = (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
       <button
         type="button"
@@ -31,12 +32,12 @@ export default function Drawer({ kicker, title, onClose, wide = false, children,
       <div
         className={`relative flex h-full w-full flex-col bg-linear-to-b from-white via-white to-brand-50 shadow-2xl ${wide ? "max-w-6xl" : "max-w-lg"}`}
       >
-        <div className="flex items-center justify-between gap-3 bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-6 py-5 text-white">
-          <div>
+        <div className="flex items-center justify-between gap-3 bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 py-4 text-white sm:px-6 sm:py-5">
+          <div className="min-w-0">
             {kicker && (
               <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">{kicker}</p>
             )}
-            <h2 className="text-lg font-semibold">{title}</h2>
+            <h2 className="break-words text-lg font-semibold">{title}</h2>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {isLeadRoute(pathname) && <LeadBackButton inverted />}
@@ -45,20 +46,20 @@ export default function Drawer({ kicker, title, onClose, wide = false, children,
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="rounded-full p-1.5 text-white/80 hover:bg-white/10 hover:text-white"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
             >
               <X size={18} />
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
           {children}
         </div>
-        {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">{footer}</div>}
+        {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 px-4 py-3 sm:px-6 sm:py-4">{footer}</div>}
       </div>
-    </div>,
-    document.body,
+    </div>
   );
+  return typeof document === "undefined" ? drawer : createPortal(drawer, document.body);
 }
 
 export const fieldCls =
@@ -70,9 +71,6 @@ export const primaryBtn =
 export const secondaryBtn =
   "rounded-full px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-60";
 
-export function Spinner() {
-  return <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />;
-}
 
 export function Alert({ kind = "error", children }) {
   const cls = {

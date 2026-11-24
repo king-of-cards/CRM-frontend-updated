@@ -69,7 +69,7 @@ describe("list helpers", () => {
     expect(statusLabel(null)).toBe("Pending");
     expect(statusLabel("purchased_with_us")).toBe("Already purchased with us");
     expect(dayText("2026-12-13")).toBe("13 Dec 2026");
-    expect(phoneText("9845012345")).toBe("+919845012345");
+    expect(phoneText("9845012345")).toBe("9845012345"); // Indian numbers: 10 digits
   });
   test("filters: URL keys, admin keys dropped for vendors, badge count", () => {
     const f = readFilters(
@@ -139,7 +139,9 @@ describe("bulk upload re-check", () => {
   });
   test("row numbers go back to the file's rows; row kinds", () => {
     expect(mapKocRecheck([{ row: 5 }, { row: 9 }], [{ row: 2 }, { row: 3 }]).map((r) => r.row)).toEqual([5, 9]);
-    expect(rowKind({ errors: [{ field: "phone", message: "x" }], duplicate: true })).toBe("invalid");
+    // A duplicate wins over field errors (docs section 4: existing > in_file > errors)
+    expect(rowKind({ errors: [{ field: "phone", message: "x" }], duplicate: true })).toBe("duplicate");
+    expect(rowKind({ errors: [{ field: "phone", message: "x" }] })).toBe("invalid");
     expect(rowKind({ errors: [], duplicate: true })).toBe("duplicate");
     expect(rowKind({ errors: [] })).toBe("valid");
   });

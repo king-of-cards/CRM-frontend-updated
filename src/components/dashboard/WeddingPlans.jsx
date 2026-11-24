@@ -190,6 +190,7 @@ export default function WeddingPlans() {
           total={data?.total}
           onPage={setPage}
           disabled={loading}
+          onPrefetch={(n) => listLeads(SOURCE, listParams(n)).catch(() => {})}
         />
       }
     >

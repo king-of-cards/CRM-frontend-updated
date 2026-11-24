@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   activeCount,
   buildQuote,
+  keysFor,
   clearedParams,
   filtersOfPeriod,
   pageSizeOf,
@@ -157,5 +158,19 @@ describe("Vendors → KOC quote and conversion filters", () => {
   });
   test("each counts once on the Filters badge", () => {
     expect(activeCount(readFilters(q("quote=has&conversion=none"), "vendor_to_koc"), "vendor_to_koc")).toBe(2);
+  });
+});
+
+describe("Spin's other_services (one value, the API's contains filter)", () => {
+  test("URL -> list, stats and export query; counted once", () => {
+    expect(keysFor("spin")).toContain("other_services");
+    const f = readFilters(q("other_services=Wedding+Gifts+%26+Return+Gifts&other_services=Photography&branch=4"), "spin");
+    expect(f.other_services).toBe("Wedding Gifts & Return Gifts"); // a single value: the first one
+    expect(toApiQuery(f, "spin")).toEqual({ branch: "4", other_services: "Wedding Gifts & Return Gifts" });
+    expect(activeCount(f, "spin")).toBe(2);
+  });
+  test("Wedding gifts is gone: no keys of its own, and Spin's filters stay on Spin", () => {
+    expect(keysFor("wedding_gifts")).not.toContain("branch");
+    expect(keysFor("wedding")).not.toContain("other_services");
   });
 });

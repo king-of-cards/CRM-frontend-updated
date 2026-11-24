@@ -3,6 +3,7 @@ const SOURCE_LABELS = {
   wedding: "Wedding",
   wedding_planner: "Wedding planner",
   vendor_to_koc: "Vendors → KOC",
+  koc_to_dhruva: "KOC → Dhruva",
 };
 
 export function topCityTooltipData(row, defaultSource = null) {

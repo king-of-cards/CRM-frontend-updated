@@ -1,17 +1,8 @@
 import { useEffect, useState } from "react";
+import ContactActions from "../components/shared/ContactActions.jsx";
 import { Link } from "react-router";
-import {
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import LazyCharts from "../components/dashboard/LazyCharts.jsx";
+import { BarListSkeleton, ChartSkeleton } from "../components/shared/Skeleton.jsx";
 import {
   AlarmClock,
   BadgeCheck,
@@ -27,6 +18,7 @@ import {
   Wallet,
   IndianRupee,
   Sparkles,
+  Star,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -50,7 +42,10 @@ import {
   statusRows,
   VENDOR_COLORS,
   vendorCells,
+  vendorTiles,
+  dhruvaTile,
 } from "./vendorToKocDashboard.js";
+import { useVendors } from "../components/leads/InlineCrm.jsx";
 
 // Vendors → KOC dashboard (GET /analytics/vendor-to-koc), in the style of the KOC → Vendors one.
 // Admins: every card. Vendor logins: what the API returns for them, over their own leads (the
@@ -99,7 +94,8 @@ function InflowTooltip({ active, payload, granularity, vendors }) {
   );
 }
 
-function LinkedBars({ rows, period, color = "from-brand-600 to-brand-800", empty = "No data yet" }) {
+function LinkedBars({ rows, period, color = "from-brand-600 to-brand-800", empty = "No data yet", loading = false }) {
+  if (loading) return <BarListSkeleton />;
   const shown = rows.filter((r) => r.count);
   if (!shown.length) return <p className="text-sm text-gray-500">{empty}</p>;
   const max = Math.max(...shown.map((r) => r.count));
@@ -130,6 +126,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
   const [loading, setLoading] = useState(() => !getKocDashboard.peek(query));
   const [error, setError] = useState("");
   const [hiddenVendors, setHiddenVendors] = useState(() => new Set()); // Lead inflow: unticked vendors
+  const allVendors = useVendors(); // admins: every vendor (active ones always get a tile)
 
   useEffect(() => {
     let cancelled = false;
@@ -158,6 +155,9 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
   const shownVendors = vendors.filter((v) => !hiddenVendors.has(String(v.id)));
   const points = inflowPoints(d?.inflow);
   const statuses = statusRows(d?.by_status);
+  // Admin tiles: every active vendor (also any the answer leaves out), and Dhruva as a partner
+  const tiles = isAdmin ? vendorTiles(d?.per_vendor, allVendors) : [];
+  const dhruva = isAdmin ? dhruvaTile(d?.dhruva, period) : null;
   const all = { all: true };
   const kpiLinks = dashboardKpiLinks(period);
   const aovValue = aovOf(d?.kpis).value;
@@ -175,7 +175,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
         <>
           {/* ── KPIs ── */}
           <section
-            className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+            className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
             aria-label="Key numbers"
           >
             <Kpi
@@ -266,19 +266,23 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
             )}
           </section>
 
-          {/* ── Per vendor (admin) ── */}
-          {isAdmin && (d?.per_vendor ?? []).length > 0 && (
-            <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Vendors">
-              {d.per_vendor.map((v) => (
-                <div key={v.vendor_id} className="rounded-2xl bg-white p-4 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60">
+          {/* ── Per vendor (admin): every active vendor (zeros as "—"), inactive ones with leads
+              (badge), and Dhruva as a partner ── */}
+          {isAdmin && (tiles.length > 0 || dhruva) && (
+            <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label="Vendors">
+              {tiles.map((v) => (
+                <div key={v.vendor_id} className={`rounded-2xl bg-white p-4 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 ${v.is_active ? "" : "opacity-80"}`}>
                   {/* The name opens this vendor's leads for the period (the count does too) */}
-                  <Link
-                    to={kocListLink({ vendor_id: [String(v.vendor_id)] }, period)}
-                    className="flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-brand-700 hover:underline"
-                  >
-                    <Users size={15} className="text-brand-600" aria-hidden="true" />
-                    {v.vendor_name}
-                  </Link>
+                  <span className="flex items-center justify-between gap-2">
+                    <Link
+                      to={kocListLink({ vendor_id: [String(v.vendor_id)] }, period)}
+                      className="flex min-w-0 items-center gap-2 text-sm font-semibold text-gray-900 hover:text-brand-700 hover:underline"
+                    >
+                      <Users size={15} className="shrink-0 text-brand-600" aria-hidden="true" />
+                      <span className="truncate">{v.vendor_name}</span>
+                    </Link>
+                    {!v.is_active && <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 ring-1 ring-gray-200">Inactive</span>}
+                  </span>
                   <p className="mt-0.5 text-xl font-bold tabular-nums text-gray-900">
                     <N count={v.leads} filters={{ vendor_id: [String(v.vendor_id)] }} period={period} />
                     <span className="ml-1.5 text-xs font-normal text-gray-400">leads</span>
@@ -295,6 +299,31 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                   </dl>
                 </div>
               ))}
+              {dhruva && (
+                <div className="rounded-2xl bg-white p-4 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60">
+                  <span className="flex items-center justify-between gap-2">
+                    <Link to={dhruva.to} className="flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-brand-700 hover:underline">
+                      <Star size={15} className="text-amber-500" aria-hidden="true" />
+                      {dhruva.name}
+                    </Link>
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 ring-1 ring-amber-200">Partner</span>
+                  </span>
+                  <p className="mt-0.5 text-xl font-bold tabular-nums text-gray-900">
+                    {dhruva.leadsTo ? <Link to={dhruva.leadsTo} className="hover:text-brand-700 hover:underline">{num(dhruva.leads)}</Link> : <span className="text-gray-300">—</span>}
+                    <span className="ml-1.5 text-xs font-normal text-gray-400">leads</span>
+                  </p>
+                  <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
+                    {dhruva.cells.map((c) => (
+                      <div key={c.key} className="min-w-0">
+                        <dt className="truncate text-[10px] font-semibold uppercase tracking-wider text-gray-400">{c.label}</dt>
+                        <dd className="mt-0.5 text-sm font-semibold tabular-nums text-gray-900">
+                          {c.to ? <Link to={c.to} className="hover:text-brand-700 hover:underline">{num(c.count)}</Link> : <span className="text-gray-300">—</span>}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
             </section>
           )}
 
@@ -315,8 +344,10 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
               <div className="h-64">
                 {d && vendors.length > 0 && !shownVendors.length ? (
                   <p className="flex h-full items-center justify-center text-sm text-gray-500">Select at least one source</p>
-                ) : d && (
-                  <ResponsiveContainer width="100%" height="100%">
+                ) : !d ? (
+                  kpiLoading && <ChartSkeleton />
+                ) : (
+                  <LazyCharts>{({ CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis }) => (<ResponsiveContainer width="100%" height="100%">
                     <LineChart data={points} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                       <XAxis
@@ -341,7 +372,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                         />
                       ))}
                     </LineChart>
-                  </ResponsiveContainer>
+                  </ResponsiveContainer>)}</LazyCharts>
                 )}
               </div>
             </Panel>
@@ -349,8 +380,10 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
             {outcomes && (
               <Panel title="Update breakdown" subtitle="Leads received in the period" icon={PieIcon}>
                 <div className="h-44">
-                  {d && d.received > 0 && (
-                    <ResponsiveContainer width="100%" height="100%">
+                  {!d ? (
+                    kpiLoading && <ChartSkeleton />
+                  ) : d.received > 0 && (
+                    <LazyCharts>{({ Cell, Pie, PieChart, ResponsiveContainer, Tooltip }) => (<ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={statuses.filter((s) => s.count)}
@@ -369,7 +402,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                         </Pie>
                         <Tooltip formatter={(v, n) => [num(v), n]} />
                       </PieChart>
-                    </ResponsiveContainer>
+                    </ResponsiveContainer>)}</LazyCharts>
                   )}
                 </div>
                 <ul className="mt-3 space-y-1.5">
@@ -392,13 +425,13 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
               {/* ── Funnel (everyone), cities and sources (admins) ── */}
               <div className={`mt-6 grid gap-4 ${isAdmin ? "md:grid-cols-2 xl:grid-cols-3" : ""}`}>
                 <Panel title="Funnel" subtitle="Received → updated → engaged → converted" icon={FunnelIcon}>
-                  <LinkedBars rows={funnelRows(d?.funnel)} period={period} />
+                  <LinkedBars rows={funnelRows(d?.funnel)} period={period} loading={kpiLoading} />
                 </Panel>
                 {isAdmin && (
                 <>
                 <TopCities rows={d?.top_cities} sources={d?.top_cities_sources} defaultSource="vendor_to_koc" flow="vendors" />
                 <Panel title="By source" subtitle="How the leads were added" icon={Sparkles}>
-                  <LinkedBars rows={sourceRows(d?.by_source)} period={period} color="from-rose-400 to-rose-600" />
+                  <LinkedBars rows={sourceRows(d?.by_source)} period={period} color="from-rose-400 to-rose-600" loading={kpiLoading} />
                 </Panel>
                 </>
                 )}
@@ -458,10 +491,10 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                 <Panel title="Latest leads" subtitle="The newest leads of the period" icon={Inbox} flush>
                   <ul className="divide-y divide-gray-100">
                     {(d?.latest ?? []).map((l) => (
-                      <li key={l.id}>
+                      <li key={l.id} className="flex items-center gap-2 pr-5 transition-colors hover:bg-gray-50">
                         <Link
                           to={linkFor(1, { search: l.phone }, period)}
-                          className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-gray-50"
+                          className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-5"
                         >
                           <span className="w-[118px] shrink-0 truncate rounded-full bg-gray-50 px-2.5 py-0.5 text-center text-xs font-medium text-gray-700 ring-1 ring-gray-200">
                             {l.vendor_name}
@@ -474,6 +507,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                           </span>
                           <span className="shrink-0 text-xs text-gray-400">{dateTimeText(l.created_at)}</span>
                         </Link>
+                        <ContactActions phone={l.phone} email={l.email} name={l.name} showNumber={false} />
                       </li>
                     ))}
                     {!(d?.latest ?? []).length && <li className="px-5 py-8 text-center text-sm text-gray-500">No leads in this period.</li>}

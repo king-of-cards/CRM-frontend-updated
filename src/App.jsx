@@ -1,45 +1,28 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import RequireAuth from "./auth/RequireAuth.jsx";
+import { RETIRED_PATHS } from "./components/layout/leadFlow.js";
 import Login from "./pages/Login.jsx";
+import { PageSkeleton } from "./components/shared/Skeleton.jsx";
+import { pageLoaders } from "./routeLoaders.js";
 
 // Pages load as separate small files, so the first screen (login or dashboard) opens
 // without downloading the code for every other page. Login preloads the dashboard.
-const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
-const LeadSourcePage = lazy(() => import("./pages/LeadSourcePage.jsx"));
-const Leads = lazy(() => import("./pages/Leads.jsx"));
-const Settings = lazy(() => import("./pages/Settings.jsx"));
-const Users = lazy(() => import("./pages/Users.jsx"));
-const Branches = lazy(() => import("./pages/Branches.jsx"));
-const RecentLeads = lazy(
-  () => import("./components/dashboard/RecentLeads.jsx"),
-);
-const WeddingLeads = lazy(
-  () => import("./components/dashboard/WeddingLeads.jsx"),
-);
-const WeddingPlans = lazy(
-  () => import("./components/dashboard/WeddingPlans.jsx"),
-);
-const WhatsAppLeads = lazy(
-  () => import("./components/dashboard/WhatsAppLeads.jsx"),
-);
-const VendorToKocLeads = lazy(
-  () => import("./components/vendorToKoc/VendorToKocLeads.jsx"),
-);
-const DhruvaLeads = lazy(() => import("./pages/DhruvaLeads.jsx"));
+// (routeLoaders.js: menu links preload them on hover)
+const Dashboard = lazy(pageLoaders.dashboard);
+const LeadSourcePage = lazy(pageLoaders.leadSource);
+const Leads = lazy(pageLoaders.leads);
+const Settings = lazy(pageLoaders.settings);
+const Users = lazy(pageLoaders.users);
+const Branches = lazy(pageLoaders.branches);
+const RecentLeads = lazy(pageLoaders.recentLeads);
+const WeddingLeads = lazy(pageLoaders.weddingLeads);
+const WeddingPlans = lazy(pageLoaders.weddingPlans);
+const WhatsAppLeads = lazy(pageLoaders.whatsAppLeads);
+const VendorToKocLeads = lazy(pageLoaders.vendorToKocLeads);
+const DhruvaLeads = lazy(pageLoaders.dhruvaLeads);
+const KocToDhruvaLeads = lazy(pageLoaders.kocToDhruvaLeads);
 
-// Shown for a split second while a page's code downloads
-function PageLoader() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center bg-white"
-      role="status"
-    >
-      <span className="h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
-      <span className="sr-only">Loading</span>
-    </div>
-  );
-}
 
 // One tab per lead source (also listed in the top bar, in DashboardLayout.jsx)
 const sourcePages = [
@@ -48,7 +31,7 @@ const sourcePages = [
     title: "Spin leads",
     description:
       "Leads from the spin game, read live from the workflow database.",
-    element: <RecentLeads />,
+    element: <RecentLeads source="spin" />,
   },
   {
     path: "/leads/international",
@@ -72,6 +55,7 @@ const sourcePages = [
   {
     path: "/vendor-to-koc",
     title: "Vendors → KOC",
+    flowTitle: "vendors", // vendor logins read "<Vendor> → KOC" (LeadSourcePage)
     description: "Leads vendors send to KOC.",
     element: <VendorToKocLeads />,
   },
@@ -79,7 +63,7 @@ const sourcePages = [
 
 function App() {
   return (
-    <Suspense fallback={<PageLoader />}>
+    <Suspense fallback={<PageSkeleton />}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
@@ -97,7 +81,7 @@ function App() {
             path={p.path}
             element={
               <RequireAuth>
-                <LeadSourcePage title={p.title} description={p.description}>
+                <LeadSourcePage title={p.title} flowTitle={p.flowTitle} description={p.description}>
                   {p.element}
                 </LeadSourcePage>
               </RequireAuth>
@@ -121,6 +105,15 @@ function App() {
             </RequireAuth>
           }
         />
+        {/* KOC → Dhruva (docs section 18): admins, Dhruva and view-only logins; vendors go to their dashboard */}
+        <Route
+          path="/koc-to-dhruva"
+          element={
+            <RequireAuth role={["admin", "dhruva", "viewer"]}>
+              <KocToDhruvaLeads />
+            </RequireAuth>
+          }
+        />
         <Route
           path="/users"
           element={
@@ -129,6 +122,8 @@ function App() {
             </RequireAuth>
           }
         />
+        {/* Vendors are a section of Team now (docs sections 5 and 12) */}
+        <Route path="/vendors" element={<Navigate to="/users" replace />} />
         <Route
           path="/branches"
           element={
@@ -146,6 +141,10 @@ function App() {
           }
         />
         {/* Anything else: dashboard (RequireAuth sends logged-out users to /login) */}
+        {/* Retired pages (e.g. Wedding gifts, now part of Spin: docs section 17) */}
+        {Object.entries(RETIRED_PATHS).map(([from, to]) => (
+          <Route key={from} path={from} element={<Navigate to={to} replace />} />
+        ))}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Suspense>

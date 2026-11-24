@@ -78,3 +78,21 @@ describe("aggregate KPI source destinations", () => {
     ]);
   });
 });
+
+describe("KPI choosers: the four KOC → Vendors sources (gift leads are in Spin)", () => {
+  test("Hot leads, Quotes sent and AOV choosers list Spin and the sheet sources only", () => {
+    const outcomes = {
+      spin: { hot_count: 1, quotes_count: 1, conversion_amount_count: 1 },
+      wedding_gifts: { hot_count: 2, quotes_count: 3, conversion_amount_count: 4 }, // an old API's extra key is ignored
+      wedding: { hot_count: 5, quotes_count: 0, conversion_amount_count: 0 },
+    };
+    expect(sourceKpiDestinations(outcomes, "hot", { all: true }).map((c) => [c.label, c.count, c.to])).toEqual([
+      ["Spin leads", 1, "/leads/spin?hot=yes"],
+      ["Wedding", 5, "/leads/wedding?hot=yes"],
+    ]);
+    expect(sourceKpiDestinations(outcomes, "aov", { all: true })[0].to).toBe("/leads/spin?update_status=converted&conversion=has");
+  });
+  test("no choice when the workflow database can't be read (outcome null)", () => {
+    expect(sourceKpiDestinations({ spin: null, wedding: { hot_count: 1 } }, "hot", { all: true }).map((c) => c.source)).toEqual(["wedding"]);
+  });
+});

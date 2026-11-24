@@ -157,7 +157,31 @@ export function peek(path, query) {
   return hit && Date.now() - hit.at < CACHE_MAX_AGE_MS ? hit.data : undefined;
 }
 
+// ── Brief reuse (no refetch on every navigation) ───────────────────────
+// The same GET twice within FRESH_MS (e.g. leaving a page and coming back) gets the answer it
+// just had instead of a new request, and identical GETs in flight share one request. Any change
+// (POST / PATCH / PUT / DELETE, uploads) ends the reuse, so lists reload after a save as before.
+// ?refresh=true (the dashboards' Refresh) always asks the server.
+const FRESH_MS = 10_000;
+let generation = 0; // goes up on every change; answers from an older generation aren't reused
+const fresh = new Map(); // url -> { gen, at } of the last answer
+const inflight = new Map(); // `${gen} ${url}` -> Promise
+
+export function markDataChanged() {
+  generation += 1;
+}
+
+function freshAnswer(url, query) {
+  if (typeof window === "undefined" || query?.refresh) return undefined;
+  const mark = fresh.get(url);
+  const hit = loadCache().get(url);
+  return mark && hit && mark.gen === generation && Date.now() - mark.at < FRESH_MS ? hit : undefined;
+}
+
 export function clearCache() {
+  inflight.clear();
+  fresh.clear();
+  generation += 1;
   loadCache().clear();
   try {
     sessionStorage.removeItem(CACHE_STORAGE_KEY);
@@ -173,7 +197,30 @@ export function clearCache() {
  *   query -> URL query parameters; empty values are skipped
  *   auth  -> attach the access token and retry once after a refresh on 401 (default true)
  */
-export async function apiRequest(path, { method = "GET", body, form, query, auth = true, retry: allowRetry = true } = {}) {
+export function apiRequest(path, options = {}) {
+  const { method = "GET", query, auth = true } = options;
+  if (method !== "GET") {
+    markDataChanged();
+    return send(path, options).finally(markDataChanged);
+  }
+  if (!auth) return send(path, options);
+  const url = buildUrl(path, query);
+  const reuse = freshAnswer(url, query);
+  if (reuse) return Promise.resolve(reuse.data);
+  const gen = generation;
+  const key = `${gen} ${url}`;
+  if (inflight.has(key)) return inflight.get(key);
+  const request = send(path, options)
+    .then((data) => {
+      fresh.set(url, { gen, at: Date.now() });
+      return data;
+    })
+    .finally(() => inflight.delete(key));
+  inflight.set(key, request);
+  return request;
+}
+
+async function send(path, { method = "GET", body, form, query, auth = true, retry: allowRetry = true } = {}) {
   let retry = allowRetry;
   const headers = { Accept: "application/json" };
   let payload;
@@ -204,7 +251,7 @@ export async function apiRequest(path, { method = "GET", body, form, query, auth
   if (res.status === 401 && auth) {
     if (retry) {
       const token = await refreshAccessToken();
-      if (token) return apiRequest(path, { method, body, form, query, auth, retry: false });
+      if (token) return send(path, { method, body, form, query, auth, retry: false });
     }
     if (!accessToken) onSessionExpired?.();
   }

@@ -51,7 +51,7 @@ export async function downloadDhruvaTemplate(format = "xlsx") {
   return saveFile(res, `dhruva_template.${format}`);
 }
 
-// ── Upload preview: POST /dhruva/upload/preview (multipart) ──
+// ── Upload preview: POST /dhruva/upload/preview (multipart, admins) ──
 // Returns { sheet, sheets, heading_row, columns, ignored_columns, rows, counts }
 export async function previewDhruvaUpload(file, { sheetName } = {}) {
   const form = new FormData();
@@ -61,8 +61,9 @@ export async function previewDhruvaUpload(file, { sheetName } = {}) {
   return res.json();
 }
 
-// ── Bulk save: POST /dhruva/leads/bulk ──
-// { leads: [{name, venue, date, phone, alt_phone, event_type}] }
+// ── Bulk save: POST /dhruva/leads/bulk (admins) ──
+// { leads: [{name, phones, event_dates, event_type, venue, whatsapp_status, …}] } (the
+// preview rows' values, edited)
 // Returns { added, duplicates_skipped, failed, errors: [{index, field, message}], ids }
 export function bulkAddDhruvaLeads(leads) {
   return apiRequest(`${BASE}/leads/bulk`, { method: "POST", body: { leads } });
@@ -80,7 +81,8 @@ export function getDhruvaLead(id) {
 }
 
 // ── Edit lead: PATCH /dhruva/leads/{id} ──
-// Basic fields (both roles) or admin fields (admin only). Only fields sent change.
+// Lead fields (admins and Dhruva logins) or KOC fields (admins only). Only fields sent change;
+// phones and event_dates are the full new lists ([] clears); sent_at is never sent (422). Returns the lead with activity.
 export function updateDhruvaLead(id, changes) {
   return apiRequest(`${BASE}/leads/${encodeURIComponent(id)}`, { method: "PATCH", body: changes });
 }

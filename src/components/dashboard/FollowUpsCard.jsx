@@ -1,22 +1,27 @@
-import { AlarmClock, Loader2, RefreshCw } from "lucide-react";
+import { AlarmClock, RefreshCw } from "lucide-react";
+import ContactActions from "../shared/ContactActions.jsx";
 import { Link } from "react-router";
 import { useState } from "react";
 import { Panel } from "./DashboardParts.jsx";
 import useFollowUpReminders from "./useFollowUpReminders.js";
-import { reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderRequestFor, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
+import { reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderRequestForUser, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
+import { useAuth } from "../../auth/useAuth.js";
+import { ListSkeleton } from "../shared/Skeleton.jsx";
 
 const tones = { red: "bg-rose-50 text-rose-700 ring-rose-200", amber: "bg-amber-50 text-amber-800 ring-amber-200", neutral: "bg-gray-100 text-gray-600 ring-gray-200" };
 
-// One Lead flow's follow-ups only: flow "" = KOC → Vendors, "vendors" = Vendors → KOC, "dhruva"
+// One Lead flow's follow-ups only: flow "" = KOC → Vendors, "vendors" = Vendors → KOC,
+// "dhruva" = Dhruva → KOC, "koc_to_dhruva" = KOC → Dhruva (see reminderUtils.js)
 export default function FollowUpsCard({ flow = "" }) {
   const { data, loading, error, refresh } = useFollowUpReminders({ flow });
   const [showSources, setShowSources] = useState(false);
-  const request = reminderRequestFor(flow);
+  const { user } = useAuth();
+  const request = reminderRequestForUser(flow, user); // vendor logins: their sources, their vendor's name
   const rows = (data?.items ?? []).slice(0, 8);
   const counts = data?.counts ?? {};
   const sources = [...new Set((data?.items ?? []).map((item) => item.source))];
-  // A flow with a single list (Vendors → KOC, Dhruva): "View all" opens it directly
-  const singleList = request.dhruva ? "dhruva" : request.sources.length === 1 ? request.sources[0] : null;
+  // A scope with a single list (Vendors → KOC, Dhruva → KOC, KOC → Dhruva): "View all" opens it directly
+  const singleList = request.sources.length === 1 ? request.sources[0] : null;
   return (
     <Panel title="Follow-ups" subtitle={request.label} icon={AlarmClock} right={
       singleList ? <Link id="follow-ups-view-all" to={reminderListDestination(singleList)} className="text-xs font-semibold text-brand-700 hover:underline">View all</Link> : (
@@ -35,7 +40,7 @@ export default function FollowUpsCard({ flow = "" }) {
           <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-600 ring-1 ring-gray-200">Upcoming {counts.upcoming ?? 0}</span>
         </div>
         {error && <div className="px-5 py-2 text-xs text-gray-500">Couldn’t refresh follow-ups. <button type="button" onClick={refresh} className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"><RefreshCw size={11} />Retry</button></div>}
-        {loading && !data ? <div className="flex justify-center py-8"><Loader2 size={18} className="animate-spin text-gray-400" /></div> : rows.length ? (
+        {loading && !data ? <ListSkeleton rows={4} label="Loading follow-ups" /> : rows.length ? (
           <ul className="divide-y divide-gray-100">
             {rows.map((item, index) => {
               const tag = reminderTag(item.days_overdue);
@@ -52,7 +57,7 @@ export default function FollowUpsCard({ flow = "" }) {
                       <span className={`rounded-full px-2 py-0.5 font-medium ring-1 ${tones[tag.tone]}`}>{tag.label}</span>
                     </span>
                   </Link>
-                  {item.phone && <a href={`tel:${item.phone}`} aria-label={`Call ${item.name || reminderPhone(item.phone)}`} onClick={(event) => event.stopPropagation()} className="shrink-0 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100">{reminderPhone(item.phone)}</a>}
+                  {item.phone && <ContactActions phone={item.phone} email={item.email} name={item.name} className="shrink-0" />}
                 </li>
               );
             })}

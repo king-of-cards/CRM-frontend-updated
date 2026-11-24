@@ -1,19 +1,9 @@
-import { lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import ContactActions from "../components/shared/ContactActions.jsx";
+import { formatDay, MONTHS } from "../components/shared/dates.js";
 import { Link, useLocation, useSearchParams } from "react-router";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import LazyCharts, { loadCharts } from "../components/dashboard/LazyCharts.jsx";
+import { ChartSkeleton, DashboardSkeleton } from "../components/shared/Skeleton.jsx";
 import {
   BadgeCheck,
   Calculator,
@@ -48,10 +38,14 @@ import { BarList, Kpi, Panel, SeriesToggles, toggled } from "../components/dashb
 import FollowUpsCard from "../components/dashboard/FollowUpsCard.jsx";
 import TopCities from "../components/dashboard/TopCities.jsx";
 import { periodFromSearch, periodLabel, periodText, todayIst } from "./dashboardPeriod.js";
-import { outcomeCells, outcomeLink, sourceKpiDestinations } from "./dashboardOutcomes.js";
+import { outcomeCells, outcomeLink, singleSourceKpiLinks, sourceKpiDestinations, tileGridClass } from "./dashboardOutcomes.js";
+import { visibleSources } from "../auth/permissions.js";
 import { aovOf } from "./aov.js";
 import VendorToKocDashboard from "./VendorToKocDashboard.jsx";
 const DhruvaLeadsDashboard = lazy(() => import("./DhruvaLeadsDashboard.jsx"));
+const KocToDhruvaDashboard = lazy(() => import("./KocToDhruvaDashboard.jsx"));
+// The charts' code starts downloading with the page (in parallel with its data), not after it
+if (typeof window !== "undefined") loadCharts();
 
 // Overview of every lead source, built from GET /analytics/overview, for a period
 // (?from=YYYY-MM-DD&to=YYYY-MM-DD; default the last 30 days). See dashboardPeriod.js.
@@ -92,6 +86,9 @@ const SOURCES = {
   },
 };
 const SOURCE_KEYS = Object.keys(SOURCES);
+// Spin (gift leads included, docs section 17) is read from the workflow database: left out of
+// the charts when it can't be read (spin_available)
+const charted = (k, o) => k !== "spin" || Boolean(o?.spin_available);
 
 const inr = new Intl.NumberFormat("en-IN", {
   style: "currency",
@@ -125,10 +122,7 @@ function timeAgo(iso) {
   if (hours < 24) return `${hours} h ago`;
   const days = Math.round(hours / 24);
   if (days < 7) return `${days} d ago`;
-  return new Date(iso).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-  });
+  return formatDay(iso);
 }
 
 const valueOf = (r) => (r.status === "fulfilled" ? r.value : null);
@@ -153,6 +147,9 @@ function requestsFor({ all, from, to }) {
     },
   };
 }
+
+// The source behind each "Latest leads" list
+const LIST_SOURCE = { waList: "whatsapp", wdList: "wedding", wpList: "wedding_planner" };
 
 // Everything this tab has seen for the period, or null
 function cachedDashboard(period) {
@@ -208,28 +205,20 @@ function Legend({ keys }) {
   );
 }
 
-const dayLabel = (d) =>
-  new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-  });
+// Axis ticks: "19 Nov" (short, so they fit); tooltips show the full "19 Nov 2026"
+const dayLabel = (d) => formatDay(String(d).slice(0, 10)).replace(/ d{4}$/, "");
 // "2026-11-01" -> "Nov 2026" (monthly Lead inflow tooltip)
-const monthName = (d) =>
-  new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString("en-IN", {
-    month: "short",
-    year: "numeric",
-  });
-const monthLabel = (m) =>
-  new Date(`${m}-01T00:00:00`).toLocaleDateString("en-IN", {
-    month: "short",
-    year: "2-digit",
-  });
+const monthName = (d) => {
+  const [y, m] = String(d).slice(0, 7).split("-");
+  return MONTHS[Number(m) - 1] ? `${MONTHS[Number(m) - 1]} ${y}` : String(d);
+};
+const monthLabel = (m) => monthName(m);
 
 // ── Page ───────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const location = useLocation();
   // isAdmin: sheet sync status (Settings data, admins only); seesAll: admin cards (admins and viewers)
-  const { user, isAdmin, seesAll, canSeeLeads, isDhruva } = useAuth();
+  const { user, isAdmin, seesAll, canSeeLeads, isDhruva, isVendor } = useAuth();
   const firstName = user?.name?.split(" ")[0];
   const [showIntro, setShowIntro] = useState(
     Boolean(location.state?.fromLogin),
@@ -251,9 +240,20 @@ export default function Dashboard() {
     [periodParam, fromParam, toParam, todayDate],
   );
   // Lead flow: kept in the URL with the period (switched from the top bar, see DashboardLayout)
-  // Dhruva logins always stay on the Dhruva flow
+  // Dhruva logins always stay on the Dhruva flow; vendor logins never get it (sent to their own)
   const rawFlow = searchParams.get("flow");
-  const flow = isDhruva ? "dhruva" : rawFlow === "vendors" ? "vendors" : rawFlow === "dhruva" ? "dhruva" : "";
+  const flow = isDhruva ? "dhruva" : rawFlow === "vendors" ? "vendors" : rawFlow === "dhruva" && !isVendor ? "dhruva" : "";
+  // The Dhruva flow's direction (?direction=koc_to_dhruva = KOC → Dhruva; default Dhruva → KOC)
+  const direction = flow === "dhruva" && searchParams.get("direction") === "koc_to_dhruva" ? "koc_to_dhruva" : "dhruva";
+  useEffect(() => {
+    if (!isVendor || rawFlow !== "dhruva") return;
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("flow");
+      next.delete("direction");
+      return next;
+    }, { replace: true });
+  }, [isVendor, rawFlow, setSearchParams]);
   useEffect(() => {
     if (!isDhruva || rawFlow === "dhruva") return;
     setSearchParams((prev) => {
@@ -267,8 +267,9 @@ export default function Dashboard() {
       setSearchParams({
         ...(next.all ? { period: "all" } : { from: next.from, to: next.to }),
         ...(flow ? { flow } : {}),
+        ...(direction === "koc_to_dhruva" ? { direction } : {}),
       }),
-    [setSearchParams, flow],
+    [setSearchParams, flow, direction],
   );
   // Show the last numbers instantly (if this tab has seen them), then refresh in the background
   const [state, setState] = useState(() => {
@@ -279,6 +280,13 @@ export default function Dashboard() {
   // Lead inflow: unticked sources (not kept in the URL)
   const [hiddenSources, setHiddenSources] = useState(() => new Set());
   const [kpiChooser, setKpiChooser] = useState(null);
+  // The KOC → Vendors sources this login sees (/auth/me "sources": vendor logins only theirs)
+  const shownKeys = useMemo(() => {
+    const visible = visibleSources(user);
+    return SOURCE_KEYS.filter((k) => visible.includes(k));
+  }, [user]);
+  // One source: every KPI card opens that list directly
+  const single = shownKeys.length === 1 ? singleSourceKpiLinks(shownKeys[0], period) : null;
 
   useEffect(() => {
     if (!canSeeLeads && !isDhruva) {
@@ -295,8 +303,10 @@ export default function Dashboard() {
       loading: !(cached ?? s.data),
       refreshing: true,
     }));
-    // Vendor logins: no sheet sync status (admin only), so it isn't requested
-    const keys = Object.keys(requests).filter((k) => isAdmin || k !== "sources");
+    // Vendor logins: no sheet sync status (admin only), and no latest list of a source they don't see
+    const keys = Object.keys(requests)
+      .filter((k) => isAdmin || k !== "sources")
+      .filter((k) => !LIST_SOURCE[k] || shownKeys.includes(LIST_SOURCE[k]));
     Promise.allSettled(
       keys.map((k) => requests[k].load(refreshKey > 0)),
     ).then((results) => {
@@ -324,7 +334,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [isAdmin, canSeeLeads, isDhruva, refreshKey, period, flow]);
+  }, [isAdmin, canSeeLeads, isDhruva, refreshKey, period, flow, shownKeys]);
 
   const { loading, refreshing, data } = state;
   const o = data?.overview;
@@ -334,11 +344,9 @@ export default function Dashboard() {
     // Leads that arrived in the period (spin is null when its dates couldn't be read)
     const totals = o.totals;
     const all = o.totals.all;
-    const trendKeys = o.spin_available
-      ? SOURCE_KEYS
-      : SOURCE_KEYS.filter((k) => k !== "spin");
+    const trendKeys = shownKeys.filter((k) => charted(k, o));
     // Source mix and the tiles' % bar: leads that arrived in the period
-    const mixAll = (o.source_mix ?? []).filter((m) => SOURCES[m.source]);
+    const mixAll = (o.source_mix ?? []).filter((m) => SOURCES[m.source] && shownKeys.includes(m.source));
     return {
       totals,
       all,
@@ -355,7 +363,7 @@ export default function Dashboard() {
       weekly: o.period?.granularity === "week",
       monthly: o.period?.granularity === "month",
     };
-  }, [o]);
+  }, [o, shownKeys]);
 
   const feed = useMemo(() => {
     const items = [
@@ -364,6 +372,7 @@ export default function Dashboard() {
         source: "whatsapp",
         title: l.phone_display,
         detail: l.country,
+        phone: l.phone,
         at: l.submitted_at,
       })),
       ...(data?.wdList?.items ?? []).map((l) => ({
@@ -371,6 +380,8 @@ export default function Dashboard() {
         source: "wedding",
         title: l.name ?? l.phone_display,
         detail: [l.occasion, l.city].filter(Boolean).join(" · "),
+        phone: l.phone,
+        email: l.email,
         at: l.submitted_at,
       })),
       ...(data?.wpList?.items ?? []).map((l) => ({
@@ -378,22 +389,28 @@ export default function Dashboard() {
         source: "wedding_planner",
         title: l.name ?? l.plan_id,
         detail: [l.city, l.wedding_month].filter(Boolean).join(" · "),
+        phone: l.phone,
+        email: l.email,
         at: l.updated_at,
       })),
     ];
     return items
-      .filter((i) => i.at)
+      .filter((i) => i.at && shownKeys.includes(i.source))
       .sort((a, b) => new Date(b.at) - new Date(a.at))
       .slice(0, 7);
-  }, [data]);
+  }, [data, shownKeys]);
+  // The sheet sources this login sees, for the Latest leads panel (none: no panel)
+  const feedSources = ["whatsapp", "wedding", "wedding_planner"].filter((k) => shownKeys.includes(k));
 
   const kpiLoading = loading && !o;
   const label = periodText(period);
-  const quoteChoices = sourceKpiDestinations(o?.outcomes, "quotes", period);
-  const hotChoices = sourceKpiDestinations(o?.outcomes, "hot", period);
+  const quoteChoices = sourceKpiDestinations(o?.outcomes, "quotes", period, shownKeys);
+  const hotChoices = sourceKpiDestinations(o?.outcomes, "hot", period, shownKeys);
   const kpiAov = aovOf(o?.kpis);
-  const aovChoices = sourceKpiDestinations(o?.outcomes, "aov", period);
-  const chooserAction = (title, choices) => choices.length === 1
+  const aovChoices = sourceKpiDestinations(o?.outcomes, "aov", period, shownKeys);
+  const chooserAction = (title, choices, direct) => direct
+    ? { to: direct }
+    : choices.length === 1
     ? { to: choices[0].to }
     : choices.length > 1
       ? { onClick: () => setKpiChooser({ title, choices }) }
@@ -429,8 +446,11 @@ export default function Dashboard() {
           )
         }
       >
-        {flow === "dhruva" && (canSeeLeads || isDhruva) && (
-          <DhruvaLeadsDashboard period={period} refreshKey={refreshKey} />
+        {flow === "dhruva" && direction === "dhruva" && (canSeeLeads || isDhruva) && (
+          <Suspense fallback={<DashboardSkeleton />}><DhruvaLeadsDashboard period={period} refreshKey={refreshKey} /></Suspense>
+        )}
+        {flow === "dhruva" && direction === "koc_to_dhruva" && (canSeeLeads || isDhruva) && (
+          <Suspense fallback={<DashboardSkeleton />}><KocToDhruvaDashboard period={period} refreshKey={refreshKey} /></Suspense>
         )}
         {flow === "vendors" && canSeeLeads && (
           <VendorToKocDashboard period={period} refreshKey={refreshKey} isAdmin={seesAll} />
@@ -457,12 +477,13 @@ export default function Dashboard() {
           <>
             {/* ── KPIs ── */}
             <section
-              className={`mt-6 grid gap-4 sm:grid-cols-2 ${seesAll ? "xl:grid-cols-4" : "xl:grid-cols-6"}`}
+              className={`mt-6 grid gap-4 sm:grid-cols-2 ${seesAll ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
               aria-label="Key numbers"
             >
               <Kpi
                 icon={Inbox}
                 label="Total leads"
+                to={single?.total}
                 value={fmt(o?.kpis?.total ?? view?.all)}
                 delta={o?.change_pct?.all ?? null}
                 gradient="from-brand-600 to-brand-800"
@@ -472,6 +493,7 @@ export default function Dashboard() {
               <Kpi
                 icon={ThumbsUp}
                 label="Interested"
+                to={single?.interested}
                 value={fmt(o?.kpis?.interested)}
                 gradient="from-emerald-500 to-emerald-700"
                 loading={kpiLoading}
@@ -479,6 +501,7 @@ export default function Dashboard() {
               <Kpi
                 icon={ThumbsDown}
                 label="Not interested"
+                to={single?.not_interested}
                 value={fmt(o?.kpis?.not_interested)}
                 gradient="from-rose-500 to-rose-700"
                 loading={kpiLoading}
@@ -486,6 +509,7 @@ export default function Dashboard() {
               <Kpi
                 icon={IndianRupee}
                 label="Quoted amount"
+                to={single?.quoted}
                 value={o?.kpis?.quoted_count ? short(o.kpis.quoted_total) : "—"}
                 gradient="from-violet-500 to-violet-700"
                 loading={kpiLoading}
@@ -493,6 +517,7 @@ export default function Dashboard() {
               <Kpi
                 icon={BadgeCheck}
                 label="Converted"
+                to={single?.converted}
                 value={fmt(o?.kpis?.converted)}
                 gradient="from-emerald-500 to-brand-700"
                 loading={kpiLoading}
@@ -500,6 +525,7 @@ export default function Dashboard() {
               <Kpi
                 icon={Wallet}
                 label="Conversion amount"
+                to={single?.conversion}
                 value={o?.kpis?.conversion_count ? short(o.kpis.conversion_total) : "—"}
                 gradient="from-sky-500 to-brand-700"
                 loading={kpiLoading}
@@ -509,7 +535,7 @@ export default function Dashboard() {
                 icon={Calculator}
                 label="AOV"
                 value={kpiAov.value == null ? "—" : short(Math.round(kpiAov.value))}
-                {...chooserAction("AOV", aovChoices)}
+                {...chooserAction("AOV", aovChoices, single?.aov)}
                 gradient="from-cyan-500 to-brand-700"
                 loading={kpiLoading}
               />
@@ -517,7 +543,7 @@ export default function Dashboard() {
                 icon={Send}
                 label="Quotes sent"
                 value={fmt(o?.kpis?.quotes_count)}
-                {...chooserAction("Quotes sent", quoteChoices)}
+                {...chooserAction("Quotes sent", quoteChoices, single?.quotes)}
                 gradient="from-indigo-500 to-indigo-700"
                 loading={kpiLoading}
               />}
@@ -525,7 +551,7 @@ export default function Dashboard() {
                 icon={Flame}
                 label="Hot leads"
                 value={fmt(o?.kpis?.hot_count)}
-                {...chooserAction("Hot leads", hotChoices)}
+                {...chooserAction("Hot leads", hotChoices, single?.hot)}
                 gradient="from-amber-500 to-orange-600"
                 loading={kpiLoading}
               />}
@@ -537,10 +563,10 @@ export default function Dashboard() {
 
             {/* ── Sources ── */}
             <section
-              className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+              className={`mt-6 grid gap-4 ${tileGridClass(shownKeys.length)}`}
               aria-label="Lead sources"
             >
-              {SOURCE_KEYS.map((k) => {
+              {shownKeys.map((k) => {
                 const s = SOURCES[k];
                 const Icon = s.icon;
                 const total = view?.totals[k];
@@ -572,7 +598,7 @@ export default function Dashboard() {
                         <span className="text-xl font-bold tabular-nums text-gray-900">
                           {fmt(total)}
                         </span>
-                        {delta != null && (k !== "spin" || o?.spin_available) ? (
+                        {delta != null && charted(k, o) ? (
                           <span
                             className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
                               delta >= 0
@@ -602,7 +628,7 @@ export default function Dashboard() {
                   </Link>
 
                   {/* CRM outcomes of the period's leads; each value opens the filtered list */}
-                  <dl className="mt-3 grid grid-cols-2 gap-x-2 gap-y-2.5 border-t border-gray-100 pt-3">
+                  <dl className={`mt-3 grid grid-cols-2 gap-x-2 gap-y-2.5 border-t border-gray-100 pt-3 ${shownKeys.length === 1 ? "sm:grid-cols-4" : ""}`}>
                     {outcomeCells(o?.outcomes?.[k]).map((c) => (
                       <div key={c.key} className="min-w-0">
                         <dt className="truncate text-[10px] font-semibold uppercase tracking-wider text-gray-400">
@@ -648,8 +674,10 @@ export default function Dashboard() {
                     <p className="flex h-full items-center justify-center text-sm text-gray-500">
                       Select at least one source
                     </p>
-                  ) : o && (
-                    <ResponsiveContainer width="100%" height="100%">
+                  ) : !o ? (
+                    kpiLoading && <ChartSkeleton />
+                  ) : (
+                    <LazyCharts>{({ Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis }) => (<ResponsiveContainer width="100%" height="100%">
                       <AreaChart
                         data={o.trend}
                         margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
@@ -706,7 +734,7 @@ export default function Dashboard() {
                                   ? monthName(d)
                                   : view.weekly
                                     ? periodLabel(d, point?.end ?? d)
-                                    : dayLabel(d)
+                                    : formatDay(String(d).slice(0, 10))
                               }
                             />
                           }
@@ -723,7 +751,7 @@ export default function Dashboard() {
                           />
                         ))}
                       </AreaChart>
-                    </ResponsiveContainer>
+                    </ResponsiveContainer>)}</LazyCharts>
                   )}
                 </div>
               </Panel>
@@ -734,8 +762,10 @@ export default function Dashboard() {
                 icon={Sparkles}
               >
                 <div className="relative h-52">
-                  {view && (
-                    <ResponsiveContainer width="100%" height="100%">
+                  {!view ? (
+                    kpiLoading && <ChartSkeleton />
+                  ) : (
+                    <LazyCharts>{({ Cell, Pie, PieChart, ResponsiveContainer, Tooltip }) => (<ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={view.mix}
@@ -752,7 +782,7 @@ export default function Dashboard() {
                         </Pie>
                         <Tooltip formatter={(v, n) => [fmt(v), n]} />
                       </PieChart>
-                    </ResponsiveContainer>
+                    </ResponsiveContainer>)}</LazyCharts>
                   )}
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-2xl font-bold tabular-nums text-gray-900">
@@ -790,16 +820,18 @@ export default function Dashboard() {
                 right={
                   o && (
                     <Legend
-                      keys={SOURCE_KEYS.filter(
-                        (k) => k !== "spin" || o.spin_available,
+                      keys={shownKeys.filter(
+                        (k) => charted(k, o),
                       )}
                     />
                   )
                 }
               >
                 <div className="h-64">
-                  {o && (
-                    <ResponsiveContainer width="100%" height="100%">
+                  {!o ? (
+                    kpiLoading && <ChartSkeleton />
+                  ) : (
+                    <LazyCharts>{({ Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis }) => (<ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={o.upcoming_by_month}
                         margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
@@ -826,8 +858,8 @@ export default function Dashboard() {
                           content={<ChartTooltip labelFormat={monthLabel} />}
                           cursor={{ fill: "#f8fafc" }}
                         />
-                        {SOURCE_KEYS.filter(
-                          (k) => k !== "spin" || o.spin_available,
+                        {shownKeys.filter(
+                          (k) => charted(k, o),
                         ).map((k, i, arr) => (
                           <Bar
                             key={k}
@@ -839,7 +871,7 @@ export default function Dashboard() {
                           />
                         ))}
                       </BarChart>
-                    </ResponsiveContainer>
+                    </ResponsiveContainer>)}</LazyCharts>
                   )}
                 </div>
               </Panel>
@@ -854,6 +886,7 @@ export default function Dashboard() {
                 icon={Globe}
               >
                 <BarList
+                  loading={kpiLoading}
                   items={o?.top_countries}
                   color="from-violet-400 to-violet-600"
                 />
@@ -864,6 +897,7 @@ export default function Dashboard() {
                 icon={CalendarHeart}
               >
                 <BarList
+                  loading={kpiLoading}
                   items={o?.occasions}
                   color="from-rose-400 to-rose-600"
                 />
@@ -872,9 +906,9 @@ export default function Dashboard() {
 
             {/* ── Latest + partners ── */}
             <div className="mt-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
-              <Panel
+              {feedSources.length > 0 && <Panel
                 title="Latest leads"
-                subtitle="International · Wedding · Wedding planner"
+                subtitle={feedSources.map((k) => SOURCES[k].label).join(" · ")}
                 icon={Sparkles}
                 flush
               >
@@ -882,10 +916,10 @@ export default function Dashboard() {
                   {feed.map((item) => {
                     const s = SOURCES[item.source];
                     return (
-                      <li key={item.key}>
+                      <li key={item.key} className="flex items-center gap-2 pr-5 transition-colors hover:bg-gray-50">
                         <Link
                           to={s.to}
-                          className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-gray-50"
+                          className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-5"
                         >
                           <span
                             className={`w-[118px] shrink-0 rounded-full px-2.5 py-0.5 text-center text-xs font-medium ring-1 ${s.tag}`}
@@ -906,6 +940,7 @@ export default function Dashboard() {
                             {timeAgo(item.at)}
                           </span>
                         </Link>
+                        <ContactActions phone={item.phone} email={item.email} name={item.name ?? item.title} showNumber={false} />
                       </li>
                     );
                   })}
@@ -915,14 +950,14 @@ export default function Dashboard() {
                     </li>
                   )}
                 </ul>
-              </Panel>
+              </Panel>}
 
               <Panel
                 title="Partners"
                 subtitle="Who your wedding leads went to"
                 icon={Handshake}
               >
-                <BarList items={o?.partners} empty="Nothing shared yet" />
+                <BarList items={o?.partners} empty="Nothing shared yet" loading={kpiLoading} />
                 {o?.sharing.not_shared ? (
                   <div className="mt-4 flex items-center justify-between rounded-xl bg-amber-50 px-3 py-2.5 text-sm">
                     <span className="font-medium text-amber-800">
@@ -946,12 +981,12 @@ export default function Dashboard() {
           </>
         )}
         {kpiChooser && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`${kpiChooser.title} source choices`}>
+          <div className="fixed inset-0 z-50 flex items-stretch justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={`${kpiChooser.title} source choices`}>
             <button type="button" aria-label="Close" onClick={() => setKpiChooser(null)} className="absolute inset-0 bg-gray-900/35 backdrop-blur-sm" />
-            <section className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl ring-1 ring-gray-200">
-              <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-semibold text-gray-900">{kpiChooser.title}</h2><button type="button" onClick={() => setKpiChooser(null)} className="rounded-full px-2 py-1 text-sm text-gray-500 hover:bg-gray-100">Close</button></div>
+            <section className="relative h-full w-full overflow-y-auto bg-white p-5 shadow-2xl ring-1 ring-gray-200 sm:h-auto sm:max-w-sm sm:rounded-2xl">
+              <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-semibold text-gray-900">{kpiChooser.title}</h2><button type="button" onClick={() => setKpiChooser(null)} className="min-h-11 rounded-full px-3 text-sm text-gray-500 hover:bg-gray-100">Close</button></div>
               <ul className="divide-y divide-gray-100">
-                {kpiChooser.choices.map((choice) => <li key={choice.source}><Link onClick={() => setKpiChooser(null)} to={choice.to} className="flex items-center justify-between py-3 text-sm hover:text-brand-700"><span>{choice.label}</span><span className="font-semibold tabular-nums">{fmt(choice.count)}</span></Link></li>)}
+                {kpiChooser.choices.map((choice) => <li key={choice.source}><Link onClick={() => setKpiChooser(null)} to={choice.to} className="flex min-h-11 items-center justify-between py-3 text-sm hover:text-brand-700"><span>{choice.label}</span><span className="font-semibold tabular-nums">{fmt(choice.count)}</span></Link></li>)}
               </ul>
             </section>
           </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
+import { ListSkeleton } from "../shared/Skeleton.jsx";
 
 // Search box with live suggestions of matching leads. Typing filters the table (as before);
 // the dropdown shows the best matches, and picking one opens that lead.
@@ -121,11 +122,11 @@ export default function LeadSearch({
       )}
 
       {showList && (
-        <div className="absolute right-0 z-30 mt-2 w-full min-w-[340px] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-gray-100">
+        <div className="absolute right-0 z-30 mt-2 w-full overflow-hidden sm:min-w-[340px] rounded-2xl bg-white shadow-2xl ring-1 ring-gray-100">
           <p className="flex items-center justify-between border-b border-gray-100 px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
             Matching leads
-            {loading && <Loader2 size={13} className="animate-spin" />}
           </p>
+          {loading && !items.length && <ListSkeleton rows={3} label="Searching" />}
           <ul role="listbox" className="max-h-80 overflow-y-auto p-1.5">
             {items.map((s, i) => (
               <li key={s.key} role="option" aria-selected={i === active}>

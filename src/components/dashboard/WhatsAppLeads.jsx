@@ -142,6 +142,7 @@ export default function WhatsAppLeads() {
           total={data?.total}
           onPage={setPage}
           disabled={loading}
+          onPrefetch={(n) => listLeads(SOURCE, listParams(n)).catch(() => {})}
         />
       }
     >

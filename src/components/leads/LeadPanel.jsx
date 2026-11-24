@@ -1,12 +1,11 @@
 import DateInput from "../shared/DateInput.jsx";
+import ContactActions from "../shared/ContactActions.jsx";
+import { displayPhone } from "../shared/contact.js";
 import { useEffect, useState } from "react";
 import {
   BadgeCheck,
   Download,
   Loader2,
-  Mail,
-  MessageCircle,
-  Phone,
   X,
 } from "lucide-react";
 import {
@@ -18,11 +17,23 @@ import {
 import { useVendors } from "./InlineCrm.jsx";
 import { downloadLeadPdf } from "./leadPdf.js";
 import { useAuth } from "../../auth/useAuth.js";
-import { assignedText, panelChanges } from "./crmAccess.js";
+import { assignableVendors, assignedText, assignmentChange, assignmentOf, automaticLabel, AUTOMATIC_CHOICE, panelChanges, UNASSIGNED_CHOICE } from "./crmAccess.js";
 import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "./HotLeadStar.jsx";
 import LeadActivity from "./LeadActivity.jsx";
+import { vendorNameLookup } from "./activityUtils.js";
 import { ReadOnlyFields } from "../shared/ViewOnly.jsx";
+import AlsoInBadges from "./AlsoInBadges.jsx";
+import { alsoInPlaces, alsoInLine } from "./alsoIn.js";
+import { formatDateTime, formatDay, personName } from "../shared/dates.js";
+
+// Who last saved the CRM details (docs section 5: crm.updated_by_name, "Deleted user" from the
+// API) and when: "Asha · 19 Nov 2026, 10:30 am". null when nobody saved them yet.
+function lastUpdated(crm) {
+  const name = personName(crm?.updated_by_name, "");
+  if (!name) return null;
+  return crm?.updated_at ? `${name} · ${formatDateTime(crm.updated_at)}` : name;
+}
 
 // Who edits what: Assigned to = admins (vendors see it as text); Update, Quoted amount/date,
 // Conversion amount and Notes = admins and the assigned vendor. Only changed, allowed fields are sent.
@@ -35,6 +46,7 @@ import { ReadOnlyFields } from "../shared/ViewOnly.jsx";
 //   title, subtitle, phone (digits with country code), email,
 //   sections: [{ title, rows: [[label, value], ...] }],   // shown and put in the PDF
 //   extra?: node                                           // e.g. the planner's events
+//   alsoIn?: [{ source, count, vendors? }]                 // the API's also_in (shown and in the PDF)
 // }
 
 const inr = new Intl.NumberFormat("en-IN", {
@@ -57,10 +69,8 @@ const initials = (name) =>
 
 function formFrom(crm) {
   return {
-    vendor_id:
-      crm?.vendor_source === "manual" && crm?.vendor
-        ? String(crm.vendor.id)
-        : "",
+    // Automatic, Unassigned or a vendor id (sent as assigned_to or vendor_id, crmAccess.js)
+    assignment: assignmentOf(crm),
     update_status: crm?.update_status ?? "",
     quoted_amount: crm?.quoted_amount != null ? String(crm.quoted_amount) : "",
     quoted_date: crm?.quoted_date ?? "",
@@ -122,8 +132,6 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
     setForm((f) => ({ ...f, [k]: v }));
     setSaved(false);
   };
-  const automatic =
-    crm && crm.vendor_source !== "manual" ? crm.vendor : crm?.suggested_vendor;
 
   async function save(e) {
     e.preventDefault();
@@ -133,7 +141,6 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
       return digits ? Number(digits) : null;
     };
     const toValues = (f) => ({
-      vendor_id: f.vendor_id ? Number(f.vendor_id) : null,
       update_status: f.update_status || null,
       quoted_amount: amount(f.quoted_amount),
       quoted_date: f.quoted_date || null,
@@ -141,6 +148,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
       notes: f.notes,
     });
     const changes = panelChanges(isAdmin, toValues(formFrom(crm)), toValues(form));
+    if (isAdmin && form.assignment !== formFrom(crm).assignment) Object.assign(changes, assignmentChange(form.assignment));
     if (!Object.keys(changes).length) {
       setError("Nothing to save: no changes.");
       return;
@@ -181,7 +189,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
             title: "Contact",
             rows: [
               ["Name", lead.title],
-              ["Phone", lead.phone ? `+${lead.phone}` : null],
+              ["Phone", displayPhone(lead.phone) || null],
               ["Email", lead.email],
             ],
           },
@@ -190,9 +198,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
             rows: [
               [
                 "Assigned to",
-                crm?.vendor
-                  ? `${crm.vendor.name}${crm.vendor_source === "manual" ? "" : " (automatic)"}`
-                  : "Unassigned",
+                assignedText(crm),
               ],
               ["Update", update.label],
               [
@@ -201,7 +207,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   ? inr.format(crm.quoted_amount)
                   : null,
               ],
-              ["Quoted date", crm?.quoted_date],
+              ["Quoted date", formatDay(crm?.quoted_date)],
               [
                 "Conversion amount",
                 crm?.conversion_amount != null
@@ -209,8 +215,10 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   : null,
               ],
               ["Notes", crm?.notes],
+              ["Last updated by", lastUpdated(crm)],
             ],
           },
+          { title: "Also in", rows: alsoInPlaces(lead.alsoIn).map((p) => [p.label, alsoInLine(p).slice(p.label.length + 2)]) },
           ...lead.sections,
         ],
       });
@@ -220,9 +228,6 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
       setDownloading(false);
     }
   }
-
-  const btn =
-    "flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition";
 
   return (
     <div
@@ -245,7 +250,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
         }`}
       >
         {/* Header */}
-        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-6 pb-5 pt-5 text-white">
+        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 pb-5 pt-5 text-white sm:px-6">
           <span
             aria-hidden="true"
             className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl"
@@ -287,7 +292,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                 type="button"
                 onClick={close}
                 aria-label="Close"
-                className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white"
+                className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
               >
                 <X size={18} />
               </button>
@@ -317,54 +322,9 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
           )}
         </header>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+        <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
           {/* Contact */}
-          <div className="flex gap-2">
-            {lead.phone ? (
-              <a
-                href={`tel:+${lead.phone}`}
-                className={`${btn} bg-sky-50 text-sky-700 ring-1 ring-sky-100 hover:bg-sky-100`}
-              >
-                <Phone size={16} /> Call
-              </a>
-            ) : (
-              <span
-                className={`${btn} cursor-not-allowed bg-gray-50 text-gray-300`}
-              >
-                <Phone size={16} /> Call
-              </span>
-            )}
-            {lead.email ? (
-              <a
-                href={`mailto:${lead.email}`}
-                className={`${btn} bg-violet-50 text-violet-700 ring-1 ring-violet-100 hover:bg-violet-100`}
-              >
-                <Mail size={16} /> Email
-              </a>
-            ) : (
-              <span
-                className={`${btn} cursor-not-allowed bg-gray-50 text-gray-300`}
-              >
-                <Mail size={16} /> Email
-              </span>
-            )}
-            {lead.phone ? (
-              <a
-                href={`https://wa.me/${lead.phone}`}
-                target="_blank"
-                rel="noreferrer"
-                className={`${btn} bg-emerald-500 text-white shadow-md shadow-emerald-500/25 hover:bg-emerald-600`}
-              >
-                <MessageCircle size={16} /> WhatsApp
-              </a>
-            ) : (
-              <span
-                className={`${btn} cursor-not-allowed bg-gray-50 text-gray-300`}
-              >
-                <MessageCircle size={16} /> WhatsApp
-              </span>
-            )}
-          </div>
+          <ContactActions variant="panel" phone={lead.phone} email={lead.email} name={lead.title} />
 
           {/* CRM: view-only logins read it as plain text (no inputs, no Save) */}
           {crm && !canEdit && (
@@ -374,9 +334,10 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                 ["Assigned to", assignedText(crm)],
                 ["Update", updateInfo(crm.update_status).label],
                 ["Quoted amount", crm.quoted_amount != null ? inr.format(crm.quoted_amount) : null],
-                ["Quoted date", crm.quoted_date],
+                ["Quoted date", formatDay(crm.quoted_date)],
                 ["Conversion amount", crm.conversion_amount != null ? inr.format(crm.conversion_amount) : null],
                 ["Notes", crm.notes],
+                ["Last updated by", lastUpdated(crm)],
               ]}
             />
           )}
@@ -404,16 +365,16 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   Assigned to
                 </span>
                 <select
-                  value={form.vendor_id}
-                  onChange={(e) => set("vendor_id", e.target.value)}
+                  value={form.assignment}
+                  onChange={(e) => set("assignment", e.target.value)}
                   className={`mt-1.5 ${fieldCls}`}
                 >
-                  <option value="">
-                    {automatic ? `Automatic · ${automatic.name}` : "Unassigned"}
-                  </option>
-                  {vendors.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name}
+                  <option value={AUTOMATIC_CHOICE}>{automaticLabel(crm)}</option>
+                  <option value={UNASSIGNED_CHOICE}>Unassigned</option>
+                  {/* Active vendors only; the lead's own inactive vendor stays visible but can't be picked */}
+                  {assignableVendors(vendors, crm?.vendor_source === "manual" ? crm.vendor : null).map((v) => (
+                    <option key={v.id} value={v.id} disabled={v.inactive}>
+                      {v.inactive ? `${v.name} (inactive)` : v.name}
                       {v.coverage ? ` · ${v.coverage}` : ""}
                     </option>
                   ))}
@@ -422,9 +383,11 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   {lead.context?.sheet_vendor
                     ? `Sheet says ${lead.context.sheet_vendor}. `
                     : ""}
-                  {crm.suggested_vendor
-                    ? `Area rules suggest ${crm.suggested_vendor.name}.`
-                    : "Location unknown, no automatic match."}
+                  {crm.vendor_source === "source_default" && crm.vendor
+                    ? `Gift leads go to ${crm.vendor.name} automatically.` // source_default: docs section 17
+                    : crm.suggested_vendor
+                      ? `Area rules suggest ${crm.suggested_vendor.name}.`
+                      : "Location unknown, no automatic match."}
                 </span>
               </label>
               )}
@@ -527,7 +490,20 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   {saving ? "Saving…" : "Save changes"}
                 </button>
               </div>
+              {lastUpdated(crm) && (
+                <p className="mt-3 text-right text-xs text-gray-500">Last updated by {lastUpdated(crm)}</p>
+              )}
             </form>
+          )}
+
+          {/* Other places with the same phone (the API's also_in) */}
+          {alsoInPlaces(lead.alsoIn).length > 0 && (
+            <section>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-brand-700">Also in</h3>
+              <div className="mt-2 rounded-2xl bg-white/80 px-4 py-3 ring-1 ring-gray-100">
+                <AlsoInBadges alsoIn={lead.alsoIn} variant="panel" />
+              </div>
+            </section>
           )}
 
           {/* Extra block (e.g. planner events) */}
@@ -565,7 +541,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
             source={lead.source}
             leadKey={crm?.lead_key}
             refreshKey={activityRefreshKey}
-            vendorName={crm?.vendor?.name ?? crm?.suggested_vendor?.name}
+            vendorName={vendorNameLookup(vendors, crm?.vendor, crm?.suggested_vendor)}
           />
         </div>
       </aside>

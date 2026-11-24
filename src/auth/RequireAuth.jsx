@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router";
 import { useAuth } from "./useAuth.js";
 import { redirectFor } from "./permissions.js";
+import { PageSkeleton } from "../components/shared/Skeleton.jsx";
 
 // Wrap a page so only logged-in users (optionally only a given role) can see it.
 //   <RequireAuth><Dashboard /></RequireAuth>
@@ -17,15 +18,7 @@ export default function RequireAuth({ role, children }) {
   const location = useLocation();
 
   if (!isReady) {
-    return (
-      <div
-        className="flex min-h-screen items-center justify-center bg-white"
-        role="status"
-      >
-        <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />
-        <span className="sr-only">Loading</span>
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!user) {

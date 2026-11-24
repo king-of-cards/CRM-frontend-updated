@@ -1,6 +1,10 @@
 // Pure helpers for leads added or imported in the CRM (no React, no network), so they can be
 // unit-tested with `bun test`. API reference: docs/API_REFERENCE.md.
 
+import { ALSO_IN_LABELS } from "../leads/alsoIn.js";
+import { duplicateText } from "../shared/duplicates.js";
+import { formatDay } from "../shared/dates.js";
+
 export const SOURCE_NAMES = {
   spin: "Spin leads",
   whatsapp: "International",
@@ -70,13 +74,11 @@ export function toIstInput(iso) {
 }
 
 // ── Duplicates and warnings ────────────────────────────────────────────
+// A preview row's duplicate: the API's text when it has one, else
+// "Already exists (same phone, no conflicting details)" / "Repeated in this file (same as row 2)"
 export function duplicateLabel(duplicate) {
   if (!duplicate) return null;
-  if (duplicate.reason === "in_file")
-    return duplicate.duplicate_of_row != null
-      ? `Repeated in this file (same as row ${duplicate.duplicate_of_row})`
-      : "Repeated in this file";
-  return "Already exists";
+  return duplicateText(duplicate);
 }
 
 export function duplicateWhere(duplicate) {
@@ -87,7 +89,7 @@ export function duplicateWhere(duplicate) {
     case "existing_workflow":
       return "In the spin game";
     case "existing_added": {
-      const day = ddmmyyyy(duplicate.created_at);
+      const day = formatDay(duplicate.created_at);
       const when = day ? `Added on ${day}` : "Added in the CRM";
       return duplicate.archived ? `${when} (archived)` : when;
     }
@@ -103,7 +105,8 @@ export function otherSources(warnings) {
   return w?.sources ?? [];
 }
 
-export const sourceList = (sources) => sources.map((s) => SOURCE_NAMES[s] ?? s).join(", ");
+// Other places (also Vendors → KOC, Dhruva → KOC, KOC → Dhruva) use the also_in labels
+export const sourceList = (sources) => sources.map((s) => SOURCE_NAMES[s] ?? ALSO_IN_LABELS[s] ?? s).join(", ");
 
 // ── Upload rows ────────────────────────────────────────────────────────
 // Counts for the rows still in the table (rows can be removed, so recount here)
@@ -150,10 +153,12 @@ function csvCell(value) {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-export function rowsToCsv(fields, rows, branches = []) {
+// headers: "key" (default; the /crm-leads previews accept field keys) or "label" (the file's own
+// headers, for previews that read only those, e.g. KOC → Dhruva)
+export function rowsToCsv(fields, rows, branches = [], { headers = "key" } = {}) {
   const names = new Map(branches.map((b) => [String(b.id), b.name]));
   const keys = fields.map((f) => f.key);
-  const lines = [keys.map(csvCell).join(",")];
+  const lines = [fields.map((f) => (headers === "label" ? (f.label ?? f.key) : f.key)).map(csvCell).join(",")];
   for (const r of rows) {
     lines.push(
       keys
@@ -283,6 +288,14 @@ export function previewColumns(fields, { screenKeys = null, fileKeys = [], error
   const extra = new Set(["phone", ...fileKeys, ...errorKeys]);
   return [...first, ...fields.filter((f) => !screen.includes(f.key) && extra.has(f.key))];
 }
+
+// Long text fields (e.g. spin's Other wedding services, up to 500 characters) wrap in the upload
+// preview instead of stretching the table
+export const wrapsInPreview = (field) => field?.type === "text" && Number(field?.max_length) >= 300;
+
+// Spin uploads' Assigned to, as the API reads it (docs section 17)
+export const SPIN_ASSIGNED_HINT =
+  "Assigned to: a vendor name assigns that vendor; Automatic assigns Kraftyz to gift leads and the branch / area vendor to the rest; empty or Unassigned leaves the lead unassigned.";
 
 // ── "Assigned to" choices: Unassigned, each active vendor, Automatic ──────────────
 // Uploads: "Automatic" / "Auto" (or "<vendor> · auto") means automatic, empty or "Unassigned"

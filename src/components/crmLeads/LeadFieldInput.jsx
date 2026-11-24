@@ -1,6 +1,7 @@
 import DateInput from "../shared/DateInput.jsx";
 import { fieldCls } from "./Drawer.jsx";
 import { useVendors } from "../leads/InlineCrm.jsx";
+import { assignableVendors } from "../leads/crmAccess.js";
 
 // One form input for a field from GET /crm-leads/{source}/fields.
 // value is text ("" = empty); bool is "yes" / "no"; branch is the branch id as text.
@@ -35,10 +36,14 @@ export default function LeadFieldInput({ field, value, onChange, error, branches
       </select>
     );
   } else if (field.type === "assigned") {
+    // Active vendors only; a saved inactive vendor's name stays visible but can't be picked again
+    const active = assignableVendors(vendors);
+    const known = !value || value === "Unassigned" || active.some((v) => v.name === value);
     input = (
       <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className={cls} aria-invalid={invalid}>
         <option value="Unassigned">Unassigned</option>
-        {vendors.map((v) => (
+        {!known && <option value={value} disabled>{value} (inactive)</option>}
+        {active.map((v) => (
           <option key={v.id} value={v.name}>
             {v.name}
           </option>

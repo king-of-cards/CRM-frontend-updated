@@ -1,4 +1,6 @@
 import { dayText, phoneText } from "../vendorToKoc/kocUtils.js";
+import { visibleSources } from "../../auth/permissions.js";
+import { flowLabels } from "../layout/leadFlow.js";
 
 export const REMINDER_SOURCES = {
   spin: { label: "Spin", path: "/leads/spin" },
@@ -6,21 +8,49 @@ export const REMINDER_SOURCES = {
   wedding: { label: "Wedding", path: "/leads/wedding" },
   wedding_planner: { label: "Wedding planner", path: "/leads/wedding-planner" },
   vendor_to_koc: { label: "Vendors → KOC", path: "/vendor-to-koc" },
-  dhruva: { label: "Dhruva", path: "/dhruva-leads" },
+  dhruva: { label: "Dhruva → KOC", path: "/dhruva-leads" },
+  koc_to_dhruva: { label: "KOC → Dhruva", path: "/koc-to-dhruva" },
 };
 
 // Each Lead flow's follow-ups, kept separate: "" = KOC → Vendors, "vendors" = Vendors → KOC,
-// "dhruva" = the Dhruva endpoint. sources goes to GET /reminders/follow-ups?sources=…
+// and the Dhruva flow's two directions on the Dhruva endpoint: "dhruva" = Dhruva → KOC,
+// "koc_to_dhruva" = KOC → Dhruva (docs section 18). sources goes to …/follow-ups?sources=…
 export const FLOW_REMINDERS = {
   "": { dhruva: false, sources: ["spin", "whatsapp", "wedding", "wedding_planner"], label: "KOC → Vendors leads" },
   vendors: { dhruva: false, sources: ["vendor_to_koc"], label: "Vendors → KOC leads" },
-  dhruva: { dhruva: true, sources: [], label: "Dhruva leads" },
+  dhruva: { dhruva: true, sources: ["dhruva"], label: "Dhruva → KOC leads" },
+  koc_to_dhruva: { dhruva: true, sources: ["koc_to_dhruva"], label: "KOC → Dhruva leads" },
 };
 
-// The request and card subtitle for a flow (unknown flows: KOC → Vendors)
-export function reminderRequestFor(flow = "") {
-  return FLOW_REMINDERS[flow] ?? FLOW_REMINDERS[""];
+// The follow-ups scope of a page: its flow, or in the Dhruva flow its direction
+export function reminderScopeFor(flow = "", direction = "dhruva") {
+  if (flow !== "dhruva") return flow;
+  return direction === "koc_to_dhruva" ? "koc_to_dhruva" : "dhruva";
 }
+
+// The request and card subtitle for a scope (unknown scopes: KOC → Vendors).
+// sources: the KOC → Vendors sources this login sees (vendor logins ask only for theirs);
+// labels: flowLabels(…) so a vendor login reads "KOC → Kraftyz leads" / "Kraftyz → KOC leads".
+export function reminderRequestFor(flow = "", { sources = null, labels = null } = {}) {
+  const base = FLOW_REMINDERS[flow] ?? FLOW_REMINDERS[""];
+  const key = FLOW_REMINDERS[flow] ? flow : "";
+  if (!sources && !labels) return base;
+  const out = { ...base };
+  if (key === "" && sources) out.sources = base.sources.filter((s) => sources.includes(s));
+  if (labels && key === "") out.label = `${labels.koc} leads`;
+  if (labels && key === "vendors") out.label = `${labels.vendors} leads`;
+  return out;
+}
+
+// The request for this login: vendor logins ask only for their sources, with their vendor's name
+export function reminderRequestForUser(flow, user) {
+  if (user?.role !== "vendor") return reminderRequestFor(flow);
+  return reminderRequestFor(flow, { sources: visibleSources(user), labels: flowLabels(user.vendor) });
+}
+
+// Nothing to ask for: a KOC → Vendors request with no sources (a vendor with none of them).
+// Sending an empty list would make the API fall back to its default sources.
+export const reminderRequestEmpty = (request) => !request.dhruva && request.sources.length === 0;
 
 export function reminderTag(daysOverdue) {
   const days = Number(daysOverdue);
@@ -62,8 +92,12 @@ export function reminderListDestination(source) {
   return `${meta.path}?${params.toString()}`;
 }
 
+// The Dashboard's follow-ups card for a scope (a flow, or a Dhruva direction)
 export function reminderDashboardDestination(flow = "") {
   const params = new URLSearchParams();
-  if (flow) params.set("flow", flow);
+  if (flow === "koc_to_dhruva") {
+    params.set("flow", "dhruva");
+    params.set("direction", "koc_to_dhruva");
+  } else if (flow) params.set("flow", flow);
   return `/dashboard${params.size ? `?${params.toString()}` : ""}#follow-ups`;
 }

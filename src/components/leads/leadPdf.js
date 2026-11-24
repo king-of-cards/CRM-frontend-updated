@@ -2,6 +2,7 @@
 // jsPDF is loaded only when someone clicks Download, so it doesn't slow the app down.
 //
 // sections: [{ title, rows: [[label, value], ...] }]
+import { formatDateTime } from "../shared/dates.js";
 
 const BRAND = [29, 85, 78]; // brand-700
 const INK = [17, 24, 39];
@@ -46,7 +47,7 @@ function header(doc, { title, subtitle, source }) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.text(clean([source, subtitle].filter(Boolean).join("  ·  ")).slice(0, 110), 40, 76);
-  doc.text(`Downloaded ${new Date().toLocaleString("en-IN")}`, w - 40, 30, { align: "right" });
+  doc.text(`Downloaded ${formatDateTime(new Date())}`, w - 40, 30, { align: "right" });
 }
 
 export async function downloadLeadPdf({ title, subtitle, source, sections, fileName }) {

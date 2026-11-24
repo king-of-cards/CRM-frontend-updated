@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { addCrmLead, getCrmLead, getCrmLeadFields } from "../../api/crmLeads.js";
-import Drawer, { Alert, primaryBtn, secondaryBtn, Spinner } from "./Drawer.jsx";
+import Drawer, { Alert, primaryBtn, secondaryBtn } from "./Drawer.jsx";
 import LeadFieldInput from "./LeadFieldInput.jsx";
 import {
   duplicateWhere,
@@ -11,6 +11,8 @@ import {
   SOURCE_NAMES,
   sourceList,
 } from "./crmLeadUtils.js";
+import { duplicateMessage } from "../shared/duplicates.js";
+import { FormSkeleton } from "../shared/Skeleton.jsx";
 
 // Add one lead. On a duplicate phone (409) the existing lead is shown with "Add anyway".
 export default function AddLeadDialog({ source, onClose, onAdded, onOpenLead }) {
@@ -107,9 +109,7 @@ export default function AddLeadDialog({ source, onClose, onAdded, onOpenLead }) 
       }
     >
       {!meta && !loadError && (
-        <div className="flex justify-center py-10">
-          <Spinner />
-        </div>
+        <FormSkeleton />
       )}
       {loadError && <Alert>{loadError}</Alert>}
 
@@ -127,7 +127,7 @@ export default function AddLeadDialog({ source, onClose, onAdded, onOpenLead }) 
 
           {duplicate && (
             <Alert kind="warning">
-              <p className="font-semibold">{duplicate.message}</p>
+              <p className="font-semibold">{duplicateMessage(duplicate)}</p>
               <p className="mt-1">
                 {duplicateWhere(duplicate.duplicate)}
                 {duplicate.duplicate.lead_key && (

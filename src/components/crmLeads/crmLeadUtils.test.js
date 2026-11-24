@@ -23,6 +23,9 @@ import {
   summarize,
   toIstInput,
   valuesToForm,
+  SOURCE_NAMES,
+  SPIN_ASSIGNED_HINT,
+  wrapsInPreview,
 } from "./crmLeadUtils.js";
 
 describe("filenameFromDisposition", () => {
@@ -75,12 +78,13 @@ describe("dates", () => {
 describe("duplicates", () => {
   test("labels and tooltips", () => {
     expect(duplicateLabel({ reason: "in_file", duplicate_of_row: 2 })).toBe("Repeated in this file (same as row 2)");
-    expect(duplicateLabel({ reason: "existing_sheet" })).toBe("Already exists");
+    expect(duplicateLabel({ reason: "existing_sheet" })).toBe("Already exists (same phone, no conflicting details)");
+    expect(duplicateLabel({ reason: "existing_added", message: "This lead already exists." })).toBe("This lead already exists.");
     expect(duplicateWhere({ reason: "existing_sheet" })).toBe("In the sheet");
     expect(duplicateWhere({ reason: "existing_workflow" })).toBe("In the spin game");
-    expect(duplicateWhere({ reason: "existing_added", created_at: "2026-11-14T05:00:00+00:00" })).toBe("Added on 14-11-2026");
+    expect(duplicateWhere({ reason: "existing_added", created_at: "2026-11-14T05:00:00+00:00" })).toBe("Added on 14 Nov 2026");
     expect(duplicateWhere({ reason: "existing_added", created_at: "2026-11-14T05:00:00+00:00", archived: true })).toBe(
-      "Added on 14-11-2026 (archived)",
+      "Added on 14 Nov 2026 (archived)",
     );
   });
 });
@@ -282,5 +286,29 @@ describe("upload-only CRM columns", () => {
     expect(csv).toBe(
       "name,phone,assigned_to,submitted_at,update_status,quoted_amount,conversion_amount\r\nAsha,9845012345,,,will_call_back,150000,\r\n",
     );
+  });
+});
+
+describe("Spin after Wedding gifts (docs section 17)", () => {
+  test("Wedding gifts is no longer a source", () => {
+    expect(SOURCE_NAMES.wedding_gifts).toBeUndefined();
+    expect(Object.keys(SOURCE_NAMES)).toEqual(["spin", "whatsapp", "wedding", "wedding_planner"]);
+  });
+  test("Spin export: no order without a sort; Other services goes with the filters", () => {
+    expect(exportQuery("spin", { order: "desc", other_services: "Photography" }, "xlsx")).toEqual({ format: "xlsx", other_services: "Photography" });
+    expect(exportQuery("spin", { sort: "created_at", order: "desc" }, "csv")).toEqual({ format: "csv", sort: "created_at", order: "desc" });
+  });
+  test("upload preview: Other wedding services (500) wraps, Quantity required and short text don't", () => {
+    expect(wrapsInPreview({ key: "otherWeddingServices", type: "text", max_length: 500 })).toBe(true);
+    expect(wrapsInPreview({ key: "quantityRequired", type: "int" })).toBe(false);
+    expect(wrapsInPreview({ key: "name", type: "text", max_length: 150 })).toBe(false);
+  });
+  test("upload Assigned to: vendor name, Automatic, Unassigned (empty = Unassigned)", () => {
+    expect(assignedChoice("Kraftyz")).toBe("Kraftyz");
+    expect(assignedChoice("Automatic")).toBe(AUTOMATIC);
+    expect(assignedChoice("Kraftyz · auto")).toBe(AUTOMATIC);
+    expect(assignedChoice("Unassigned")).toBe("Unassigned");
+    expect(assignedChoice("")).toBe("Unassigned");
+    expect(SPIN_ASSIGNED_HINT).toContain("Kraftyz");
   });
 });

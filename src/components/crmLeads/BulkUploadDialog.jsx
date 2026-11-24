@@ -1,21 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileSpreadsheet, RefreshCw, Trash2, Upload } from "lucide-react";
-import {
-  downloadCrmLeadTemplate,
-  getCrmLeadFields,
-  getCrmLeadTemplateHeaders,
-  importCrmLeads,
-  previewCrmLeadImport,
-} from "../../api/crmLeads.js";
-import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn, Spinner } from "./Drawer.jsx";
+import { KOC_TO_DHRUVA_SOURCE, uploadApi } from "../../api/uploads.js";
+import { fillInfo, KOC_TO_DHRUVA_UPLOAD_HINT, kocToDhruvaFields, spinCountChips, spinMatch } from "./kocToDhruvaUpload.js";
+import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "./Drawer.jsx";
 import { defaultSheet, readSheetNames } from "./xlsxSheets.js";
+import { formatDay } from "../shared/dates.js";
 import { useVendors } from "../leads/InlineCrm.jsx";
+import { assignableVendors } from "../leads/crmAccess.js";
 import { PENDING_UPDATE, UPDATE_OPTIONS, updateInfo } from "../../api/leadCrm.js";
 import {
   assignedChoice,
   assignedForUpload,
   AUTOMATIC,
   previewColumns,
+  SPIN_ASSIGNED_HINT,
+  wrapsInPreview,
   screenFieldKeys,
   uploadFields,
   duplicateLabel,
@@ -31,8 +30,12 @@ import {
   submitLabel,
   summarize,
 } from "./crmLeadUtils.js";
+import { FormSkeleton } from "../shared/Skeleton.jsx";
 
 // Bulk upload: template → file (+ sheet) → preview (nothing saved) → fix/remove rows → import → result.
+// source: one of the four KOC → Vendors sources (/crm-leads/{source}), or "koc_to_dhruva"
+// (/koc-to-dhruva/leads, admins only: docs section 18), whose rows also show whether they are in
+// Spin (an upload never changes Spin).
 const MAX_BYTES = 5 * 1024 * 1024;
 const PAGE = 100;
 
@@ -65,12 +68,54 @@ function RowBadges({ row }) {
         </Badge>
       )}
       {row.status === "duplicate" && (
-        <Badge tone="dup" title={duplicateWhere(row.duplicate)}>
+        <Badge tone="dup" title={[duplicateLabel(row.duplicate), duplicateWhere(row.duplicate)].filter(Boolean).join(" · ")}>
           {duplicateLabel(row.duplicate)}
         </Badge>
       )}
       {also.length > 0 && <Badge tone="warn">Also in {sourceList(also)}</Badge>}
       {row.dirty && <span className="text-[10px] text-gray-500">Edited · not re-checked</span>}
+    </div>
+  );
+}
+
+const SPIN_TONES = {
+  match: "bg-sky-50 text-sky-800 ring-sky-200",
+  dhruva: "bg-violet-50 text-violet-800 ring-violet-200",
+  none: "",
+};
+
+// KOC → Dhruva: the row's Spin link (spin.action matched / not_in_spin, spin.leads[].vendors, also_in)
+export function SpinMatchCell({ row }) {
+  const m = spinMatch(row);
+  if (m.tone === "none") return <span className="text-gray-300">—</span>;
+  return (
+    <div className="flex min-w-[180px] max-w-[260px] flex-col items-start gap-1 whitespace-normal">
+      <span title={m.detail} className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${SPIN_TONES[m.tone]}`}>
+        {m.label}
+      </span>
+      {m.detail && <span className="text-[11px] leading-tight text-gray-600">{m.detail}</span>}
+      {m.leads.length > 0 && m.tone === "match" && (
+        <ul className="text-[11px] leading-tight text-gray-500">
+          {m.leads.map((l) => (
+            <li key={l.key}>
+              {[l.name || l.key, l.vendors.length ? l.vendors.join(", ") : "Unassigned"].join(" · ")}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function SpinChips({ chips }) {
+  if (!chips.length) return null;
+  return (
+    <div className="flex flex-wrap gap-2" aria-label="Spin">
+      {chips.map(([label, n]) => (
+        <span key={label} className="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-800 ring-1 ring-sky-100">
+          {label}: <span className="font-semibold tabular-nums">{n}</span>
+        </span>
+      ))}
     </div>
   );
 }
@@ -102,7 +147,9 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
   } else if (field.type === "assigned") {
     // Unassigned, each active vendor, Automatic ("<vendor> · auto" in the file shows as Automatic)
     const choice = assignedChoice(value);
-    const known = choice === "Unassigned" || choice === AUTOMATIC || vendors.some((v) => v.name === choice);
+    // Active vendors only: an inactive vendor in the file shows as unknown (the API's row error)
+    const active = assignableVendors(vendors);
+    const known = choice === "Unassigned" || choice === AUTOMATIC || active.some((v) => v.name === choice);
     input = (
       <select
         value={choice}
@@ -113,7 +160,7 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
       >
         <option value="Unassigned">Unassigned</option>
         {!known && <option value={choice}>{choice} (unknown)</option>}
-        {vendors.map((v) => (
+        {active.map((v) => (
           <option key={v.id} value={v.name}>
             {v.name}
           </option>
@@ -146,6 +193,19 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
         {v && v !== "Yes" && v !== "No" && <option value={v}>{v}</option>}
       </select>
     );
+  } else if (wrapsInPreview(field)) {
+    // Long text (e.g. Other wedding services): a small box that wraps
+    input = (
+      <textarea
+        rows={2}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        aria-label={field.label}
+        aria-invalid={invalid}
+        className={`${cls} min-w-[200px] resize-y`}
+      />
+    );
   } else {
     input = (
       <input
@@ -154,6 +214,7 @@ function CellInput({ field, value, onChange, onBlur, errors, branches, vendors }
         onBlur={onBlur}
         aria-label={field.label}
         aria-invalid={invalid}
+        inputMode={field.type === "int" ? "numeric" : undefined}
         className={cls}
       />
     );
@@ -181,7 +242,45 @@ function cellText(field, value, branches) {
   return String(value);
 }
 
+// KOC → Dhruva: the fields filled from the workflow and Received (fill), or why not (fill_skipped)
+export function FillCell({ row, fields = [], branches = [] }) {
+  const f = fillInfo(row, fields);
+  if (!f) return <span className="text-gray-300">—</span>;
+  if (f.kind === "skipped") {
+    return (
+      <div className="flex min-w-[160px] max-w-[240px] flex-col items-start gap-1 whitespace-normal">
+        <span className="inline-flex whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">
+          Not filled
+        </span>
+        <span className="text-[11px] leading-tight text-gray-600">{f.text}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="flex min-w-[180px] max-w-[260px] flex-col items-start gap-1 whitespace-normal">
+      <span
+        title={f.workflowId != null ? `Workflow lead ${f.workflowId}` : undefined}
+        className="inline-flex whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200"
+      >
+        {f.items.length ? `Filled from workflow (${f.items.length})` : "From workflow"}
+      </span>
+      {f.items.length > 0 && (
+        <ul className="text-[11px] leading-tight text-gray-600">
+          {f.items.map((i) => (
+            <li key={i.key}>
+              <span className="text-gray-500">{i.label}:</span> {i.field.type === "date" ? formatDay(i.value) : (cellText(i.field, i.value, branches) ?? String(i.value))}
+            </li>
+          ))}
+        </ul>
+      )}
+      {f.received && <span className="text-[11px] leading-tight text-gray-500">{`Received: ${f.received}`}</span>}
+    </div>
+  );
+}
+
 export default function BulkUploadDialog({ source, onClose, onImported }) {
+  const api = useMemo(() => uploadApi(source), [source]);
+  const isKd = source === KOC_TO_DHRUVA_SOURCE;
   const [meta, setMeta] = useState(null);
   const [step, setStep] = useState("choose"); // choose | preview | result
   const [error, setError] = useState("");
@@ -196,6 +295,7 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
 
   // Step 2: preview
   const [preview, setPreview] = useState(null); // { columns, ignored_columns }
+  const [checkCounts, setCheckCounts] = useState(null); // the last check's counts (KOC → Dhruva: spin_…)
   const [rows, setRows] = useState([]); // preview rows + { rev, dirty }
   const [onlyProblems, setOnlyProblems] = useState(false);
   const [shown, setShown] = useState(PAGE);
@@ -211,23 +311,30 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
   const vendors = useVendors(); // active vendors, for "Assigned to"
   useEffect(() => {
     let cancelled = false;
-    getCrmLeadTemplateHeaders(source)
+    api
+      .templateHeaders()
       .then((h) => !cancelled && setTemplateHeaders(h))
       .catch(() => {}); // without it, the preview shows the file's columns
     return () => {
       cancelled = true;
     };
-  }, [source]);
+  }, [api]);
 
   useEffect(() => {
     let cancelled = false;
-    getCrmLeadFields(source)
+    api
+      .fields()
       .then((m) => !cancelled && setMeta(m))
       .catch((err) => !cancelled && setError(errorText(err)));
     return () => {
       cancelled = true;
     };
-  }, [source]);
+  }, [api]);
+
+  // Every field a row can have: the source's fields (+ Update and amounts); KOC → Dhruva: the
+  // columns its preview names, typed like Spin's fields
+  const fieldsFor = (list) =>
+    !meta ? [] : isKd ? kocToDhruvaFields(meta.fields, preview?.columns, list) : uploadFields(meta.fields);
 
   const branches = meta?.branches ?? [];
   const isXlsx = file && /\.xlsx$/i.test(file.name);
@@ -236,7 +343,7 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
     setBusy("template");
     setError("");
     try {
-      await downloadCrmLeadTemplate(source, format);
+      await api.template(format);
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -275,13 +382,14 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
     setBusy("preview");
     setError("");
     try {
-      const res = await previewCrmLeadImport(source, file, isXlsx ? sheet.trim() : undefined);
+      const res = await api.preview(file, isXlsx ? sheet.trim() : undefined);
       setPreview({
         columns: res.columns,
         ignored: res.ignored_columns ?? [],
         readOnly: res.read_only_columns ?? [],
       });
       startRows(res.rows);
+      setCheckCounts(res.counts ?? null);
       setOnlyProblems(false);
       setStep("preview");
     } catch (err) {
@@ -294,13 +402,14 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
   // Columns: the list screen's (from the template), plus other fields in the file or with an error
   const columns = useMemo(() => {
     if (!meta || !preview) return [];
-    const fields = uploadFields(meta.fields); // + Update, Quoted amount, Conversion amount
+    const fields = fieldsFor(rows);
     return previewColumns(fields, {
       screenKeys: templateHeaders ? screenFieldKeys(fields, templateHeaders) : null,
       fileKeys: Object.values(preview.columns),
       errorKeys: rows.flatMap((r) => (r.errors ?? []).map((e) => e.field)),
     });
-  }, [meta, preview, rows, templateHeaders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta, preview, rows, templateHeaders, isKd]);
 
   const counts = useMemo(() => summarize(rows), [rows]);
   const anyDirty = rows.some((r) => r.dirty);
@@ -313,9 +422,10 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
     setBusy("recheck");
     setError("");
     try {
-      const csv = rowsToCsv(uploadFields(meta.fields), current, branches);
-      const res = await previewCrmLeadImport(source, new File([csv], "recheck.csv", { type: "text/csv" }));
+      const csv = rowsToCsv(fieldsFor(current), current, branches, { headers: isKd ? "label" : "key" });
+      const res = await api.preview(new File([csv], "recheck.csv", { type: "text/csv" }));
       if (id !== checkId.current) return null; // a newer check was started
+      setCheckCounts(res.counts ?? null);
       const checked = mapRecheck(current, res.rows);
       const byRow = new Map(checked.map((r) => [r.row, r]));
       const next = rowsRef.current.map((r) => {
@@ -378,10 +488,7 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
     setBusy("import");
     setError("");
     try {
-      const res = await importCrmLeads(
-        source,
-        ok.map((r) => ({ row: r.row, values: r.values })),
-      );
+      const res = await api.importRows(ok.map((r) => ({ row: r.row, values: r.values })));
       const notSent = current.filter((r) => r.status !== "ok");
       setResult({ ...res, notSent });
       setStep("result");
@@ -400,6 +507,7 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
     setSheetText(false);
     setSheet("");
     setPreview(null);
+    setCheckCounts(null);
     setRows([]);
     setResult(null);
     setError("");
@@ -458,7 +566,7 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
   }
 
   return (
-    <Drawer kicker={SOURCE_NAMES[source]} title="Bulk upload" onClose={onClose} wide={step !== "choose"} footer={footer}>
+    <Drawer kicker={SOURCE_NAMES[source] ?? (isKd ? "KOC → Dhruva" : source)} title="Bulk upload" onClose={onClose} wide={step !== "choose"} footer={footer}>
       <div className="space-y-5">
         {error && <Alert>{error}</Alert>}
 
@@ -469,6 +577,7 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
               <p className="mt-1 text-xs text-gray-500">
                 Fill in one lead per row. Phone is required. Delete the example row before uploading.
               </p>
+              {isKd && <p className="mt-1 text-xs text-gray-500">{KOC_TO_DHRUVA_UPLOAD_HINT}</p>}
               <div className="mt-3 flex flex-wrap gap-2">
                 {[
                   ["xlsx", "Excel template"],
@@ -550,6 +659,8 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
               ))}
             </div>
 
+            {isKd && <SpinChips chips={spinCountChips(checkCounts)} />}
+
             {preview.readOnly.length > 0 && (
               <p className="text-xs text-gray-500">
                 Read-only columns, ignored on upload: {preview.readOnly.join(", ")}
@@ -557,6 +668,9 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
             )}
             {preview.ignored.length > 0 && (
               <p className="text-xs text-gray-500">Columns not used: {preview.ignored.join(", ")}</p>
+            )}
+            {source === "spin" && columns.some((f) => f.type === "assigned") && (
+              <p className="text-xs text-gray-500">{SPIN_ASSIGNED_HINT}</p>
             )}
 
             <div className="flex flex-wrap items-center gap-3">
@@ -582,6 +696,8 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
                   <tr>
                     <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Row</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Status</th>
+                    {isKd && <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">Spin</th>}
+                    {isKd && <th className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">From workflow</th>}
                     {columns.map((f) => (
                       <th key={f.key} className="whitespace-nowrap px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                         {f.label}
@@ -597,8 +713,18 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
                       <td className="px-3 py-2">
                         <RowBadges row={r} />
                       </td>
+                      {isKd && (
+                        <td className="px-3 py-2">
+                          <SpinMatchCell row={r} />
+                        </td>
+                      )}
+                      {isKd && (
+                        <td className="px-3 py-2">
+                          <FillCell row={r} fields={columns} branches={branches} />
+                        </td>
+                      )}
                       {columns.map((f) => (
-                        <td key={f.key} className="whitespace-nowrap px-3 py-2">
+                        <td key={f.key} className={`px-3 py-2 ${wrapsInPreview(f) ? "min-w-[12rem] max-w-[18rem] whitespace-normal break-words" : "whitespace-nowrap"}`}>
                           {r.fixable ? (
                             <CellInput
                               field={f}
@@ -631,7 +757,7 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
                   ))}
                   {!visible.length && (
                     <tr>
-                      <td colSpan={columns.length + 3} className="px-3 py-6 text-center text-gray-500">
+                      <td colSpan={columns.length + (isKd ? 5 : 3)} className="px-3 py-6 text-center text-gray-500">
                         No rows to show.
                       </td>
                     </tr>
@@ -659,6 +785,39 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
                 </p>
               )}
             </Alert>
+            {isKd && <SpinChips chips={spinCountChips(result.counts)} />}
+            {isKd && result.rows.some((r) => r.status === "imported") && (
+              <div className="overflow-x-auto rounded-2xl bg-white ring-1 ring-gray-100">
+                <table className="w-full text-sm" aria-label="Imported rows">
+                  <thead className="border-b border-gray-100 bg-gray-50/80">
+                    <tr>
+                      {["Row", "Phone", "Spin", "From workflow"].map((h) => (
+                        <th key={h} className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.rows
+                      .filter((r) => r.status === "imported")
+                      .sort((a, b) => a.row - b.row)
+                      .map((r) => (
+                        <tr key={r.row} className="border-b border-gray-50 align-top">
+                          <td className="px-3 py-2 text-gray-500">{r.row}</td>
+                          <td className="px-3 py-2">{r.values?.phone ?? "—"}</td>
+                          <td className="px-3 py-2">
+                            <SpinMatchCell row={r} />
+                          </td>
+                          <td className="px-3 py-2">
+                            <FillCell row={r} fields={columns} branches={branches} />
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             {[...result.rows.filter((r) => r.status !== "imported"), ...result.notSent].length > 0 && (
               <div className="overflow-x-auto rounded-2xl bg-white ring-1 ring-gray-100">
                 <table className="w-full text-sm">
@@ -681,6 +840,8 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
                           <td className="px-3 py-2 text-gray-700">
                             {r.status === "error"
                               ? `Needs fixing: ${(r.errors ?? []).map((e) => e.message).join("; ")}`
+                              : r.message
+                                ? r.message // the API's own text, as returned
                               : `${duplicateLabel(r.duplicate)}${r.duplicate?.reason !== "in_file" ? ` · ${duplicateWhere(r.duplicate)}` : ""}`}
                           </td>
                         </tr>
@@ -693,9 +854,7 @@ export default function BulkUploadDialog({ source, onClose, onImported }) {
         )}
 
         {!meta && !error && (
-          <div className="flex justify-center py-6">
-            <Spinner />
-          </div>
+          <FormSkeleton fields={3} />
         )}
       </div>
     </Drawer>

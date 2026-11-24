@@ -1,13 +1,17 @@
 import DateInput from "../shared/DateInput.jsx";
+import ContactActions from "../shared/ContactActions.jsx";
 import { useEffect, useState } from "react";
-import { MessageCircle, Phone, X } from "lucide-react";
+import { X } from "lucide-react";
 import { updateKocLead } from "../../api/vendorToKoc.js";
 import { downloadLeadPdf } from "../leads/leadPdf.js";
 import LeadPdfButton from "../leads/LeadPdfButton.jsx";
 import LeadBackButton from "../layout/LeadBackButton.jsx";
 import HotLeadStar from "../leads/HotLeadStar.jsx";
 import LeadActivity from "../leads/LeadActivity.jsx";
+import AlsoInBadges from "../leads/AlsoInBadges.jsx";
+import { alsoInLine, alsoInPlaces } from "../leads/alsoIn.js";
 import { useAuth } from "../../auth/useAuth.js";
+import { flowLabels } from "../layout/leadFlow.js";
 import {
   dateTimeText,
   dayText,
@@ -54,7 +58,8 @@ const amountOf = (text) => {
 
 // isAdmin: the admin view (admins and view-only logins); only logins that can edit get the form
 export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, isHot, hotPending, onToggleHot, showHot = false }) {
-  const { canEdit } = useAuth();
+  const { canEdit, user } = useAuth();
+  const flowName = flowLabels(user?.role === "vendor" ? user.vendor : null).vendors; // "Kraftyz → KOC" for a vendor
   const editable = isAdmin && canEdit;
   const [shown, setShown] = useState(false);
   const [form, setForm] = useState(() => formOf(lead));
@@ -99,7 +104,6 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
   const title = lead.name || phoneText(lead.phone);
   // Header / PDF subtitle: vendor and city for admins; just the city for vendor logins
   const subtitle = [isAdmin ? lead.vendor_name : null, lead.city].filter(Boolean).join(" · ");
-  const digits = lead.phone ? `91${lead.phone}` : null;
   const details = [
     // Vendor: admins only (vendor logins never see it, in the panel or the PDF)
     ...(isAdmin ? [["Vendor", lead.vendor_name]] : []),
@@ -163,13 +167,14 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
       await downloadLeadPdf({
         title,
         subtitle,
-        source: "Vendors → KOC lead",
+        source: `${flowName} lead`,
         fileName: `vendor-lead-${String(title || "lead")
           .replace(/[^\w]+/g, "-")
           .toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`,
         sections: [
           { title: "Lead details", rows: details },
           { title: "KOC follow-up", rows: followRows },
+          { title: "Also in", rows: alsoInPlaces(lead.also_in).map((p) => [p.label, alsoInLine(p).slice(p.label.length + 2)]) },
         ],
       });
     } catch (err) {
@@ -179,7 +184,6 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
     }
   }
 
-  const btn = "flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition";
   // Admins edit Update / comments / follow-up / amounts in the form above, so only "Last updated" is listed
   // for them; vendor and view-only logins see every follow-up field read-only
   const sections = [
@@ -202,7 +206,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
           shown ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-6 pb-5 pt-5 text-white">
+        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 pb-5 pt-5 text-white sm:px-6">
           <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
           <div className="relative flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -210,7 +214,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
                 {initials(lead.name || (isAdmin ? lead.vendor_name : lead.city))}
               </span>
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">Vendors → KOC lead</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">{flowName} lead</p>
                 <h2 className="truncate text-xl font-semibold">{title}</h2>
                 <p className="truncate text-sm text-white/80">{subtitle}</p>
               </div>
@@ -219,7 +223,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
               {(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}
               <LeadBackButton inverted />
               <LeadPdfButton onClick={download} loading={downloading} />
-              <button type="button" onClick={close} aria-label="Close" className="rounded-full p-2 text-white/80 hover:bg-white/10 hover:text-white">
+              <button type="button" onClick={close} aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white">
                 <X size={18} />
               </button>
             </div>
@@ -234,32 +238,16 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
           )}
         </header>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-          <div className="flex gap-2">
-            {digits ? (
-              <a href={`tel:+${digits}`} className={`${btn} bg-sky-50 text-sky-700 ring-1 ring-sky-100 hover:bg-sky-100`}>
-                <Phone size={16} /> Call
-              </a>
-            ) : (
-              <span className={`${btn} cursor-not-allowed bg-gray-50 text-gray-300`}>
-                <Phone size={16} /> Call
-              </span>
-            )}
-            {digits ? (
-              <a
-                href={`https://wa.me/${digits}`}
-                target="_blank"
-                rel="noreferrer"
-                className={`${btn} bg-emerald-500 text-white shadow-md shadow-emerald-500/25 hover:bg-emerald-600`}
-              >
-                <MessageCircle size={16} /> WhatsApp
-              </a>
-            ) : (
-              <span className={`${btn} cursor-not-allowed bg-gray-50 text-gray-300`}>
-                <MessageCircle size={16} /> WhatsApp
-              </span>
-            )}
-          </div>
+        <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+          <ContactActions variant="panel" phone={lead.phone} email={lead.email} name={lead.name} />
+
+          {/* Other places with the same phone (the API's also_in) */}
+          {alsoInPlaces(lead.also_in).length > 0 && (
+            <section className="rounded-3xl bg-white/80 p-5 ring-1 ring-gray-100">
+              <h3 className="mb-2 text-sm font-semibold text-gray-900">Also in</h3>
+              <AlsoInBadges alsoIn={lead.also_in} variant="panel" />
+            </section>
+          )}
 
           {/* KOC follow-up: admins only (view-only logins read it in the list below) */}
           {editable && (

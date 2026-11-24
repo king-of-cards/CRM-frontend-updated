@@ -1,4 +1,5 @@
 import DateInput from "../shared/DateInput.jsx";
+import ContactActions from "../shared/ContactActions.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { ChevronDown, Download, FileUp, Handshake, Loader2, Plus } from "lucide-react";
@@ -19,13 +20,16 @@ import { fieldCls } from "../crmLeads/Drawer.jsx";
 import KocAddLeadDialog from "./KocAddLeadDialog.jsx";
 import KocBulkUploadDialog from "./KocBulkUploadDialog.jsx";
 import KocLeadPanel from "./KocLeadPanel.jsx";
+import { flowLabels } from "../layout/leadFlow.js";
 import { listUsers } from "../../api/users.js";
 import { AmountCell } from "../leads/InlineCrm.jsx";
 import { kpiCards } from "../leads/kpiCards.js";
-import { dateTimeText, dayText, kocErrors, PENDING, phoneText, statusLabel, STATUSES } from "./kocUtils.js";
+import { dateTimeText, dayText, kocErrors, PENDING, statusLabel, STATUSES } from "./kocUtils.js";
 import { setKocLeadHot } from "../../api/hotLeads.js";
 import HotLeadStar from "../leads/HotLeadStar.jsx";
+import AlsoInBadges from "../leads/AlsoInBadges.jsx";
 import { toggleHotOptimistically } from "../leads/hotLeadToggle.js";
+import { SkeletonRows } from "../shared/Skeleton.jsx";
 
 // Vendors → KOC leads (docs/API_REFERENCE.md section 11). Admins see every vendor's leads and
 // edit Update, Additional comments and Follow-up date in the table; vendor logins see only
@@ -299,7 +303,9 @@ export default function VendorToKocLeads() {
 
   // "Added by" as a name, never an id. Vendor logins can't list logins: "You" for their own,
   // else "Another team member" (no vendor name).
+  // The API's created_by_name comes first (every role sees it; "Deleted user" for a removed login).
   const people = (id, lead) => {
+    if (lead?.created_by_name) return lead.created_by_name;
     if (id == null) return null;
     if (seesAll) return userNames[id] ?? "—";
     return id === me?.id ? "You" : "Another team member";
@@ -327,7 +333,7 @@ export default function VendorToKocLeads() {
     <SectionShell
       theme="whatsapp"
       icon={Handshake}
-      title="Vendors → KOC"
+      title={flowLabels(me?.role === "vendor" ? me.vendor : null).vendors}
       subtitle={seesAll ? "Leads vendors send to KOC" : "Leads you send to KOC"}
       action={
         <div className="flex items-center gap-2">
@@ -379,6 +385,7 @@ export default function VendorToKocLeads() {
           onPage={setPage}
           onPageSize={setPageSize}
           disabled={loading}
+          onPrefetch={(n) => listKocLeads(listParams(n)).catch(() => {})}
         />
       }
     >
@@ -402,13 +409,7 @@ export default function VendorToKocLeads() {
             </tr>
           </thead>
           <tbody>
-            {loading && !data && (
-              <tr>
-                <td colSpan={colCount} className="px-6 py-10 text-center text-sm text-gray-400">
-                  Loading…
-                </td>
-              </tr>
-            )}
+            {loading && !data && <SkeletonRows cols={colCount} label="Loading leads" />}
             {items.map((l) => (
               <tr
                 key={l.id}
@@ -419,8 +420,8 @@ export default function VendorToKocLeads() {
                 <td className="px-4 py-3 tabular-nums text-gray-500">{l.sl_no ?? "—"}</td>
                 {seesAll && <td className="whitespace-nowrap px-4 py-3 text-gray-800">{l.vendor_name ?? "—"}</td>}
                 <td className="whitespace-nowrap px-4 py-3 text-gray-800">{dayText(l.lead_date)}</td>
-                <td className="px-4 py-3 font-medium text-gray-900">{l.name || "—"}</td>
-                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-gray-800">{phoneText(l.phone)}</td>
+                <td className="px-4 py-3 font-medium text-gray-900">{l.name || "—"}<AlsoInBadges alsoIn={l.also_in} /></td>
+                <td className="whitespace-nowrap px-4 py-3"><ContactActions phone={l.phone} email={l.email} name={l.name} /></td>
                 <td className="px-4 py-3 text-gray-700">{l.city || "—"}</td>
                 {isAdmin && canEdit ? (
                   <>

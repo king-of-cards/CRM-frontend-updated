@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, CheckCheck, Loader2, RefreshCw } from "lucide-react";
+import { Bell, CheckCheck, Loader2, RefreshCw, X } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useLocation } from "react-router";
 import {
@@ -16,8 +16,10 @@ import {
   unreadBadge,
 } from "./notificationUtils.js";
 import { getFollowUpReminders } from "../../api/reminders.js";
-import { reminderDashboardDestination, reminderRequestFor } from "../dashboard/reminderUtils.js";
-import { flowOf } from "./leadFlow.js";
+import { reminderDashboardDestination, reminderRequestEmpty, reminderRequestForUser, reminderScopeFor } from "../dashboard/reminderUtils.js";
+import { useAuth } from "../../auth/useAuth.js";
+import { dhruvaDirectionOf, flowOf } from "./leadFlow.js";
+import { ListSkeleton } from "../shared/Skeleton.jsx";
 
 const PAGE_SIZE = 10;
 
@@ -34,10 +36,13 @@ export default function NotificationBell({ variant = "default" }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
-  // Follow-ups follow the current Lead flow (?flow): KOC → Vendors, Vendors → KOC or Dhruva.
-  // Counts are kept with their flow, so another flow's counts show as "—", never as this one's.
-  const flow = flowOf(location.pathname, location.search);
-  const followUpRequest = reminderRequestFor(flow);
+  // Follow-ups follow the current Lead flow (?flow): KOC → Vendors, Vendors → KOC, or in the
+  // Dhruva flow its direction (Dhruva → KOC or KOC → Dhruva, ?direction / the open list).
+  // Counts are kept with their scope, so another scope's counts show as "—", never as this one's.
+  const flow = reminderScopeFor(flowOf(location.pathname, location.search), dhruvaDirectionOf(location.pathname, location.search));
+  const { user } = useAuth();
+  const followUpRequest = reminderRequestForUser(flow, user); // vendor logins: only their sources
+  const followUpEmpty = reminderRequestEmpty(followUpRequest);
   const followUpDhruva = followUpRequest.dhruva;
   const followUpSources = followUpRequest.sources.join(",");
   const [followUps, setFollowUps] = useState({ flow: null, counts: null, error: false });
@@ -78,6 +83,10 @@ export default function NotificationBell({ variant = "default" }) {
   const refreshFollowUps = useCallback(async () => {
     if (document.visibilityState !== "visible") return;
     const key = flow;
+    if (followUpEmpty) {
+      setFollowUps({ flow: key, counts: {}, error: false });
+      return;
+    }
     try {
       const result = await getFollowUpReminders({
         days: 7,
@@ -90,7 +99,7 @@ export default function NotificationBell({ variant = "default" }) {
       if (followUpKey.current !== key) return;
       setFollowUps({ flow: key, counts: null, error: true });
     }
-  }, [flow, followUpDhruva, followUpSources]);
+  }, [flow, followUpDhruva, followUpSources, followUpEmpty]);
 
   useEffect(() => {
     let timer = null;
@@ -174,7 +183,7 @@ export default function NotificationBell({ variant = "default" }) {
   const badge = unreadBadge(count);
   const gold = variant === "gold";
   return (
-    <div ref={root} className={`relative ${gold ? "rounded-full bg-linear-to-r from-amber-200 via-amber-300 to-orange-400 p-1.5 shadow-lg shadow-orange-500/20 ring-1 ring-white/40" : ""}`}>
+    <div ref={root} className={`relative ${gold ? "rounded-full bg-linear-to-r from-amber-200 via-amber-300 to-orange-400 p-0.5 shadow-lg sm:p-1.5 shadow-orange-500/20 ring-1 ring-white/40" : ""}`}>
       <button
         type="button"
         aria-label={badge ? `Notifications, ${badge} unread` : "Notifications"}
@@ -182,14 +191,14 @@ export default function NotificationBell({ variant = "default" }) {
         aria-expanded={open}
         title="Notifications"
         onClick={toggleOpen}
-        className={`relative flex h-9 w-9 items-center justify-center rounded-full transition focus-visible:outline-2 ${gold ? "text-amber-950 hover:bg-amber-950/10 focus-visible:outline-amber-950" : "text-white/90 hover:bg-white/15 hover:text-white focus-visible:outline-white"}`}
+        className={`relative flex h-11 w-11 items-center justify-center rounded-full transition sm:h-9 sm:w-9 focus-visible:outline-2 ${gold ? "text-amber-950 hover:bg-amber-950/10 focus-visible:outline-amber-950" : "text-white/90 hover:bg-white/15 hover:text-white focus-visible:outline-white"}`}
       >
         <Bell size={18} aria-hidden="true" />
         {badge && <span className={`absolute -right-1 -top-1 min-w-4 rounded-full bg-rose-500 px-1 text-center text-[10px] font-bold leading-4 text-white ring-2 ${gold ? "ring-amber-300" : "ring-brand-700"}`}>{badge}</span>}
       </button>
 
       {open && (
-        <div role="dialog" aria-label="Notifications" className="absolute right-0 top-full z-50 mt-3 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl bg-white text-left text-gray-900 shadow-2xl ring-1 ring-gray-200">
+        <div role="dialog" aria-label="Notifications" className="fixed inset-0 z-50 overflow-y-auto bg-white sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-3 sm:w-[min(24rem,calc(100vw-2rem))] sm:overflow-hidden sm:rounded-2xl text-left text-gray-900 shadow-2xl ring-1 ring-gray-200">
           <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
             <h2 className="text-sm font-semibold">Notifications</h2>
             <div className="flex items-center gap-2">
@@ -197,6 +206,9 @@ export default function NotificationBell({ variant = "default" }) {
               <button type="button" onClick={markAllRead} disabled={markingAll || !items.some((item) => !item.read)} className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline disabled:text-gray-400 disabled:no-underline">
                 {markingAll ? <Loader2 size={13} className="animate-spin" /> : <CheckCheck size={13} />}
                 Mark all as read
+              </button>
+              <button type="button" onClick={toggleOpen} aria-label="Close notifications" className="-mr-2 flex h-11 w-11 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 sm:hidden">
+                <X size={18} />
               </button>
             </div>
           </div>
@@ -215,7 +227,7 @@ export default function NotificationBell({ variant = "default" }) {
           </div>
 
           <div className="max-h-[min(70vh,32rem)] overflow-y-auto">
-            {loading && items.length === 0 && <div className="flex justify-center p-8"><Loader2 size={20} className="animate-spin text-brand-600" /></div>}
+            {loading && items.length === 0 && <ListSkeleton rows={5} label="Loading notifications" />}
             {!loading && error && <div className="px-4 py-6 text-center text-sm text-gray-600"><p>Could not load notifications.</p><button type="button" onClick={() => loadPage(1)} className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline"><RefreshCw size={12} />Retry</button></div>}
             {!loading && !error && items.length === 0 && <p className="px-4 py-10 text-center text-sm text-gray-500">No notifications yet</p>}
             {items.map((item) => (

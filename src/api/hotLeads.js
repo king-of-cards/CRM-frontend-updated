@@ -13,6 +13,13 @@ export function setKocLeadHot(id, isHot) {
   });
 }
 
+// KOC → Dhruva (docs section 18): admins and Dhruva logins
+export function setKocToDhruvaLeadHot(leadKey, isHot) {
+  return apiRequest(`/koc-to-dhruva/leads/${encodeURIComponent(leadKey)}/hot`, {
+    method: isHot ? "POST" : "DELETE",
+  });
+}
+
 // Dhruva leads (docs section 13): admins and Dhruva logins
 export function setDhruvaLeadHot(id, isHot) {
   return apiRequest(`/dhruva/leads/${encodeURIComponent(id)}/hot`, {

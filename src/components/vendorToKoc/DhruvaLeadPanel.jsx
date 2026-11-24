@@ -1,4 +1,3 @@
-import DateInput from "../shared/DateInput.jsx";
 import { useEffect, useState } from "react";
 import { Archive, RotateCcw } from "lucide-react";
 import {
@@ -9,39 +8,27 @@ import {
 import { downloadLeadPdf } from "../leads/leadPdf.js";
 import LeadPdfButton from "../leads/LeadPdfButton.jsx";
 import HotLeadStar from "../leads/HotLeadStar.jsx";
-import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
-import { dateTimeText, dayText, dhruvaErrors, dhruvaFieldAccess, phoneText, rupeesText, statusLabel, STATUSES, PENDING } from "../../pages/dhruvaUtils.js";
+import Drawer, { Alert, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
+import {
+  dateTimeText, dhruvaChanges, dhruvaErrors, dhruvaFieldAccess, dhruvaFormErrors, dhruvaFormOf, KOC_FIELDS, LEAD_FIELDS, phoneEntriesOf, phonesOf, phoneText,
+} from "../../pages/dhruvaUtils.js";
 import LeadActivity from "../leads/LeadActivity.jsx";
+import AlsoInBadges from "../leads/AlsoInBadges.jsx";
+import { alsoInLine, alsoInPlaces } from "../leads/alsoIn.js";
 import { useAuth } from "../../auth/useAuth.js";
 import { ViewOnlyBadge } from "../shared/ViewOnly.jsx";
+import { duplicateMessage } from "../shared/duplicates.js";
+import { DhruvaFieldInput, DhruvaFieldList, dhruvaValueText } from "./DhruvaFields.jsx";
+import { PhoneList } from "./PhoneNumbers.jsx";
 
-const basicFields = [
-  ["name", "Name", "text"],
-  ["venue", "Venue", "text"],
-  ["date", "Event date", "text"],
-  ["phone", "Phone", "tel"],
-  ["alt_phone", "Alt phone", "tel"],
-  ["event_type", "Event type", "text"],
-];
-const fieldsOf = (lead) => ({
-  name: lead?.name ?? "",
-  venue: lead?.venue ?? "",
-  date: lead?.event_date_text ?? lead?.event_date ?? "",
-  phone: lead?.phone ?? "",
-  alt_phone: lead?.alt_phone ?? "",
-  event_type: lead?.event_type ?? "",
-  update_status: lead?.update_status ?? PENDING,
-  additional_comments: lead?.additional_comments ?? "",
-  follow_up_date: lead?.follow_up_date ?? "",
-  quoted_amount: lead?.quoted_amount == null ? "" : String(lead.quoted_amount),
-  conversion_amount: lead?.conversion_amount == null ? "" : String(lead.conversion_amount),
-});
-const amountValue = (v) => (String(v).trim() ? Number(String(v).replace(/,/g, "")) : null);
-
+// Dhruva → KOC lead (docs section 13). Lead fields (name … venue): admins and Dhruva logins edit.
+// KOC fields (WhatsApp status … follow-up date): admins edit; read-only for everyone else.
+// Sent at is set by the CRM: shown, never sent. The activity (who, when, field, old → new) below.
 // isAdmin: a real admin. View-only logins (useAuth().canEdit false) read every field as text.
-export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArchived, isHot = false, hotPending = false, onToggleHot = null, showHot = false }) {
+// whatsappStatuses: suggestions for WhatsApp status (filter-options whatsapp_statuses).
+export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArchived, isHot = false, hotPending = false, onToggleHot = null, showHot = false, whatsappStatuses = [] }) {
   const { canEdit } = useAuth();
-  const [form, setForm] = useState(() => fieldsOf(lead));
+  const [form, setForm] = useState(() => dhruvaFormOf(lead));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
@@ -52,7 +39,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
   const [activityRefreshKey, setActivityRefreshKey] = useState(0);
 
   useEffect(() => {
-    setForm(fieldsOf(lead));
+    setForm(dhruvaFormOf(lead));
     setError("");
     setFieldErrors({});
     setDuplicate(null);
@@ -62,38 +49,25 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
   if (!lead) return null;
   const access = dhruvaFieldAccess(!canEdit ? "viewer" : isAdmin ? "admin" : "dhruva");
   const canSave = access.editBasic || access.editAdmin;
-  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
-  const basicPayload = () => Object.fromEntries(basicFields.map(([key]) => [key, form[key].trim() || null]));
-  const adminPayload = () => ({
-    update_status: form.update_status === PENDING ? null : form.update_status,
-    additional_comments: form.additional_comments.trim() || null,
-    follow_up_date: form.follow_up_date || null,
-    quoted_amount: amountValue(form.quoted_amount),
-    conversion_amount: amountValue(form.conversion_amount),
-  });
+  const set = (key, value) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    setFieldErrors((old) => ({ ...old, [key]: undefined }));
+    setSaved(false);
+  };
 
   async function save(e, allowDuplicate = false) {
     e?.preventDefault();
+    const local = dhruvaFormErrors(form, { koc: access.editAdmin });
+    if (Object.keys(local).length) {
+      setFieldErrors(local);
+      setError("Fix the highlighted fields.");
+      return;
+    }
     setBusy(true);
     setError("");
     setFieldErrors({});
     try {
-      const basic = basicPayload();
-      const original = {
-        name: lead.name ?? null, venue: lead.venue ?? null,
-        date: lead.event_date_text ?? lead.event_date ?? null,
-        phone: lead.phone ?? null, alt_phone: lead.alt_phone ?? null, event_type: lead.event_type ?? null,
-      };
-      const changes = Object.fromEntries(Object.entries(basic).filter(([key, value]) => value !== original[key]));
-      if (isAdmin) {
-        const admin = adminPayload();
-        const adminOriginal = {
-          update_status: lead.update_status ?? null, additional_comments: lead.additional_comments ?? null,
-          follow_up_date: lead.follow_up_date ?? null, quoted_amount: lead.quoted_amount ?? null,
-          conversion_amount: lead.conversion_amount ?? null,
-        };
-        for (const [key, value] of Object.entries(admin)) if (value !== adminOriginal[key]) changes[key] = value;
-      }
+      const changes = dhruvaChanges(lead, form, { koc: access.editAdmin });
       if (!Object.keys(changes).length) { setSaved(true); return; }
       if (allowDuplicate) changes.allow_duplicate = true;
       const savedLead = await updateDhruvaLead(lead.id, changes);
@@ -106,7 +80,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
       setFieldErrors(parsed.fields);
       if (err.status === 409 && parsed.duplicate && !allowDuplicate) {
         setDuplicate(parsed.duplicate);
-        setError(parsed.message || "This phone number matches another lead.");
+        setError(duplicateMessage(err.detail));
       } else {
         setError(parsed.message || Object.values(parsed.fields).join(" ") || err.message);
       }
@@ -133,7 +107,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
   async function pdf() {
     setDownloading(true);
     try {
-      const title = lead.name || phoneText(lead.phone);
+      const title = lead.name || phoneText(phonesOf(lead)[0]);
       await downloadLeadPdf({
         title,
         subtitle: [lead.venue, lead.event_type].filter(Boolean).join(" · "),
@@ -142,8 +116,9 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
           .replace(/[^\w]+/g, "-")
           .toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`,
         sections: [
-          { title: "Lead details", rows: [["Name", lead.name || "—"], ["Venue", lead.venue || "—"], ["Event date", lead.event_date_text || dayText(lead.event_date) || "—"], ["Phone", phoneText(lead.phone) || "—"], ["Alt phone", phoneText(lead.alt_phone) || "—"], ["Event type", lead.event_type || "—"], ["Received", dateTimeText(lead.created_at) || "—"]] },
-          { title: "Update", rows: [["Update", statusLabel(lead.update_status)], ["Additional comments", lead.additional_comments || "—"], ["Quoted amount", rupeesText(lead.quoted_amount)], ["Conversion amount", rupeesText(lead.conversion_amount)], ["Follow-up date", dayText(lead.follow_up_date) || "—"]] },
+          { title: "Lead details", rows: [...LEAD_FIELDS.map((f) => [f.label, dhruvaValueText(f, lead)]), ["Sent at", dateTimeText(lead.sent_at)], ["Received", dateTimeText(lead.created_at)]] },
+          { title: "KOC", rows: KOC_FIELDS.map((f) => [f.label, dhruvaValueText(f, lead)]) },
+          { title: "Also in", rows: alsoInPlaces(lead.also_in).map((p) => [p.label, alsoInLine(p).slice(p.label.length + 2)]) },
         ],
       });
     } catch (err) {
@@ -153,50 +128,51 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
     }
   }
 
+  const inputs = (fields) => (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {fields.map((f) => (
+        <DhruvaFieldInput
+          key={f.key}
+          field={f}
+          value={form[f.key]}
+          onChange={(v) => set(f.key, v)}
+          error={fieldErrors[f.key]}
+          suggestions={f.key === "whatsapp_status" ? whatsappStatuses : []}
+        />
+      ))}
+    </div>
+  );
+
   return (
-    <Drawer kicker="Dhruva leads" title={lead.name || "Lead details"} onClose={onClose} wide headerActions={<>{!canEdit && <ViewOnlyBadge inverted />}{(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}<LeadPdfButton onClick={pdf} loading={downloading} /></>}
+    <Drawer kicker="Dhruva → KOC" title={lead.name || "Lead details"} onClose={onClose} wide headerActions={<>{!canEdit && <ViewOnlyBadge inverted />}{(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}<LeadPdfButton onClick={pdf} loading={downloading} /></>}
       footer={<>
         {access.archive && <button type="button" onClick={archive} disabled={archiveBusy} className={secondaryBtn}>{lead.archived ? <RotateCcw size={15} className="mr-1 inline" /> : <Archive size={15} className="mr-1 inline" />}{lead.archived ? "Unarchive" : "Archive"}</button>}
         <button type="button" onClick={onClose} className={secondaryBtn}>Close</button>
-        {canSave && <button type="submit" form="dhruva-edit-lead" disabled={busy} className={primaryBtn}>{busy ? "Saving…" : isAdmin ? "Save changes" : "Save basic details"}</button>}
+        {canSave && <button type="submit" form="dhruva-edit-lead" disabled={busy} className={primaryBtn}>{busy ? "Saving…" : access.editAdmin ? "Save changes" : "Save lead details"}</button>}
       </>}
     >
-      <form id="dhruva-edit-lead" onSubmit={save} className="space-y-5">
+      <form id="dhruva-edit-lead" onSubmit={save} className="space-y-5" noValidate>
         {error && <Alert>{error}</Alert>}
         {saved && <Alert kind="success">Lead saved.</Alert>}
         {duplicate && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200"><span>Save this lead despite the duplicate match?</span><button type="button" disabled={busy} onClick={() => save(undefined, true)} className={primaryBtn}>Save anyway</button></div>}
-        {access.editBasic ? (
-          <section className="grid gap-4 sm:grid-cols-2">
-          {basicFields.map(([key, label, type]) => <label key={key} className="block"><span className="mb-1 block text-xs font-medium text-gray-600">{label}</span><input type={type} value={form[key]} onChange={(e) => { set(key, e.target.value); setFieldErrors((old) => ({ ...old, [key]: undefined })); }} className={`${fieldCls} ${fieldErrors[key] ? "border-red-300" : ""}`} maxLength={key === "venue" ? 300 : 200} />{fieldErrors[key] && <span className="mt-1 block text-xs text-red-600">{fieldErrors[key]}</span>}</label>)}
-          </section>
-        ) : (
-          <dl className="grid gap-4 sm:grid-cols-2" aria-label="Lead details, view only">
-            {basicFields.map(([key, label]) => <div key={key}><dt className="text-xs font-medium text-gray-500">{label}</dt><dd className="mt-1 break-words text-sm text-gray-900">{key === "phone" || key === "alt_phone" ? (form[key] ? phoneText(form[key]) : "—") : form[key] || "—"}</dd></div>)}
-          </dl>
-        )}
-        <p className="text-xs text-gray-500">Received {dateTimeText(lead.created_at)} · Added by {lead.created_by_name || "—"}</p>
-        {access.editAdmin && <section className="space-y-4 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900">Admin update</h3>
-          <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Update</span><select value={form.update_status} onChange={(e) => set("update_status", e.target.value)} className={fieldCls}><option value={PENDING}>Pending</option>{STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select></label>
-          <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Additional comments</span><textarea rows={3} value={form.additional_comments} onChange={(e) => set("additional_comments", e.target.value)} className={fieldCls} /></label>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Follow-up date</span><DateInput type="date" value={form.follow_up_date} onChange={(e) => set("follow_up_date", e.target.value)} className={fieldCls} /></label>
-            <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Quoted amount</span><input inputMode="numeric" value={form.quoted_amount} onChange={(e) => set("quoted_amount", e.target.value)} className={fieldCls} /></label>
-            <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">Conversion amount</span><input inputMode="numeric" value={form.conversion_amount} onChange={(e) => set("conversion_amount", e.target.value)} className={fieldCls} /></label>
-          </div>
-        </section>}
-        {!access.editAdmin && <section className="space-y-3 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100" aria-label="Admin updates, read only">
-          <h3 className="text-sm font-semibold text-gray-900">Update details</h3>
-          <dl className="grid gap-3 sm:grid-cols-2">
-            <div><dt className="text-xs font-medium text-gray-500">Update</dt><dd className="mt-1 text-sm text-gray-900">{statusLabel(lead.update_status)}</dd></div>
-            <div><dt className="text-xs font-medium text-gray-500">Follow-up date</dt><dd className="mt-1 text-sm text-gray-900">{dayText(lead.follow_up_date)}</dd></div>
-            <div><dt className="text-xs font-medium text-gray-500">Quoted amount</dt><dd className="mt-1 text-sm text-gray-900">{rupeesText(lead.quoted_amount)}</dd></div>
-            <div><dt className="text-xs font-medium text-gray-500">Conversion amount</dt><dd className="mt-1 text-sm text-gray-900">{rupeesText(lead.conversion_amount)}</dd></div>
-            <div className="sm:col-span-2"><dt className="text-xs font-medium text-gray-500">Additional comments</dt><dd className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{lead.additional_comments || "—"}</dd></div>
-            {(lead.status_updated_by_name || lead.status_updated_by != null) && <div><dt className="text-xs font-medium text-gray-500">Status updated by</dt><dd className="mt-1 text-sm text-gray-900">{lead.status_updated_by_name || `User #${lead.status_updated_by}`}</dd></div>}
-            {lead.status_updated_at && <div><dt className="text-xs font-medium text-gray-500">Status updated at</dt><dd className="mt-1 text-sm text-gray-900">{dateTimeText(lead.status_updated_at)}</dd></div>}
-          </dl>
-        </section>}
+        <section className="space-y-3" aria-label="Lead details">
+          <h3 className="text-sm font-semibold text-gray-900">Lead details</h3>
+          {access.editBasic && phoneEntriesOf(lead).length > 0 && <div className="rounded-xl bg-white p-3 text-sm ring-1 ring-gray-100"><span className="mb-1 block text-xs font-medium text-gray-500">Call or copy</span><PhoneList entries={phoneEntriesOf(lead)} name={lead.name} label="Saved phone numbers" /></div>}
+          {access.editBasic ? inputs(LEAD_FIELDS) : <DhruvaFieldList fields={LEAD_FIELDS} lead={lead} label="Lead details, read only" />}
+        </section>
+        {alsoInPlaces(lead.also_in).length > 0 && <section className="rounded-2xl bg-white p-4 ring-1 ring-gray-100"><h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-700">Also in</h3><AlsoInBadges alsoIn={lead.also_in} variant="panel" /></section>}
+        <p className="text-xs text-gray-500">
+          Sent at {dateTimeText(lead.sent_at)} · Received {dateTimeText(lead.created_at)} · Added by {lead.created_by_name || "—"} · {lead.source === "bulk_upload" ? "Bulk upload" : "Manual"}
+        </p>
+        <section className="space-y-3 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100" aria-label="KOC details">
+          <h3 className="text-sm font-semibold text-gray-900">KOC details{!access.editAdmin && <span className="ml-2 text-xs font-normal text-gray-500">Read only</span>}</h3>
+          {access.editAdmin ? inputs(KOC_FIELDS) : <DhruvaFieldList fields={KOC_FIELDS} lead={lead} label="KOC details, read only" />}
+          {(lead.status_updated_by_name || lead.status_updated_at) && (
+            <p className="text-xs text-gray-500">
+              Updated by {lead.status_updated_by_name || "—"}{lead.status_updated_at ? ` · ${dateTimeText(lead.status_updated_at)}` : ""}
+            </p>
+          )}
+        </section>
       </form>
       <div className="mt-5"><LeadActivity source="dhruva" leadKey={lead.id} refreshKey={activityRefreshKey} /></div>
     </Drawer>

@@ -1,6 +1,8 @@
 // The Lead flow: KOC → Vendors ("") | Vendors → KOC ("vendors") | Dhruva leads ("dhruva").
 // Pure, no React. It comes from the page URL/query string.
-// The top bar tabs follow the active flow.
+// The top bar tabs follow the active flow. The Dhruva flow has two directions:
+// Dhruva → KOC ("dhruva", /dhruva-leads) and KOC → Dhruva ("koc_to_dhruva", /koc-to-dhruva);
+// on the Dashboard the direction is kept in the URL (?flow=dhruva&direction=koc_to_dhruva).
 
 export const KOC_TABS = [
   { path: "/dashboard", label: "Dashboard" },
@@ -15,8 +17,21 @@ export const VENDOR_TABS = [
 ];
 export const DHRUVA_TABS = [
   { path: "/dashboard", label: "Dashboard" },
-  { path: "/dhruva-leads", label: "Dhruva leads" },
+  { path: "/dhruva-leads", label: "Dhruva → KOC" },
+  { path: "/koc-to-dhruva", label: "KOC → Dhruva" },
 ];
+
+// The Dhruva flow's directions, in the switch's order
+export const DHRUVA_DIRECTION = "dhruva";
+export const KOC_TO_DHRUVA = "koc_to_dhruva";
+export const DHRUVA_DIRECTIONS = [
+  { value: DHRUVA_DIRECTION, label: "Dhruva → KOC", path: "/dhruva-leads" },
+  { value: KOC_TO_DHRUVA, label: "KOC → Dhruva", path: "/koc-to-dhruva" },
+];
+
+// Pages that no longer exist -> where they went. Wedding gifts is part of Spin again (docs
+// section 17): old links and bookmarks open Spin leads.
+export const RETIRED_PATHS = { "/leads/wedding-gifts": "/leads/spin" };
 
 // Pages that show the Lead flow switch (all lead-flow pages combined, deduplicated)
 export const FLOW_PAGES = [
@@ -26,7 +41,7 @@ export const FLOW_PAGES = [
 ];
 
 export function flowOf(pathname, search = "") {
-  if (pathname === "/dhruva-leads") return "dhruva";
+  if (pathname === "/dhruva-leads" || pathname === "/koc-to-dhruva") return "dhruva";
   if (pathname === "/vendor-to-koc") return "vendors";
   if (pathname === "/dashboard") {
     const flow = new URLSearchParams(search).get("flow");
@@ -37,15 +52,57 @@ export function flowOf(pathname, search = "") {
   return "";
 }
 
-// Tabs for a flow: { path, to, label }. The Dashboard tab keeps the active flow.
-export function tabsFor(flow) {
+// The Dhruva direction of a page: the list it is, or the Dashboard's ?direction (default Dhruva → KOC)
+export function dhruvaDirectionOf(pathname, search = "") {
+  if (pathname === "/koc-to-dhruva") return KOC_TO_DHRUVA;
+  if (pathname === "/dhruva-leads") return DHRUVA_DIRECTION;
+  return new URLSearchParams(search).get("direction") === KOC_TO_DHRUVA ? KOC_TO_DHRUVA : DHRUVA_DIRECTION;
+}
+
+// The Dhruva Dashboard for a direction
+export const dhruvaDashboardPath = (direction = DHRUVA_DIRECTION) =>
+  direction === KOC_TO_DHRUVA ? `/dashboard?flow=dhruva&direction=${KOC_TO_DHRUVA}` : "/dashboard?flow=dhruva";
+
+// Where the direction switch goes: on the Dashboard the same page with the other direction,
+// on a list the other list
+export function dhruvaDirectionTarget(pathname, value) {
+  if (pathname === "/dashboard") return dhruvaDashboardPath(value);
+  return DHRUVA_DIRECTIONS.find((d) => d.value === value)?.path ?? "/dhruva-leads";
+}
+
+// The KOC → Vendors source behind each list tab
+export const TAB_SOURCES = {
+  "/leads/spin": "spin",
+  "/leads/international": "whatsapp",
+  "/leads/wedding": "wedding",
+  "/leads/wedding-planner": "wedding_planner",
+};
+
+// The two vendor flows' names: generic, or with the vendor's name for a vendor login
+// ("KOC → Kraftyz", "Kraftyz → KOC"); vendor = /auth/me's vendor ({ id, name }) or null
+export function flowLabels(vendor) {
+  const name = vendor?.name?.trim();
+  return name
+    ? { koc: `KOC → ${name}`, vendors: `${name} → KOC` }
+    : { koc: "KOC → Vendors", vendors: "Vendors → KOC" };
+}
+
+// Tabs for a flow: { path, to, label }. The Dashboard tab keeps the active flow (and the
+// Dhruva direction). sources: the KOC → Vendors sources to show (vendor logins: theirs);
+// labels: flowLabels(…) for the Vendors → KOC tab's name.
+export function tabsFor(flow, direction = DHRUVA_DIRECTION, { sources = null, labels = null } = {}) {
   const tabs =
     flow === "vendors" ? VENDOR_TABS : flow === "dhruva" ? DHRUVA_TABS : KOC_TABS;
-  return tabs.map((t) => ({
+  return tabs
+    .filter((t) => !sources || !TAB_SOURCES[t.path] || sources.includes(TAB_SOURCES[t.path]))
+    .map((t) => ({
     ...t,
+    label: t.path === "/vendor-to-koc" && labels ? labels.vendors : t.label,
     to:
       t.path === "/dashboard" && flow
-        ? `/dashboard?flow=${flow}`
+        ? flow === "dhruva"
+          ? dhruvaDashboardPath(direction)
+          : `/dashboard?flow=${flow}`
         : t.path,
   }));
 }

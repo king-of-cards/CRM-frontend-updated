@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import ContactActions from "../shared/ContactActions.jsx";
 import { useSearchParams } from "react-router";
 import {
   ChevronLeft,
   ChevronRight,
-  Mail,
-  MessageCircle,
   PanelRightOpen,
-  Phone,
   RefreshCw,
   Search,
 } from "lucide-react";
@@ -19,6 +17,9 @@ import { useAuth } from "../../auth/useAuth.js";
 import { setSourceLeadHot } from "../../api/hotLeads.js";
 import HotLeadStar from "./HotLeadStar.jsx";
 import { toggleHotOptimistically } from "./hotLeadToggle.js";
+import AlsoInBadges from "./AlsoInBadges.jsx";
+import { formatDateTime, formatDay } from "../shared/dates.js";
+import { kpiGridCols } from "../shared/kpiGrid.js";
 
 // One design for every lead section (Spin, International, Wedding, Wedding planner):
 // the section frame, stat chips, toolbar, the table with contact buttons + CRM columns,
@@ -46,35 +47,19 @@ export function timeAgo(iso) {
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours} h ago`;
-  return new Date(iso).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-  });
+  return formatDay(iso);
 }
 
+// "19 Nov 2026, 10:30 am" (India time); null when empty
 export function dateTime(iso) {
   if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso);
-  return d.toLocaleString("en-IN", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTime(iso);
 }
 
+// "19 Nov 2026"; null when empty
 export function dayDate(isoDate) {
   if (!isoDate) return null;
-  const d = new Date(
-    String(isoDate).length === 10 ? `${isoDate}T00:00:00` : isoDate,
-  );
-  if (Number.isNaN(d.getTime())) return String(isoDate);
-  return d.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDay(isoDate);
 }
 
 // "in 12 days" / "Passed" for an event date
@@ -154,6 +139,12 @@ export const THEMES = {
     tag: "Wedding planner",
     chip: "from-amber-500 to-amber-600",
     tagCls: "bg-amber-50 text-amber-700 ring-amber-200",
+  },
+  // KOC → Dhruva (docs section 18)
+  koc_to_dhruva: {
+    tag: "KOC → Dhruva",
+    chip: "from-indigo-500 to-indigo-700",
+    tagCls: "bg-indigo-50 text-indigo-700 ring-indigo-200",
   },
 };
 
@@ -242,7 +233,7 @@ export function SectionShell({
       {/* Coloured strip */}
       <div className={`h-1 bg-linear-to-r ${t.chip}`} />
 
-      <div className="flex flex-wrap items-start justify-between gap-4 px-6 pt-5">
+      <div className="flex flex-wrap items-start justify-between gap-4 px-4 pt-5 sm:px-6">
         <div className="flex items-start gap-3">
           <span
             className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br text-white shadow-md ${t.chip}`}
@@ -277,7 +268,7 @@ export function SectionShell({
 
       {stats?.length > 0 && (
         <div
-          className={`mt-5 grid grid-cols-2 gap-3 px-6 ${stats.length === 8 ? "sm:grid-cols-4" : stats.length === 6 ? "sm:grid-cols-3 xl:grid-cols-6" : stats.length >= 5 ? "sm:grid-cols-3 lg:grid-cols-5" : stats.length === 4 ? "lg:grid-cols-4" : "sm:grid-cols-3"}`}
+          className={`mt-5 grid gap-3 px-4 sm:px-6 ${kpiGridCols(stats.length)}`}
         >
           {stats.map((s) => {
             const tone =
@@ -304,7 +295,7 @@ export function SectionShell({
       )}
 
       {toolbar && (
-        <div className="mt-5 flex flex-wrap items-center gap-3 px-6">
+        <div className="mt-5 flex flex-wrap items-center gap-3 px-4 sm:px-6">
           {toolbar}
         </div>
       )}
@@ -381,81 +372,8 @@ export function Tabs({ options, value, onChange, label }) {
   );
 }
 
-// ── Contact buttons ─────────────────────────────────────────────────────
-export function ContactActions({ phone, email, name, showNumber = true }) {
-  const digits = phoneDigits(phone);
-  const btn =
-    "flex h-8 w-8 items-center justify-center rounded-full transition";
-  const off = "cursor-not-allowed bg-gray-50 text-gray-300";
-  const stop = (e) => e.stopPropagation();
-  return (
-    <div className="flex items-center gap-2" onClick={stop}>
-      {showNumber && (
-        <span className="min-w-[118px] tabular-nums text-sm text-gray-800">
-          {digits ? (
-            `+${digits}`
-          ) : (
-            <span className="text-gray-300">No number</span>
-          )}
-        </span>
-      )}
-      <div className="flex items-center gap-1">
-        {digits ? (
-          <a
-            href={`tel:+${digits}`}
-            title={`Call +${digits}`}
-            aria-label={`Call ${name ?? ""}`}
-            className={`${btn} bg-sky-50 text-sky-600 hover:bg-sky-100 hover:text-sky-700`}
-          >
-            <Phone size={14} />
-          </a>
-        ) : (
-          <span
-            className={`${btn} ${off}`}
-            title="No phone number"
-            aria-hidden="true"
-          >
-            <Phone size={14} />
-          </span>
-        )}
-        {email ? (
-          <a
-            href={`mailto:${email}`}
-            title={`Email ${email}`}
-            aria-label={`Email ${name ?? ""}`}
-            className={`${btn} bg-violet-50 text-violet-600 hover:bg-violet-100 hover:text-violet-700`}
-          >
-            <Mail size={14} />
-          </a>
-        ) : (
-          <span className={`${btn} ${off}`} title="No email" aria-hidden="true">
-            <Mail size={14} />
-          </span>
-        )}
-        {digits ? (
-          <a
-            href={`https://wa.me/${digits}`}
-            target="_blank"
-            rel="noreferrer"
-            title="Chat on WhatsApp"
-            aria-label={`Chat with ${name ?? ""} on WhatsApp`}
-            className={`${btn} bg-emerald-500 text-white shadow-sm shadow-emerald-500/30 hover:bg-emerald-600`}
-          >
-            <MessageCircle size={14} />
-          </a>
-        ) : (
-          <span
-            className={`${btn} ${off}`}
-            title="No WhatsApp number"
-            aria-hidden="true"
-          >
-            <MessageCircle size={14} />
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
+// ── Contact buttons: the shared component (call, email, WhatsApp) ──
+export { default as ContactActions } from "../shared/ContactActions.jsx";
 
 // ── Table ────────────────────────────────────────────────────────────────
 function LeadIdentity({ theme, name, subtitle, badge }) {
@@ -521,6 +439,7 @@ export function emptyCrm(leadKey) {
  * crmKey(row) -> the lead's key, used when crm(row) is missing (backend not sending "crm" yet)
  * onCrmSaved(leadKey, crm)                      update the row in the page's data
  * panel(row) -> { sourceLabel, title, subtitle, sections: [{ title, rows: [[label, value]] }], extra? }
+ * Each row's also_in (from the API) shows as "Also in …" badges under the name and in the panel.
  * Clicking a row opens the side panel. The CRM cells are edited right in the table.
  */
 export function LeadTable({
@@ -636,6 +555,7 @@ export function LeadTable({
       email: c.email || null,
       sections: p.sections ?? [],
       extra: p.extra,
+      alsoIn: row.also_in,
       isHot: isHot(row),
       hotPending: Boolean(hotPending[hotKey(row)]),
       onToggleHot: canToggleHot ? () => toggleHot(row) : null,
@@ -704,6 +624,7 @@ export function LeadTable({
                     className={`sticky left-0 z-10 px-4 py-3 transition-colors group-hover:bg-brand-50 ${isOpen ? "bg-brand-50" : "bg-white"}`}
                   >
                     <LeadIdentity theme={theme} {...id} />
+                    <AlsoInBadges alsoIn={row.also_in} />
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <ContactActions
@@ -818,17 +739,20 @@ function pageList(current, total) {
 export { PAGE_SIZES };
 
 // onPageSize (optional): show "Rows per page" (10 / 25 / 50 / 100)
-export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled }) {
+// onPrefetch (optional): onPrefetch(n) when the button for page n is hovered or focused, so the
+// list can load that page in the background and show it at once when clicked
+export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled, onPrefetch }) {
   if (!total || total <= (onPageSize ? PAGE_SIZES[0] : pageSize)) return null;
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
   const nav =
     "flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-gray-100 hover:text-gray-900 disabled:pointer-events-none disabled:opacity-40";
+  const prefetch = (n) => onPrefetch && n !== page && n >= 1 && n <= pages ? { onMouseEnter: () => onPrefetch(n), onFocus: () => onPrefetch(n) } : {};
   return (
     <nav
       aria-label="Pages"
-      className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-6 py-3 text-sm text-gray-500"
+      className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 text-sm text-gray-500 sm:px-6"
     >
       <span className="flex items-center gap-3 tabular-nums">
         {fmt(from)}–{fmt(to)} of {fmt(total)}
@@ -854,6 +778,7 @@ export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled
         <button
           type="button"
           onClick={() => onPage(page - 1)}
+          {...prefetch(page - 1)}
           disabled={page <= 1 || disabled}
           aria-label="Previous page"
           className={nav}
@@ -870,6 +795,7 @@ export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled
               key={p}
               type="button"
               onClick={() => onPage(p)}
+              {...prefetch(p)}
               disabled={disabled}
               aria-current={p === page ? "page" : undefined}
               className={`h-8 min-w-8 rounded-full px-2 tabular-nums transition ${p === page ? "bg-gray-900 font-medium text-white" : "hover:bg-gray-100 hover:text-gray-900"}`}
@@ -881,6 +807,7 @@ export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled
         <button
           type="button"
           onClick={() => onPage(page + 1)}
+          {...prefetch(page + 1)}
           disabled={page >= pages || disabled}
           aria-label="Next page"
           className={nav}

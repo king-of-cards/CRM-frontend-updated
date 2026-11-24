@@ -8,7 +8,9 @@ import {
   Search,
 } from "lucide-react";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
+import { formatDateTime, formatDay } from "../components/shared/dates.js";
 import { listSpinLeads } from "../api/spinLeads.js";
+import { Bone, SkeletonRows } from "../components/shared/Skeleton.jsx";
 
 const PAGE_SIZE = 25;
 
@@ -33,18 +35,8 @@ function formatCell(value, col) {
     const d = new Date(value);
     if (!Number.isNaN(d.getTime())) {
       return col.type.toUpperCase() === "DATE"
-        ? d.toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })
-        : d.toLocaleString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          });
+        ? formatDay(String(value).slice(0, 10))
+        : formatDateTime(value);
     }
   }
   return String(value);
@@ -119,9 +111,7 @@ export default function Leads() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">All leads</h2>
             <p className="mt-1 text-sm text-gray-500">
-              {data
-                ? `${total.toLocaleString("en-IN")} leads`
-                : "Loading leads…"}
+              {data ? `${total.toLocaleString("en-IN")} leads` : <Bone className="mt-1 h-3.5 w-24 rounded" />}
             </p>
           </div>
           <label className="relative w-full sm:w-72">
@@ -196,6 +186,7 @@ export default function Leads() {
                 </tr>
               </thead>
               <tbody>
+                {loading && !data && <SkeletonRows cols={6} label="Loading leads" />}
                 {items.map((item, i) => (
                   <tr
                     key={item.id ?? i}
