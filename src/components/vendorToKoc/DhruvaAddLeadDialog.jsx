@@ -46,7 +46,7 @@ export default function DhruvaAddLeadDialog({ onClose, onAdded, isAdmin = false,
     <form id="dhruva-add-lead" onSubmit={submit} className="space-y-4" noValidate>
       {message && <Alert>{message}</Alert>}
       {duplicate && <div className="rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200"><p className="text-sm font-semibold text-amber-900">{duplicate}</p><p className="mt-1 text-sm text-amber-900">Add this lead anyway?</p><button type="button" disabled={saving} onClick={() => submit(undefined, true)} className={`${primaryBtn} mt-3`}>Save anyway</button></div>}
-      <p className="text-xs text-gray-500">Name is required. Phones have 10 digits; a lead without a phone can still be added. Add one or more event dates.</p>
+      <p className="text-xs text-gray-500">Name is required. Add one or more phone numbers (10 digits, +91 optional); the first is the main number, and a lead without a phone can still be added. Add one or more event dates.</p>
       <div className="grid gap-4 sm:grid-cols-2">
         {fields.map((f) => (
           <DhruvaFieldInput

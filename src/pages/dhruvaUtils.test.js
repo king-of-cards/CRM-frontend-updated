@@ -64,18 +64,18 @@ describe("Dhruva → KOC fields (docs section 13)", () => {
     expect(phoneError("9800000001")).toBe("");
     expect(phoneError("")).toBe("");
   });
-  test("phone numbers: phones from the lead, order kept, repeats dropped; shown as +91…", () => {
+  test("phone numbers: phones from the lead, order kept, repeats dropped; shown as 10 digits", () => {
     expect(phonesOf({ phones: ["9845012346", "9845012345", "9845012346"], phones_e164: [] })).toEqual(["9845012346", "9845012345"]);
     expect(phonesOf({ phones: [] })).toEqual([]);
     expect(phonesOf({})).toEqual([]);
     expect(cleanPhones("9845012345; 9845012346\n9845012345")).toEqual(["9845012345", "9845012346"]);
-    expect(phonesText(["9845012345", "9845012346"])).toBe("+919845012345, +919845012346");
+    expect(phonesText(["+919845012345", "9845012346"])).toBe("9845012345, 9845012346");
     expect(phonesText([])).toBe("—");
   });
-  test("PATCH: phones as the full list; [] clears them", () => {
+  test("PATCH: phones as the full list in E.164; [] clears them", () => {
     const two = { ...lead, phones: ["9800000001", "9800000003"] };
-    expect(dhruvaChanges(lead, { ...dhruvaFormOf(lead), phones: ["9800000001", "9800000003"] })).toEqual({ phones: ["9800000001", "9800000003"] });
-    expect(dhruvaChanges(two, { ...dhruvaFormOf(two), phones: ["9800000003"] })).toEqual({ phones: ["9800000003"] });
+    expect(dhruvaChanges(lead, { ...dhruvaFormOf(lead), phones: ["9800000001", "9800000003"] })).toEqual({ phones: ["+919800000001", "+919800000003"] });
+    expect(dhruvaChanges(two, { ...dhruvaFormOf(two), phones: ["9800000003"] })).toEqual({ phones: ["+919800000003"] });
     expect(dhruvaChanges(lead, { ...dhruvaFormOf(lead), phones: [] })).toEqual({ phones: [] });
     expect(Object.keys(dhruvaChanges(lead, { ...dhruvaFormOf(lead), phones: [] }))).not.toContain("phone");
   });
@@ -93,8 +93,8 @@ describe("Dhruva → KOC fields (docs section 13)", () => {
   });
   test("new lead: filled fields only; KOC fields only for admins", () => {
     const form = { ...dhruvaFormOf(null), name: " Ravi ", phones: ["9800000002", "9000000002"], event_dates: ["2026-12-25"], whatsapp_status: "Sent", needs_intervention: true };
-    expect(dhruvaNewLead(form)).toEqual({ name: "Ravi", phones: ["9800000002", "9000000002"], event_dates: ["2026-12-25"] });
-    expect(dhruvaNewLead(form, { koc: true })).toEqual({ name: "Ravi", phones: ["9800000002", "9000000002"], event_dates: ["2026-12-25"], whatsapp_status: "Sent", needs_intervention: true });
+    expect(dhruvaNewLead(form)).toEqual({ name: "Ravi", phones: ["+919800000002", "+919000000002"], event_dates: ["2026-12-25"] });
+    expect(dhruvaNewLead(form, { koc: true })).toEqual({ name: "Ravi", phones: ["+919800000002", "+919000000002"], event_dates: ["2026-12-25"], whatsapp_status: "Sent", needs_intervention: true });
     expect(dhruvaNewLead({ ...dhruvaFormOf(null), name: "No phone" })).toEqual({ name: "No phone" });
   });
   test("form errors before saving: name, 10 digits per phone number, real dates", () => {

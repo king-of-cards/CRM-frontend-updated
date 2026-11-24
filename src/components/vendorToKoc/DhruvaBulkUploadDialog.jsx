@@ -2,7 +2,8 @@ import { useRef, useState } from "react";
 import { downloadDhruvaTemplate, bulkAddDhruvaLeads, previewDhruvaUpload } from "../../api/dhruva.js";
 import Drawer, { Alert, fieldCls, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
 import { readSheetNames, defaultSheet } from "../crmLeads/xlsxSheets.js";
-import { fieldErrors, mapDhruvaRecheck, rowKind, rowsToDhruvaRecheck, dhruvaErrors, UPLOAD_COLUMNS, PENDING } from "../../pages/dhruvaUtils.js";
+import { fieldErrors, mapDhruvaRecheck, phonesForApi, rowKind, rowsToDhruvaRecheck, dhruvaErrors, UPLOAD_COLUMNS, PENDING } from "../../pages/dhruvaUtils.js";
+import { PhoneRows } from "./PhoneNumbers.jsx";
 import { UPDATE_OPTIONS } from "../../api/leadCrm.js";
 import { duplicateText } from "../shared/duplicates.js";
 
@@ -23,6 +24,7 @@ function UploadCell({ field, label, row, value, onChange }) {
   const known = value == null || value === "" || value === PENDING || UPDATE_OPTIONS.some((o) => o.value === value);
   if (field === "update_status" && known)
     return <select aria-label={aria} value={value || PENDING} onChange={(e) => onChange(e.target.value === PENDING ? "" : e.target.value)} className={cls}><option value={PENDING}>Pending</option>{UPDATE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>;
+  if (field === "phones") return <PhoneRows value={value} onChange={onChange} label={aria} showErrors compact />;
   const text = Array.isArray(value) ? value.join(", ") : (value ?? "");
   return <input aria-label={aria} value={text} placeholder={field === "event_dates" ? "2026-12-04, 2026-12-05" : field === "phones" ? "9845012345, 9845012346" : undefined} onChange={(e) => onChange(e.target.value)} className={cls} />;
 }
@@ -108,6 +110,7 @@ export default function DhruvaBulkUploadDialog({ onClose, onImported }) {
       // The preview's values as edited (event_dates as text); never the old event_date / date
       const leads = valid.map((r) => {
         const { event_date: _e, date: _d, sent_at: _s, phone: _p, alt_phone: _a, ...values } = rowValues(r);
+        if (values.phones != null) values.phones = phonesForApi(values.phones); // E.164, blanks dropped
         return values;
       });
       const res = await bulkAddDhruvaLeads(leads);
