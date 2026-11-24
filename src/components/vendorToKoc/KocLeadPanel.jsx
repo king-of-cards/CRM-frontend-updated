@@ -1,6 +1,7 @@
 import DateInput from "../shared/DateInput.jsx";
+import ContactActions from "../shared/ContactActions.jsx";
 import { useEffect, useState } from "react";
-import { MessageCircle, Phone, X } from "lucide-react";
+import { X } from "lucide-react";
 import { updateKocLead } from "../../api/vendorToKoc.js";
 import { downloadLeadPdf } from "../leads/leadPdf.js";
 import LeadPdfButton from "../leads/LeadPdfButton.jsx";
@@ -103,7 +104,6 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
   const title = lead.name || phoneText(lead.phone);
   // Header / PDF subtitle: vendor and city for admins; just the city for vendor logins
   const subtitle = [isAdmin ? lead.vendor_name : null, lead.city].filter(Boolean).join(" · ");
-  const digits = lead.phone ? `91${lead.phone}` : null;
   const details = [
     // Vendor: admins only (vendor logins never see it, in the panel or the PDF)
     ...(isAdmin ? [["Vendor", lead.vendor_name]] : []),
@@ -184,7 +184,6 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
     }
   }
 
-  const btn = "flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition";
   // Admins edit Update / comments / follow-up / amounts in the form above, so only "Last updated" is listed
   // for them; vendor and view-only logins see every follow-up field read-only
   const sections = [
@@ -240,31 +239,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
         </header>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
-          <div className="flex gap-2">
-            {digits ? (
-              <a href={`tel:+${digits}`} className={`${btn} bg-sky-50 text-sky-700 ring-1 ring-sky-100 hover:bg-sky-100`}>
-                <Phone size={16} /> Call
-              </a>
-            ) : (
-              <span className={`${btn} cursor-not-allowed bg-gray-50 text-gray-300`}>
-                <Phone size={16} /> Call
-              </span>
-            )}
-            {digits ? (
-              <a
-                href={`https://wa.me/${digits}`}
-                target="_blank"
-                rel="noreferrer"
-                className={`${btn} bg-emerald-500 text-white shadow-md shadow-emerald-500/25 hover:bg-emerald-600`}
-              >
-                <MessageCircle size={16} /> WhatsApp
-              </a>
-            ) : (
-              <span className={`${btn} cursor-not-allowed bg-gray-50 text-gray-300`}>
-                <MessageCircle size={16} /> WhatsApp
-              </span>
-            )}
-          </div>
+          <ContactActions variant="panel" phone={lead.phone} email={lead.email} name={lead.name} />
 
           {/* Other places with the same phone (the API's also_in) */}
           {alsoInPlaces(lead.also_in).length > 0 && (

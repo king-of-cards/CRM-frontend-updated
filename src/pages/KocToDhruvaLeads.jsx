@@ -1,4 +1,5 @@
 import DateInput from "../components/shared/DateInput.jsx";
+import ContactActions from "../components/shared/ContactActions.jsx";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import { Download, FileUp, Send } from "lucide-react";
@@ -26,7 +27,7 @@ import BranchCell from "../components/leads/BranchCell.jsx";
 import { fieldCls } from "../components/crmLeads/Drawer.jsx";
 import KocToDhruvaLeadPanel from "../components/vendorToKoc/KocToDhruvaLeadPanel.jsx";
 import BulkUploadDialog from "../components/crmLeads/BulkUploadDialog.jsx";
-import { dateTimeText, dayText, dhruvaErrors, phoneText } from "./dhruvaUtils.js";
+import { dateTimeText, dayText, dhruvaErrors } from "./dhruvaUtils.js";
 import { budgetText, quantityText, spinField } from "./kocToDhruvaUtils.js";
 import { SkeletonRows } from "../components/shared/Skeleton.jsx";
 
@@ -235,7 +236,7 @@ export default function KocToDhruvaLeads() {
                       {l.display.email && <span className="block text-xs font-normal text-gray-500">{l.display.email}</span>}
                       <AlsoInBadges alsoIn={l.also_in} />
                     </td>
-                    <td className="whitespace-nowrap px-3 py-3">{phoneText(l.display.phone)}</td>
+                    <td className="whitespace-nowrap px-3 py-3"><ContactActions phone={l.display.phone} email={l.display.email} name={l.display.name} /></td>
                     <td className="px-3 py-3">{l.occasion || "—"}</td>
                     <td className="whitespace-nowrap px-3 py-3">{dayText(l.event_date)}</td>
                     <td className="px-3 py-3"><BranchCell branch={l.display.branch} empty="—" /></td>

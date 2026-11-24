@@ -1,4 +1,5 @@
 import DateInput from "../shared/DateInput.jsx";
+import ContactActions from "../shared/ContactActions.jsx";
 import { useEffect, useState } from "react";
 import { saveKocToDhruvaCrm } from "../../api/kocToDhruva.js";
 import { downloadLeadPdf } from "../leads/leadPdf.js";
@@ -120,6 +121,7 @@ export default function KocToDhruvaLeadPanel({ lead, onClose, onSaved, isHot = f
       <div className="space-y-5">
         {error && <Alert>{error}</Alert>}
         {saved && <Alert kind="success">Saved.</Alert>}
+        <ContactActions variant="panel" phone={d.phone} email={d.email} name={d.name} />
         <dl className="grid gap-4 sm:grid-cols-3" aria-label="Lead details">
           {details.map(([k, v]) => <div key={k}><dt className="text-xs font-medium text-gray-500">{k}</dt><dd className="mt-1 break-words text-sm text-gray-900">{v}</dd></div>)}
         </dl>

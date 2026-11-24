@@ -401,9 +401,11 @@ describe("Dhruva → KOC lead panel", () => {
     const html = renderPanel("admin");
     expect(html).toContain('aria-label="Remove 20 Dec 2026"');
     expect(html).toContain("Add date");
-    expect(html).toContain('maxLength="10"'); // each number: 10 digits
-    expect(html).toContain('aria-label="Remove 9845012345"');
-    expect(html).toContain('aria-label="Remove 9845012399"');
+    // number rows, the first the main one, shown as 10 digits; the saved numbers as tel: links
+    expect(html).toContain('aria-label="Phone numbers: main number"');
+    expect(html).toContain('value="9845012345"');
+    expect(html).toContain('aria-label="Remove number 2"');
+    expect(html).toContain('href="tel:+919845012399"');
     expect(html).toContain("Add number");
     expect(html).not.toContain("Alternate phone");
     expect(html).toContain('id="dhruva-whatsapp_status-options"');
@@ -424,7 +426,10 @@ describe("Dhruva → KOC lead panel", () => {
     expect(html).toContain("Lead details, read only");
     expect(html).toContain("KOC details, read only");
     expect(html).toContain("20 Dec 2026, 21 Dec 2026");
-    expect(html).toContain("+919845012345, +919845012399");
+    expect(html).toContain('href="tel:+919845012345"');
+    expect(html).toContain('href="https://wa.me/919845012399"');
+    expect(html).toContain(">9845012399</span>");
+    expect(html).not.toContain(">+919845012345<");
     expect(html).not.toContain("Save");
   });
 });

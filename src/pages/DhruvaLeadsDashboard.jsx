@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ContactActions from "../components/shared/ContactActions.jsx";
 import { Link } from "react-router";
 import LazyCharts from "../components/dashboard/LazyCharts.jsx";
 import { BarListSkeleton, ChartSkeleton, ListSkeleton } from "../components/shared/Skeleton.jsx";
@@ -6,7 +7,7 @@ import { BadgeCheck, CalendarDays, Clock3, Flame, IndianRupee, Inbox, Send, Thum
 import { getDhruvaDashboard } from "../api/dhruva.js";
 import { Kpi, Panel } from "../components/dashboard/DashboardParts.jsx";
 import FollowUpsCard from "../components/dashboard/FollowUpsCard.jsx";
-import { dateTimeText, dayText, dhruvaErrors, dhruvaListLink, eventDatesOf, eventDatesText, phonesOf, phonesText, phoneText, statusLabel } from "./dhruvaUtils.js";
+import { dateTimeText, dayText, dhruvaErrors, dhruvaListLink, eventDatesOf, eventDatesText, phonesOf, phoneText, statusLabel } from "./dhruvaUtils.js";
 import { dashboardKpiCards, num, statusRows } from "./dhruvaDashboard.js";
 import { periodLabel } from "./dashboardPeriod.js";
 import { MONTHS } from "../components/shared/dates.js";
@@ -69,7 +70,7 @@ export default function DhruvaLeadsDashboard({ period, refreshKey }) {
         <div className="h-64">{kpiLoading ? <ChartSkeleton /> : months.length ? <LazyCharts>{({ Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis }) => (<ResponsiveContainer width="100%" height="100%"><BarChart data={months} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={20} /><YAxis allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip /><Bar dataKey="count" fill="#f59e0b" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer>)}</LazyCharts> : <p className="pt-10 text-center text-sm text-gray-500">No events with a known date.</p>}</div>
       </Panel>
       <Panel title="Latest leads" subtitle="Six newest leads received in this period">
-        {kpiLoading ? <ListSkeleton rows={6} avatar={false} className="-mx-5" label="Loading latest leads" /> : latest.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b text-xs text-gray-500"><th className="py-2">Name</th><th>Venue</th><th>Event date</th><th>Update</th></tr></thead><tbody>{latest.map((l) => <tr key={l.id} className="border-b border-gray-50"><td className="py-3"><Link to={dhruvaListLink({ search: l.name || phonesOf(l)[0] || "" }, period)} className="font-medium text-gray-900 hover:text-brand-700 hover:underline">{l.name || phoneText(phonesOf(l)[0])}</Link><span className="block text-xs text-gray-500">{[phonesOf(l).length ? phonesText(phonesOf(l)) : "", dateTimeText(l.created_at)].filter(Boolean).join(" · ")}</span></td><td>{l.venue || "—"}</td><td>{eventDatesText(eventDatesOf(l))}</td><td>{statusLabel(l.update_status)}</td></tr>)}</tbody></table></div> : <p className="text-sm text-gray-500">No leads for this period.</p>}
+        {kpiLoading ? <ListSkeleton rows={6} avatar={false} className="-mx-5" label="Loading latest leads" /> : latest.length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b text-xs text-gray-500"><th className="py-2">Name</th><th>Venue</th><th>Event date</th><th>Update</th></tr></thead><tbody>{latest.map((l) => <tr key={l.id} className="border-b border-gray-50"><td className="py-3"><Link to={dhruvaListLink({ search: l.name || phonesOf(l)[0] || "" }, period)} className="font-medium text-gray-900 hover:text-brand-700 hover:underline">{l.name || phoneText(phonesOf(l)[0])}</Link><ContactActions phones={phonesOf(l)} name={l.name} className="mt-1 text-xs" /><span className="block text-xs text-gray-500">{dateTimeText(l.created_at)}</span></td><td>{l.venue || "—"}</td><td>{eventDatesText(eventDatesOf(l))}</td><td>{statusLabel(l.update_status)}</td></tr>)}</tbody></table></div> : <p className="text-sm text-gray-500">No leads for this period.</p>}
       </Panel>
     </section>
   </>;

@@ -1,4 +1,5 @@
 import { AlarmClock, RefreshCw } from "lucide-react";
+import ContactActions from "../shared/ContactActions.jsx";
 import { Link } from "react-router";
 import { useState } from "react";
 import { Panel } from "./DashboardParts.jsx";
@@ -56,7 +57,7 @@ export default function FollowUpsCard({ flow = "" }) {
                       <span className={`rounded-full px-2 py-0.5 font-medium ring-1 ${tones[tag.tone]}`}>{tag.label}</span>
                     </span>
                   </Link>
-                  {item.phone && <a href={`tel:${item.phone}`} aria-label={`Call ${item.name || reminderPhone(item.phone)}`} onClick={(event) => event.stopPropagation()} className="shrink-0 rounded-full bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 hover:bg-sky-100">{reminderPhone(item.phone)}</a>}
+                  {item.phone && <ContactActions phone={item.phone} email={item.email} name={item.name} className="shrink-0" />}
                 </li>
               );
             })}

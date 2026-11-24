@@ -63,7 +63,7 @@ describe("follow-up reminder helpers", () => {
     expect(reminderTag(0)).toEqual({ label: "Today", tone: "amber" });
     expect(reminderTag(-2)).toEqual({ label: "In 2 days", tone: "neutral" });
     expect(reminderDate("2026-11-19")).toBe("19 Nov 2026");
-    expect(reminderPhone("9876543210")).toBe("+919876543210");
+    expect(reminderPhone("+919876543210")).toBe("9876543210"); // Indian numbers: 10 digits
   });
 
   test("list destinations use only documented follow-up filters", () => {

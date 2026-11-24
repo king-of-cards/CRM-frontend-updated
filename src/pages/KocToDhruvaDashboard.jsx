@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ContactActions from "../components/shared/ContactActions.jsx";
 import { Link } from "react-router";
 import LazyCharts from "../components/dashboard/LazyCharts.jsx";
 import { ChartSkeleton } from "../components/shared/Skeleton.jsx";
@@ -49,7 +50,7 @@ function LeadList({ leads, detail, right, none }) {
             <LeadName lead={l} />
             <span className="block truncate text-xs text-gray-500">{detail(l)}</span>
           </span>
-          <span className="shrink-0 text-right text-sm tabular-nums text-gray-900">{right(l)}</span>
+          <span className="flex shrink-0 items-center gap-2 text-right text-sm tabular-nums text-gray-900">{right(l)}<ContactActions phone={l.phone} email={l.email} name={l.name} showNumber={false} /></span>
         </li>
       ))}
     </ul>

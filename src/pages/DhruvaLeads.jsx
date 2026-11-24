@@ -21,8 +21,9 @@ import { UPDATE_OPTIONS } from "../api/leadCrm.js";
 import DhruvaAddLeadDialog from "../components/vendorToKoc/DhruvaAddLeadDialog.jsx";
 import DhruvaBulkUploadDialog from "../components/vendorToKoc/DhruvaBulkUploadDialog.jsx";
 import DhruvaLeadPanel from "../components/vendorToKoc/DhruvaLeadPanel.jsx";
-import { dateTimeText, dayText, dhruvaErrors, dhruvaStatCards, eventDatesOf, eventDatesText, phonesOf, phoneText, rupeesText, statusLabel, PENDING } from "./dhruvaUtils.js";
+import { dateTimeText, dayText, dhruvaErrors, dhruvaStatCards, eventDatesOf, eventDatesText, phoneEntriesOf, phonesOf, rupeesText, statusLabel, PENDING } from "./dhruvaUtils.js";
 import { SkeletonRows } from "../components/shared/Skeleton.jsx";
+import { PhoneList } from "../components/vendorToKoc/PhoneNumbers.jsx";
 
 // Dhruva → KOC (docs/API_REFERENCE.md section 13). Lead fields: admins and Dhruva logins (in the
 // panel). KOC fields: admins only (inline here and in the panel); read-only for everyone else.
@@ -138,7 +139,7 @@ export default function DhruvaLeads() {
           {showHot && <td className="px-2 py-2" onClick={(event) => event.stopPropagation()}><HotLeadStar isHot={isHot(l)} pending={Boolean(hotPending[String(l.id)])} onToggle={canToggleHot ? () => toggleHot(l) : null} /></td>}
           <td className="px-3 py-3 tabular-nums text-gray-500">{l.sl_no ?? "—"}</td>
           <td className="px-3 py-3 font-medium text-gray-900">{l.name || "—"}{!phonesOf(l).length && <span className="ml-2 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] text-sky-700">No phone</span>}<AlsoInBadges alsoIn={l.also_in} /></td>
-          <td className="whitespace-nowrap px-3 py-3">{phonesOf(l).length ? phonesOf(l).map((p) => <span key={p} className="block">{phoneText(p)}</span>) : "—"}</td>
+          <td className="px-3 py-3"><PhoneList entries={phoneEntriesOf(l)} limit={2} name={l.name} label={`Phone numbers of ${l.name || "lead"}`} /></td>
           <td className="px-3 py-3"><span className="block max-w-48">{eventDatesText(eventDatesOf(l))}</span></td>
           <td className="px-3 py-3">{l.event_type || "—"}<span className="mt-1 block w-fit rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{l.source === "bulk_upload" ? "Bulk upload" : "Manual"}</span></td>
           <td className="px-3 py-3">{l.venue || "—"}</td>

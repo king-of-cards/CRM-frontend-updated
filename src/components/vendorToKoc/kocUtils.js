@@ -1,5 +1,6 @@
 // Vendors → KOC helpers (docs/API_REFERENCE.md section 11). Pure, no React.
 import { toQueryString } from "../leads/leadFilters.js";
+import { displayPhone } from "../shared/contact.js";
 import { formatDateTime, formatDay } from "../shared/dates.js";
 import { DUPLICATE_TEXT } from "../shared/duplicates.js";
 
@@ -39,7 +40,8 @@ export function dateTimeText(iso) {
 }
 
 // Stored as 10 digits; shown as +91XXXXXXXXXX
-export const phoneText = (p) => (p && /^\d{10}$/.test(String(p)) ? `+91${p}` : p || "—");
+// Indian numbers as 10 digits, others in full; "—" when empty
+export const phoneText = (p) => displayPhone(p) || "—";
 
 // A preview's valid date (YYYY-MM-DD) as a file accepts it (DD-MM-YYYY); other text unchanged
 export function fileDate(value) {

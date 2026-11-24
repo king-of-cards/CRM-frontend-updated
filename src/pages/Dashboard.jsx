@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import ContactActions from "../components/shared/ContactActions.jsx";
 import { formatDay, MONTHS } from "../components/shared/dates.js";
 import { Link, useLocation, useSearchParams } from "react-router";
 import LazyCharts, { loadCharts } from "../components/dashboard/LazyCharts.jsx";
@@ -371,6 +372,7 @@ export default function Dashboard() {
         source: "whatsapp",
         title: l.phone_display,
         detail: l.country,
+        phone: l.phone,
         at: l.submitted_at,
       })),
       ...(data?.wdList?.items ?? []).map((l) => ({
@@ -378,6 +380,8 @@ export default function Dashboard() {
         source: "wedding",
         title: l.name ?? l.phone_display,
         detail: [l.occasion, l.city].filter(Boolean).join(" · "),
+        phone: l.phone,
+        email: l.email,
         at: l.submitted_at,
       })),
       ...(data?.wpList?.items ?? []).map((l) => ({
@@ -385,6 +389,8 @@ export default function Dashboard() {
         source: "wedding_planner",
         title: l.name ?? l.plan_id,
         detail: [l.city, l.wedding_month].filter(Boolean).join(" · "),
+        phone: l.phone,
+        email: l.email,
         at: l.updated_at,
       })),
     ];
@@ -910,10 +916,10 @@ export default function Dashboard() {
                   {feed.map((item) => {
                     const s = SOURCES[item.source];
                     return (
-                      <li key={item.key}>
+                      <li key={item.key} className="flex items-center gap-2 pr-5 transition-colors hover:bg-gray-50">
                         <Link
                           to={s.to}
-                          className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-gray-50"
+                          className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-5"
                         >
                           <span
                             className={`w-[118px] shrink-0 rounded-full px-2.5 py-0.5 text-center text-xs font-medium ring-1 ${s.tag}`}
@@ -934,6 +940,7 @@ export default function Dashboard() {
                             {timeAgo(item.at)}
                           </span>
                         </Link>
+                        <ContactActions phone={item.phone} email={item.email} name={item.name ?? item.title} showNumber={false} />
                       </li>
                     );
                   })}

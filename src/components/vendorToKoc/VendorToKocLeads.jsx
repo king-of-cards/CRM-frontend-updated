@@ -1,4 +1,5 @@
 import DateInput from "../shared/DateInput.jsx";
+import ContactActions from "../shared/ContactActions.jsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { ChevronDown, Download, FileUp, Handshake, Loader2, Plus } from "lucide-react";
@@ -23,7 +24,7 @@ import { flowLabels } from "../layout/leadFlow.js";
 import { listUsers } from "../../api/users.js";
 import { AmountCell } from "../leads/InlineCrm.jsx";
 import { kpiCards } from "../leads/kpiCards.js";
-import { dateTimeText, dayText, kocErrors, PENDING, phoneText, statusLabel, STATUSES } from "./kocUtils.js";
+import { dateTimeText, dayText, kocErrors, PENDING, statusLabel, STATUSES } from "./kocUtils.js";
 import { setKocLeadHot } from "../../api/hotLeads.js";
 import HotLeadStar from "../leads/HotLeadStar.jsx";
 import AlsoInBadges from "../leads/AlsoInBadges.jsx";
@@ -420,7 +421,7 @@ export default function VendorToKocLeads() {
                 {seesAll && <td className="whitespace-nowrap px-4 py-3 text-gray-800">{l.vendor_name ?? "—"}</td>}
                 <td className="whitespace-nowrap px-4 py-3 text-gray-800">{dayText(l.lead_date)}</td>
                 <td className="px-4 py-3 font-medium text-gray-900">{l.name || "—"}<AlsoInBadges alsoIn={l.also_in} /></td>
-                <td className="whitespace-nowrap px-4 py-3 tabular-nums text-gray-800">{phoneText(l.phone)}</td>
+                <td className="whitespace-nowrap px-4 py-3"><ContactActions phone={l.phone} email={l.email} name={l.name} /></td>
                 <td className="px-4 py-3 text-gray-700">{l.city || "—"}</td>
                 {isAdmin && canEdit ? (
                   <>

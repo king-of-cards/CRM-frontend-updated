@@ -10,7 +10,7 @@ import LeadPdfButton from "../leads/LeadPdfButton.jsx";
 import HotLeadStar from "../leads/HotLeadStar.jsx";
 import Drawer, { Alert, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
 import {
-  dateTimeText, dhruvaChanges, dhruvaErrors, dhruvaFieldAccess, dhruvaFormErrors, dhruvaFormOf, KOC_FIELDS, LEAD_FIELDS, phonesOf, phoneText,
+  dateTimeText, dhruvaChanges, dhruvaErrors, dhruvaFieldAccess, dhruvaFormErrors, dhruvaFormOf, KOC_FIELDS, LEAD_FIELDS, phoneEntriesOf, phonesOf, phoneText,
 } from "../../pages/dhruvaUtils.js";
 import LeadActivity from "../leads/LeadActivity.jsx";
 import AlsoInBadges from "../leads/AlsoInBadges.jsx";
@@ -19,6 +19,7 @@ import { useAuth } from "../../auth/useAuth.js";
 import { ViewOnlyBadge } from "../shared/ViewOnly.jsx";
 import { duplicateMessage } from "../shared/duplicates.js";
 import { DhruvaFieldInput, DhruvaFieldList, dhruvaValueText } from "./DhruvaFields.jsx";
+import { PhoneList } from "./PhoneNumbers.jsx";
 
 // Dhruva → KOC lead (docs section 13). Lead fields (name … venue): admins and Dhruva logins edit.
 // KOC fields (WhatsApp status … follow-up date): admins edit; read-only for everyone else.
@@ -156,6 +157,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
         {duplicate && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200"><span>Save this lead despite the duplicate match?</span><button type="button" disabled={busy} onClick={() => save(undefined, true)} className={primaryBtn}>Save anyway</button></div>}
         <section className="space-y-3" aria-label="Lead details">
           <h3 className="text-sm font-semibold text-gray-900">Lead details</h3>
+          {access.editBasic && phoneEntriesOf(lead).length > 0 && <div className="rounded-xl bg-white p-3 text-sm ring-1 ring-gray-100"><span className="mb-1 block text-xs font-medium text-gray-500">Call or copy</span><PhoneList entries={phoneEntriesOf(lead)} name={lead.name} label="Saved phone numbers" /></div>}
           {access.editBasic ? inputs(LEAD_FIELDS) : <DhruvaFieldList fields={LEAD_FIELDS} lead={lead} label="Lead details, read only" />}
         </section>
         {alsoInPlaces(lead.also_in).length > 0 && <section className="rounded-2xl bg-white p-4 ring-1 ring-gray-100"><h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-700">Also in</h3><AlsoInBadges alsoIn={lead.also_in} variant="panel" /></section>}

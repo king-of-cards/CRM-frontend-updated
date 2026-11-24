@@ -69,7 +69,7 @@ describe("list helpers", () => {
     expect(statusLabel(null)).toBe("Pending");
     expect(statusLabel("purchased_with_us")).toBe("Already purchased with us");
     expect(dayText("2026-12-13")).toBe("13 Dec 2026");
-    expect(phoneText("9845012345")).toBe("+919845012345");
+    expect(phoneText("9845012345")).toBe("9845012345"); // Indian numbers: 10 digits
   });
   test("filters: URL keys, admin keys dropped for vendors, badge count", () => {
     const f = readFilters(

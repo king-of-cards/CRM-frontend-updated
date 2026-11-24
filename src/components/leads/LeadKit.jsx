@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import ContactActions from "../shared/ContactActions.jsx";
 import { useSearchParams } from "react-router";
 import {
   ChevronLeft,
   ChevronRight,
-  Mail,
-  MessageCircle,
   PanelRightOpen,
-  Phone,
   RefreshCw,
   Search,
 } from "lucide-react";
@@ -374,81 +372,8 @@ export function Tabs({ options, value, onChange, label }) {
   );
 }
 
-// ── Contact buttons ─────────────────────────────────────────────────────
-export function ContactActions({ phone, email, name, showNumber = true }) {
-  const digits = phoneDigits(phone);
-  const btn =
-    "flex h-8 w-8 items-center justify-center rounded-full transition";
-  const off = "cursor-not-allowed bg-gray-50 text-gray-300";
-  const stop = (e) => e.stopPropagation();
-  return (
-    <div className="flex items-center gap-2" onClick={stop}>
-      {showNumber && (
-        <span className="min-w-[118px] tabular-nums text-sm text-gray-800">
-          {digits ? (
-            `+${digits}`
-          ) : (
-            <span className="text-gray-300">No number</span>
-          )}
-        </span>
-      )}
-      <div className="flex items-center gap-1">
-        {digits ? (
-          <a
-            href={`tel:+${digits}`}
-            title={`Call +${digits}`}
-            aria-label={`Call ${name ?? ""}`}
-            className={`${btn} bg-sky-50 text-sky-600 hover:bg-sky-100 hover:text-sky-700`}
-          >
-            <Phone size={14} />
-          </a>
-        ) : (
-          <span
-            className={`${btn} ${off}`}
-            title="No phone number"
-            aria-hidden="true"
-          >
-            <Phone size={14} />
-          </span>
-        )}
-        {email ? (
-          <a
-            href={`mailto:${email}`}
-            title={`Email ${email}`}
-            aria-label={`Email ${name ?? ""}`}
-            className={`${btn} bg-violet-50 text-violet-600 hover:bg-violet-100 hover:text-violet-700`}
-          >
-            <Mail size={14} />
-          </a>
-        ) : (
-          <span className={`${btn} ${off}`} title="No email" aria-hidden="true">
-            <Mail size={14} />
-          </span>
-        )}
-        {digits ? (
-          <a
-            href={`https://wa.me/${digits}`}
-            target="_blank"
-            rel="noreferrer"
-            title="Chat on WhatsApp"
-            aria-label={`Chat with ${name ?? ""} on WhatsApp`}
-            className={`${btn} bg-emerald-500 text-white shadow-sm shadow-emerald-500/30 hover:bg-emerald-600`}
-          >
-            <MessageCircle size={14} />
-          </a>
-        ) : (
-          <span
-            className={`${btn} ${off}`}
-            title="No WhatsApp number"
-            aria-hidden="true"
-          >
-            <MessageCircle size={14} />
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
+// ── Contact buttons: the shared component (call, email, WhatsApp) ──
+export { default as ContactActions } from "../shared/ContactActions.jsx";
 
 // ── Table ────────────────────────────────────────────────────────────────
 function LeadIdentity({ theme, name, subtitle, badge }) {

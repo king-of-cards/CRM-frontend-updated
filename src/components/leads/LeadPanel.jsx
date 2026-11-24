@@ -1,12 +1,11 @@
 import DateInput from "../shared/DateInput.jsx";
+import ContactActions from "../shared/ContactActions.jsx";
+import { displayPhone } from "../shared/contact.js";
 import { useEffect, useState } from "react";
 import {
   BadgeCheck,
   Download,
   Loader2,
-  Mail,
-  MessageCircle,
-  Phone,
   X,
 } from "lucide-react";
 import {
@@ -190,7 +189,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
             title: "Contact",
             rows: [
               ["Name", lead.title],
-              ["Phone", lead.phone ? `+${lead.phone}` : null],
+              ["Phone", displayPhone(lead.phone) || null],
               ["Email", lead.email],
             ],
           },
@@ -229,9 +228,6 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
       setDownloading(false);
     }
   }
-
-  const btn =
-    "flex flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium transition";
 
   return (
     <div
@@ -328,52 +324,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
 
         <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
           {/* Contact */}
-          <div className="flex gap-2">
-            {lead.phone ? (
-              <a
-                href={`tel:+${lead.phone}`}
-                className={`${btn} bg-sky-50 text-sky-700 ring-1 ring-sky-100 hover:bg-sky-100`}
-              >
-                <Phone size={16} /> Call
-              </a>
-            ) : (
-              <span
-                className={`${btn} cursor-not-allowed bg-gray-50 text-gray-300`}
-              >
-                <Phone size={16} /> Call
-              </span>
-            )}
-            {lead.email ? (
-              <a
-                href={`mailto:${lead.email}`}
-                className={`${btn} bg-violet-50 text-violet-700 ring-1 ring-violet-100 hover:bg-violet-100`}
-              >
-                <Mail size={16} /> Email
-              </a>
-            ) : (
-              <span
-                className={`${btn} cursor-not-allowed bg-gray-50 text-gray-300`}
-              >
-                <Mail size={16} /> Email
-              </span>
-            )}
-            {lead.phone ? (
-              <a
-                href={`https://wa.me/${lead.phone}`}
-                target="_blank"
-                rel="noreferrer"
-                className={`${btn} bg-emerald-500 text-white shadow-md shadow-emerald-500/25 hover:bg-emerald-600`}
-              >
-                <MessageCircle size={16} /> WhatsApp
-              </a>
-            ) : (
-              <span
-                className={`${btn} cursor-not-allowed bg-gray-50 text-gray-300`}
-              >
-                <MessageCircle size={16} /> WhatsApp
-              </span>
-            )}
-          </div>
+          <ContactActions variant="panel" phone={lead.phone} email={lead.email} name={lead.title} />
 
           {/* CRM: view-only logins read it as plain text (no inputs, no Save) */}
           {crm && !canEdit && (

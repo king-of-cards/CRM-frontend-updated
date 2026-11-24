@@ -1,5 +1,6 @@
 // Dhruva leads helpers (docs/API_REFERENCE.md section 13). Pure, no React.
 import { formatDateTime, formatDay } from "../components/shared/dates.js";
+import { displayPhone, indianDigits, phoneE164 } from "../components/shared/contact.js";
 
 export const DHRUVA_PATH = "/dhruva-leads";
 
@@ -34,12 +35,25 @@ export function dateTimeText(iso) {
   return formatDateTime(iso, "—");
 }
 
-// Format a phone as +91XXXXXXXXXX if 10 digits, else as-is, else "—"
-export function phoneText(p) {
-  if (!p) return "—";
-  const s = String(p).trim();
-  if (/^\d{10}$/.test(s)) return `+91${s}`;
-  return s;
+// ── Phone numbers: shown short, sent as E.164 ──
+// Phone rules (Indian numbers as 10 digits, E.164 for the API): the shared helpers
+export { indianDigits, phoneE164 } from "../components/shared/contact.js";
+// The number as shown: Indian numbers as 10 digits (+91 dropped), other countries in full, "—" when empty
+export const phoneText = (p) => displayPhone(p) || "—";
+// A lead's numbers as [{text, e164}] in saved order: phones_e164 when the API sent it, else phones
+export function phoneEntriesOf(lead) {
+  const e164 = Array.isArray(lead?.phones_e164) && lead.phones_e164.length ? cleanPhones(lead.phones_e164) : null;
+  const list = e164 ?? phonesOf(lead);
+  const seen = new Set();
+  return list
+    .map((p) => ({ text: phoneText(p), e164: phoneE164(p) || String(p).trim() }))
+    .filter((x) => !seen.has(x.e164) && seen.add(x.e164));
+}
+// List rows show the first `limit` numbers; the rest behind "+N more"
+export function splitPhones(entries, limit = 2, expanded = false) {
+  const list = entries ?? [];
+  if (expanded || list.length <= limit) return { shown: list, hidden: 0 };
+  return { shown: list.slice(0, limit), hidden: list.length - limit };
 }
 
 // INR formatter
@@ -160,13 +174,29 @@ export function cleanPhones(value) {
 // A lead's numbers: phones (an older answer's phone / alt_phone as a fallback)
 export const phonesOf = (lead) =>
   cleanPhones(Array.isArray(lead?.phones) ? lead.phones : lead?.phones ?? [lead?.phone, lead?.alt_phone].filter(Boolean));
-// "+919845012345, +919845012346", or "—"
+// "9845012345, 9845012346" (other countries in full), or "—"
 export function phonesText(phones) {
   const list = cleanPhones(phones);
   return list.length ? list.map(phoneText).join(", ") : "—";
 }
 export const PHONES_ERROR = "Each phone number must have 10 digits";
-export const badPhones = (phones) => cleanPhones(phones).filter((p) => !/^\d{10}$/.test(p));
+// The API takes Indian numbers only: 10 digits, +91 / 91 / 0 in front allowed (docs section 13)
+export const badPhones = (phones) => cleanPhones(phones).filter((p) => !indianDigits(p));
+// One message per number row ("" = fine): blank rows are skipped on save; repeats are flagged
+export function phoneRowErrors(rows) {
+  const seen = new Set();
+  return (rows ?? []).map((p) => {
+    const s = String(p ?? "").trim();
+    if (!s) return "";
+    const d = indianDigits(s);
+    if (!d) return "Use 10 digits (+91 optional)";
+    if (seen.has(d)) return "This number is already in the list";
+    seen.add(d);
+    return "";
+  });
+}
+// The rows as E.164 for the API: blanks and repeats dropped, order kept (the first is the main number)
+export const phonesForApi = (rows) => [...new Set(cleanPhones(rows).map((p) => phoneE164(p) || p))];
 
 export const yesNo = (v) => (v === true || /^(yes|true|y)$/i.test(String(v ?? "").trim()) ? "Yes" : "No");
 
@@ -176,7 +206,7 @@ export function dhruvaFormOf(lead) {
   for (const f of [...LEAD_FIELDS, ...KOC_FIELDS]) {
     const v = lead?.[f.key];
     if (f.type === "dates") form[f.key] = eventDatesOf(lead);
-    else if (f.type === "phones") form[f.key] = phonesOf(lead);
+    else if (f.type === "phones") form[f.key] = phoneEntriesOf(lead).map((x) => x.text);
     else if (f.type === "yesno") form[f.key] = v === true;
     else if (f.type === "update") form[f.key] = v ?? PENDING;
     else form[f.key] = v == null ? "" : String(v);
@@ -195,7 +225,7 @@ function amountValue(text) {
 // One field's value for the API
 function apiValue(f, value) {
   if (f.type === "dates") return cleanDates(value);
-  if (f.type === "phones") return cleanPhones(value);
+  if (f.type === "phones") return phonesForApi(value);
   if (f.type === "yesno") return Boolean(value);
   if (f.type === "update") return value === PENDING || !value ? null : value;
   if (f.type === "amount") return amountValue(value);
@@ -232,7 +262,7 @@ export function dhruvaNewLead(form, { koc = false } = {}) {
 export function dhruvaFormErrors(form, { koc = false } = {}) {
   const errors = {};
   if (!String(form.name ?? "").trim()) errors.name = "Name is required";
-  if (badPhones(form.phones).length) errors.phones = PHONES_ERROR;
+  if (phoneRowErrors(form.phones).some(Boolean)) errors.phones = PHONES_ERROR;
   if (badDates(form.event_dates).length) errors.event_dates = "Use real dates (YYYY-MM-DD)";
   if (koc && form.follow_up_date && !DAY.test(form.follow_up_date)) errors.follow_up_date = "Use a real date";
   return errors;

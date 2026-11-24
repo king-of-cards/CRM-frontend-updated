@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ContactActions from "../components/shared/ContactActions.jsx";
 import { Link } from "react-router";
 import LazyCharts from "../components/dashboard/LazyCharts.jsx";
 import { BarListSkeleton, ChartSkeleton } from "../components/shared/Skeleton.jsx";
@@ -490,10 +491,10 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                 <Panel title="Latest leads" subtitle="The newest leads of the period" icon={Inbox} flush>
                   <ul className="divide-y divide-gray-100">
                     {(d?.latest ?? []).map((l) => (
-                      <li key={l.id}>
+                      <li key={l.id} className="flex items-center gap-2 pr-5 transition-colors hover:bg-gray-50">
                         <Link
                           to={linkFor(1, { search: l.phone }, period)}
-                          className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-gray-50"
+                          className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-5"
                         >
                           <span className="w-[118px] shrink-0 truncate rounded-full bg-gray-50 px-2.5 py-0.5 text-center text-xs font-medium text-gray-700 ring-1 ring-gray-200">
                             {l.vendor_name}
@@ -506,6 +507,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                           </span>
                           <span className="shrink-0 text-xs text-gray-400">{dateTimeText(l.created_at)}</span>
                         </Link>
+                        <ContactActions phone={l.phone} email={l.email} name={l.name} showNumber={false} />
                       </li>
                     ))}
                     {!(d?.latest ?? []).length && <li className="px-5 py-8 text-center text-sm text-gray-500">No leads in this period.</li>}
