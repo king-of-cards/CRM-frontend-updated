@@ -27,6 +27,13 @@ export function kocToDhruvaListLink(filters = {}, period) {
   return qs ? `${KOC_TO_DHRUVA_PATH}?${qs}` : KOC_TO_DHRUVA_PATH;
 }
 
+// A dashboard list entry's numbers (docs section 18, "Contact details"): phones (every number, in
+// order), else the one phone; [] when none
+export function entryPhones(entry) {
+  const list = Array.isArray(entry?.phones) && entry.phones.length ? entry.phones : [entry?.phone];
+  return [...new Set(list.map((p) => String(p ?? "").trim()).filter(Boolean))];
+}
+
 // One lead from a dashboard list: the list searched by its name, opening that lead
 export const leadLink = (lead) =>
   kocToDhruvaListLink({ search: lead?.name || "", notification_lead_key: lead?.lead_key });

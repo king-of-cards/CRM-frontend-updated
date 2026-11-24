@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import ContactActions from "../components/shared/ContactActions.jsx";
+import LeadList from "../components/dashboard/KocToDhruvaLeadList.jsx";
 import { Link } from "react-router";
 import LazyCharts from "../components/dashboard/LazyCharts.jsx";
 import { ChartSkeleton } from "../components/shared/Skeleton.jsx";
@@ -12,7 +12,7 @@ import FollowUpsCard from "../components/dashboard/FollowUpsCard.jsx";
 import { dayText, dhruvaErrors, rupeesText } from "./dhruvaUtils.js";
 import {
   branchRows, budgetBandRows, budgetQuantityText, dashboardKpiCards, daysSince, entryStatus, funnelRows,
-  leadLink, monthlyPoints, num, pctText,
+  monthlyPoints, num, pctText,
 } from "./kocToDhruvaUtils.js";
 import { kpiGridCols } from "../components/shared/kpiGrid.js";
 
@@ -29,33 +29,6 @@ const kpiGradient = (key, i) =>
   key === "follow_ups_due" ? "from-amber-500 to-orange-600" : i % 2 ? "from-violet-500 to-violet-700" : "from-indigo-500 to-indigo-700";
 const th = "py-2 pr-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500";
 const empty = (text) => <p className="text-sm text-gray-500">{text}</p>;
-
-// A lead in a dashboard list: its name opens it on the list
-function LeadName({ lead }) {
-  return (
-    <Link to={leadLink(lead)} className="font-medium text-gray-900 hover:text-brand-700 hover:underline">
-      {lead.name || "Unnamed lead"}
-    </Link>
-  );
-}
-
-// A compact list of leads: name, a detail line, and a value on the right
-function LeadList({ leads, detail, right, none }) {
-  if (!leads.length) return empty(none);
-  return (
-    <ul className="divide-y divide-gray-100">
-      {leads.map((l) => (
-        <li key={l.lead_key} className="flex items-start justify-between gap-3 py-2.5">
-          <span className="min-w-0">
-            <LeadName lead={l} />
-            <span className="block truncate text-xs text-gray-500">{detail(l)}</span>
-          </span>
-          <span className="flex shrink-0 items-center gap-2 text-right text-sm tabular-nums text-gray-900">{right(l)}<ContactActions phone={l.phone} email={l.email} name={l.name} showNumber={false} /></span>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export default function KocToDhruvaDashboard({ period, refreshKey }) {
   const query = period.all ? { period: "all" } : { dateFrom: period.from, dateTo: period.to };
