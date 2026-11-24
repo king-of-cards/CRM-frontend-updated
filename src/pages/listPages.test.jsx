@@ -5,6 +5,7 @@ import { AuthContext } from "../auth/context.js";
 import { canEdit, isViewer, seesAdminData } from "../auth/permissions.js";
 import { buildFilterButtons } from "../components/leads/filterButtons.js";
 import { activeCount, keysFor, readFilters, toApiQuery } from "../components/leads/leadFilters.js";
+import { activityDescription } from "../components/leads/activityUtils.js";
 
 // Every lead list renders its filters and columns without crashing, for every source and role:
 // first with nothing loaded yet (filter-options = null, no rows; this is how /leads/wedding went
@@ -24,6 +25,10 @@ const ROW = {
   event_date: "2026-12-20", venue: "Palace Grounds", event_type: "Wedding", source: "manual",
   potential_value: 84000, quantity_required: 1200, estimated_budget_per_card: "70-100",
   received: "2026-11-20T10:00:00Z", update_status: "interested", is_hot: true, origin: "workflow",
+  // Dhruva → KOC (docs section 13)
+  phones: ["9845012345", "9845012399"], phones_e164: ["+919845012345", "+919845012399"],
+  event_dates: ["2026-12-20", "2026-12-21"], sent_at: "2026-11-19T10:00:00Z", whatsapp_status: "Delivered",
+  response: "Asked for samples", message_sent: "Catalogue", follow_up_notes: "Call Friday", comments: "Warm lead", needs_intervention: true,
   branch: { id: 11, name: "Chitradurga", code: "CTRD-011", city: "Chitradurga" }, // as the API sends on spin / KOC → Dhruva items
   crm: {
     lead_key: "1", vendor: { id: 9, name: "Kraftyz" }, vendor_source: "source_default", update_status: "interested",
@@ -45,6 +50,8 @@ const ANSWER = {
   other_services: [{ value: "Wedding Gifts & Return Gifts", count: 1 }], updates: [{ value: "interested", count: 1 }],
   origins: [{ value: "workflow", count: 1 }], vendors: [{ id: 9, name: "Kraftyz", is_active: true }, { id: 7, name: "Old Vendor", is_active: false }], occasions: [{ value: "Wedding", count: 1 }],
   event_types: [{ value: "Wedding", count: 1 }], last_steps: [], shared_with: [],
+  whatsapp_statuses: [{ value: "Delivered", count: 1 }], needs_intervention: [{ value: "yes", count: 1 }, { value: "no", count: 0 }],
+  no_event_date: 2,
   quantity_range: { min: 1000, max: 5000 },
   sources: [], // GET /sheets/sources (sheet sync status)
 };
@@ -55,7 +62,7 @@ const DASH = {
   kpis: { shared: 12, pending: 5, interested: 3, quotes_count: 2, quoted_count: 2, quoted_total: 90000, converted: 1, converted_pct: 8.3, conversion_count: 1, conversion_total: 40000, conversion_amount_count: 1, conversion_amount_total: 40000, potential_value: 420000, follow_ups_due: 2 },
   funnel: [{ stage: "shared", count: 12 }, { stage: "contacted", count: 7 }, { stage: "interested", count: 4 }, { stage: "quoted", count: 2 }, { stage: "converted", count: 1 }],
   upcoming_events: { next_30_days: 2, next_60_days: 3, next_90_days: 4, next: [ENTRY] },
-  top_value_leads: [{ ...ENTRY, lead_key: "crm-8", name: "Ravi Kumar", potential_value: 150000 }],
+  top_value_leads: [{ ...ENTRY, lead_key: "crm-8", name: "Ravi Kumar", potential_value: 150000 }], // no longer sent; must not show
   monthly: [{ month: "2026-11", shared: 12, converted: 1 }],
   by_branch: [{ branch_id: 11, name: "Chitradurga", code: "CTRD-011 · Chitradurga", leads: 8, converted: 1, conversion_amount: 40000 }, { branch_id: null, name: null, code: null, leads: 4, converted: 0, conversion_amount: null }],
   by_budget_band: [{ band: "70-100", leads: 9, converted: 1, converted_pct: 11.1 }],
@@ -93,6 +100,7 @@ const storage = { getItem: (k) => (memory.has(k) ? memory.get(k) : null), setIte
 let PAGES;
 let KocToDhruvaDashboard;
 let DashboardPage;
+let DhruvaLeadPanel;
 let VendorToKocDashboard;
 beforeAll(async () => {
   globalThis.sessionStorage = storage;
@@ -115,6 +123,7 @@ beforeAll(async () => {
   };
   KocToDhruvaDashboard = (await import("./KocToDhruvaDashboard.jsx")).default;
   DashboardPage = (await import("./Dashboard.jsx")).default;
+  DhruvaLeadPanel = (await import("../components/vendorToKoc/DhruvaLeadPanel.jsx")).default;
   VendorToKocDashboard = (await import("./VendorToKocDashboard.jsx")).default;
 });
 
@@ -186,7 +195,7 @@ describe("every lead list renders its filters and columns", () => {
       });
     }
   }
-  test("KOC → Dhruva: Branch as Spin shows it; Potential value column; no Reason or Pincode column or filter", () => {
+  test("KOC → Dhruva: Branch as Spin shows it; no Potential value, Reason or Pincode column, filter or sort", () => {
     mode = "data";
     memory.clear();
     const html = render("koc_to_dhruva", "admin");
@@ -195,9 +204,8 @@ describe("every lead list renders its filters and columns", () => {
     expect(html).not.toContain(">Reason</th>");
     expect(html).not.toContain(">Pincode</th>");
     expect(html).not.toContain("Reason"); // no Reason column, filter or text
-    expect(html).toContain(">Potential value</th>");
-    expect(html).toContain("₹84,000");
-    expect(html).toContain("Potential value (highest)"); // the sort option
+    expect(html).not.toContain("Potential value"); // no column or sort option (an old API's value is ignored)
+    expect(html).not.toContain("₹84,000");
   });
 });
 
@@ -216,13 +224,13 @@ describe("KOC → Dhruva dashboard", () => {
     expect(html).toContain("Leads shared");
     expect(html).toContain("Funnel");
   });
-  test("the new KPI cards and panels; no occasion, inflow, Top cities, Update breakdown or reason", () => {
+  test("the KPI cards and panels; no occasion, inflow, Top cities, Update breakdown, reason or potential value", () => {
     mode = "data";
     const html = renderDashboard("admin");
-    for (const text of ["Leads shared", "Not contacted yet", "Potential value", "Follow-ups due", "Monthly", "Funnel", "Upcoming events", "Top value leads", "By branch", "By budget band", "Stale leads", "Latest leads"])
+    for (const text of ["Leads shared", "Not contacted yet", "Follow-ups due", "Monthly", "Funnel", "Upcoming events", "By branch", "By budget band", "Stale leads", "Latest leads"])
       expect(html).toContain(text);
-    for (const name of ["Meera Iyer", "Ravi Kumar", "Old Lead", "Chitradurga", "CTRD-011 · Chitradurga", "No branch", "₹1,50,000"]) expect(html).toContain(name);
-    for (const gone of ["Lead inflow", "Top cities", "Leads by occasion", "Engagement", "Mysuru", "Update breakdown", "Reason"]) expect(html).not.toContain(gone);
+    for (const name of ["Meera Iyer", "Old Lead", "Chitradurga", "CTRD-011 · Chitradurga", "No branch"]) expect(html).toContain(name);
+    for (const gone of ["Lead inflow", "Top cities", "Leads by occasion", "Engagement", "Mysuru", "Update breakdown", "Reason", "Potential value", "Top value leads", "Ravi Kumar", "₹1,50,000"]) expect(html).not.toContain(gone);
   });
 });
 
@@ -314,5 +322,119 @@ describe("Assigned to with an inactive vendor", () => {
     } finally {
       ROW.crm = saved;
     }
+  });
+});
+
+describe("KOC → Dhruva: Bulk upload button (docs section 18: admins only)", () => {
+  test("admins see it; view-only and Dhruva logins don't", () => {
+    mode = "data";
+    memory.clear();
+    expect(render("koc_to_dhruva", "admin")).toContain("Bulk upload");
+    for (const role of ["viewer", "dhruva"]) expect(render("koc_to_dhruva", role)).not.toContain("Bulk upload");
+  });
+});
+
+describe("Dhruva → KOC list (docs section 13)", () => {
+  test("the new columns; event dates; Sent at; no Additional comments, List or old Date column", () => {
+    mode = "data";
+    memory.clear();
+    const html = render("dhruva", "admin");
+    for (const text of ["Event dates", "Sent at", "WhatsApp status", "Response", "Message sent", "Follow-up notes", "Comments", "Needs intervention", "Quoted amount", "Conversion amount", "Follow-up date"])
+      expect(html).toContain(`>${text}</th>`);
+    expect(html).toContain("20 Dec 2026, 21 Dec 2026");
+    expect(html).toContain(">Phone numbers</th>");
+    expect(html).toContain("+919845012345");
+    expect(html).toContain("+919845012399"); // every number, not only the first
+    expect(html).not.toContain("Alt:");
+    expect(html).toContain("19 Nov 2026"); // sent_at
+    for (const text of ["Delivered", "Asked for samples", "Catalogue", "Call Friday"]) expect(html).toContain(text);
+    expect(html).not.toContain("Additional comments");
+    expect(html).not.toContain(">List</th>");
+    expect(html).not.toContain(">Received</th>");
+  });
+  test("sorts by Sent at and WhatsApp status; stats No event date and Needs intervention", () => {
+    mode = "data";
+    memory.clear();
+    const html = render("dhruva", "admin");
+    expect(html).toContain('value="sent_at:desc"');
+    expect(html).toContain('value="whatsapp_status:asc"');
+    expect(html).toContain("No event date");
+    expect(html).toContain("Needs intervention");
+  });
+  test("Bulk upload: admins only (hidden for Dhruva and view-only logins); Add lead for Dhruva logins", () => {
+    mode = "data";
+    memory.clear();
+    expect(render("dhruva", "admin")).toContain("Bulk upload");
+    for (const role of ["dhruva", "viewer"]) expect(render("dhruva", role)).not.toContain("Bulk upload");
+    expect(render("dhruva", "dhruva")).toContain("Add lead");
+  });
+  test("Dhruva logins read the KOC fields (no inline editors); admins edit them inline", () => {
+    mode = "data";
+    memory.clear();
+    const admin = render("dhruva", "admin");
+    expect(admin).toContain('aria-label="Comments"');
+    expect(admin).toContain('aria-label="Needs Dhruva intervention"');
+    const dhruva = render("dhruva", "dhruva");
+    expect(dhruva).not.toContain('aria-label="Comments"');
+    expect(dhruva).not.toContain('aria-label="Update status"');
+    expect(dhruva).toContain("Warm lead");
+  });
+  test("the needs_intervention filter is a button; event dates match any date", () => {
+    const buttons = buildFilterButtons("dhruva", { needs_intervention: "yes" }, ANSWER, true);
+    expect(buttons.find((b) => b.kind === "needs_intervention")).toMatchObject({ active: true, activeLabel: "Needs intervention: Yes" });
+    expect(toApiQuery(readFilters(new URLSearchParams("needs_intervention=no"), "dhruva"), "dhruva")).toEqual({ needs_intervention: "no" });
+    expect(activeCount(readFilters(new URLSearchParams("needs_intervention=no&hot=yes"), "dhruva"), "dhruva")).toBe(2);
+  });
+});
+
+describe("Dhruva → KOC lead panel", () => {
+  const LEAD = { ...ROW, id: 1, phone: undefined, quoted_amount: 50000, conversion_amount: null, follow_up_date: "2026-12-01", source: "bulk_upload", created_by_name: "Dhruva User" };
+  const renderPanel = (role) =>
+    renderToString(
+      <AuthContext.Provider value={authFor(ROLES[role])}>
+        <MemoryRouter>
+          <DhruvaLeadPanel lead={LEAD} isAdmin={role === "admin"} onClose={() => {}} onSaved={() => {}} onArchived={() => {}} whatsappStatuses={["Delivered", "Read"]} />
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    );
+  test("admins edit lead and KOC fields; event dates with add / remove; Sent at read-only", () => {
+    const html = renderPanel("admin");
+    expect(html).toContain('aria-label="Remove 20 Dec 2026"');
+    expect(html).toContain("Add date");
+    expect(html).toContain('maxLength="10"'); // each number: 10 digits
+    expect(html).toContain('aria-label="Remove 9845012345"');
+    expect(html).toContain('aria-label="Remove 9845012399"');
+    expect(html).toContain("Add number");
+    expect(html).not.toContain("Alternate phone");
+    expect(html).toContain('id="dhruva-whatsapp_status-options"');
+    expect(html).toMatch(/Sent at (<!-- -->)?19 Nov 2026/);
+    expect(html).not.toContain("KOC details, read only");
+    expect(html).toContain("Activity");
+  });
+  test("Dhruva logins edit the lead fields; the KOC fields are read only", () => {
+    const html = renderPanel("dhruva");
+    expect(html).toContain('aria-label="Remove 20 Dec 2026"');
+    expect(html).toContain("KOC details, read only");
+    expect(html).toContain("Delivered");
+    expect(html).toContain("Save lead details");
+    expect(html).not.toContain('id="dhruva-whatsapp_status-options"');
+  });
+  test("view-only logins read everything", () => {
+    const html = renderPanel("viewer");
+    expect(html).toContain("Lead details, read only");
+    expect(html).toContain("KOC details, read only");
+    expect(html).toContain("20 Dec 2026, 21 Dec 2026");
+    expect(html).toContain("+919845012345, +919845012399");
+    expect(html).not.toContain("Save");
+  });
+});
+
+describe("Dhruva → KOC activity (who, when, field, old → new)", () => {
+  test("event dates, Needs intervention and the KOC fields read as labels", () => {
+    expect(activityDescription({ action: "field_changed", field: "event_dates", old_value: "2026-12-04", new_value: "2026-12-04, 2026-12-05" })).toBe("Event dates: 4 Dec 2026 → 4 Dec 2026, 5 Dec 2026");
+    expect(activityDescription({ action: "field_changed", field: "needs_intervention", old_value: "false", new_value: "true" })).toBe("Needs Dhruva intervention: No → Yes");
+    expect(activityDescription({ action: "field_changed", field: "whatsapp_status", old_value: null, new_value: "Read" })).toBe("WhatsApp status: — → Read");
+    expect(activityDescription({ action: "field_changed", field: "comments", old_value: "a", new_value: "b" })).toBe("Comments: a → b");
+    expect(activityDescription({ action: "field_changed", field: "phones", old_value: "9845012345", new_value: "9845012345, 9845012346" })).toBe("Phone numbers: 9845012345 → 9845012345, 9845012346");
   });
 });

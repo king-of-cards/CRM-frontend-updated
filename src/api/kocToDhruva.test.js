@@ -18,8 +18,8 @@ afterEach(() => { globalThis.fetch = realFetch; });
 
 describe("KOC → Dhruva API (docs section 18)", () => {
   test("list sends paging and its own filters", async () => {
-    await listKocToDhruvaLeads({ page: 1, page_size: 25, sort: "potential_value", order: "desc", quantity_min: "1000", update_status: ["pending", "interested"] });
-    expect(calls[0].url).toBe("/api/v1/koc-to-dhruva/leads?page=1&page_size=25&sort=potential_value&order=desc&quantity_min=1000&update_status=pending&update_status=interested");
+    await listKocToDhruvaLeads({ page: 1, page_size: 25, sort: "quantity_required", order: "desc", quantity_min: "1000", update_status: ["pending", "interested"] });
+    expect(calls[0].url).toBe("/api/v1/koc-to-dhruva/leads?page=1&page_size=25&sort=quantity_required&order=desc&quantity_min=1000&update_status=pending&update_status=interested");
   });
   test("CRM details: PUT …/leads/{lead_key}/crm with only the changes", async () => {
     await saveKocToDhruvaCrm("crm-12", { update_status: "interested", follow_up_date: "2026-12-01" });

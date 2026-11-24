@@ -6,7 +6,8 @@ import LeadBackButton from "../layout/LeadBackButton.jsx";
 import { isLeadRoute } from "../layout/leadBack.js";
 
 // Right-hand drawer in the same style as the Branches and Vendors forms.
-// Rendered in document.body, so it isn't clipped by the table it may be opened from.
+// Rendered in document.body, so it isn't clipped by the table it may be opened from (inline when
+// there is no document, e.g. server rendering in tests).
 export default function Drawer({ kicker, title, onClose, wide = false, children, footer, headerActions }) {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -20,7 +21,7 @@ export default function Drawer({ kicker, title, onClose, wide = false, children,
     };
   }, [onClose]);
 
-  return createPortal(
+  const drawer = (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={title}>
       <button
         type="button"
@@ -56,9 +57,9 @@ export default function Drawer({ kicker, title, onClose, wide = false, children,
         </div>
         {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 px-4 py-3 sm:px-6 sm:py-4">{footer}</div>}
       </div>
-    </div>,
-    document.body,
+    </div>
   );
+  return typeof document === "undefined" ? drawer : createPortal(drawer, document.body);
 }
 
 export const fieldCls =
@@ -70,9 +71,6 @@ export const primaryBtn =
 export const secondaryBtn =
   "rounded-full px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-60";
 
-export function Spinner() {
-  return <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-brand-600" />;
-}
 
 export function Alert({ kind = "error", children }) {
   const cls = {

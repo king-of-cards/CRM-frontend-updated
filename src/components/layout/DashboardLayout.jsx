@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate, useSearchParams } from "react-router";
 import {
-  Building2,
   Camera,
   ClipboardList,
   Globe,
@@ -29,6 +28,7 @@ import LeadBackButton from "./LeadBackButton.jsx";
 import PageErrorBoundary from "../shared/PageErrorBoundary.jsx";
 import { isLeadRoute } from "./leadBack.js";
 import { notificationBellPlacement } from "./notificationUtils.js";
+import { preloadRoute } from "../../routeLoaders.js";
 
 // Shared frame for every page after login: collapsible sidebar (a slide-in drawer on phones),
 // top bar, page content.
@@ -37,7 +37,6 @@ import { notificationBellPlacement } from "./notificationUtils.js";
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/users", label: "Team", icon: UserCog, navKey: "team" },
-  { to: "/vendors", label: "Vendors", icon: Building2, navKey: "team" }, // admins, like Team
   { to: "/settings", label: "Settings", icon: Settings, navKey: "settings" },
 ];
 
@@ -249,6 +248,8 @@ export default function DashboardLayout({
             <NavLink
               key={to}
               to={to}
+              onMouseEnter={() => preloadRoute(to)}
+              onFocus={() => preloadRoute(to)}
               title={mini ? label : undefined}
               aria-label={mini ? label : undefined}
               className={({ isActive }) =>
@@ -327,6 +328,8 @@ export default function DashboardLayout({
                 <NavLink
                   key={path}
                   to={to}
+                  onMouseEnter={() => preloadRoute(path)}
+                  onFocus={() => preloadRoute(path)}
                   end={path === "/dashboard"}
                   className={({ isActive }) =>
                     `relative flex min-h-11 shrink-0 items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-all sm:px-4 md:min-h-0 ${

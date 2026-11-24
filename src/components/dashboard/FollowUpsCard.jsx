@@ -1,10 +1,11 @@
-import { AlarmClock, Loader2, RefreshCw } from "lucide-react";
+import { AlarmClock, RefreshCw } from "lucide-react";
 import { Link } from "react-router";
 import { useState } from "react";
 import { Panel } from "./DashboardParts.jsx";
 import useFollowUpReminders from "./useFollowUpReminders.js";
 import { reminderDate, reminderLeadDestination, reminderListDestination, reminderPhone, reminderRequestForUser, reminderSourceLabel, reminderTag } from "./reminderUtils.js";
 import { useAuth } from "../../auth/useAuth.js";
+import { ListSkeleton } from "../shared/Skeleton.jsx";
 
 const tones = { red: "bg-rose-50 text-rose-700 ring-rose-200", amber: "bg-amber-50 text-amber-800 ring-amber-200", neutral: "bg-gray-100 text-gray-600 ring-gray-200" };
 
@@ -38,7 +39,7 @@ export default function FollowUpsCard({ flow = "" }) {
           <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-600 ring-1 ring-gray-200">Upcoming {counts.upcoming ?? 0}</span>
         </div>
         {error && <div className="px-5 py-2 text-xs text-gray-500">Couldn’t refresh follow-ups. <button type="button" onClick={refresh} className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"><RefreshCw size={11} />Retry</button></div>}
-        {loading && !data ? <div className="flex justify-center py-8"><Loader2 size={18} className="animate-spin text-gray-400" /></div> : rows.length ? (
+        {loading && !data ? <ListSkeleton rows={4} label="Loading follow-ups" /> : rows.length ? (
           <ul className="divide-y divide-gray-100">
             {rows.map((item, index) => {
               const tag = reminderTag(item.days_overdue);

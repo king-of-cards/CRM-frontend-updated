@@ -2,19 +2,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import Modal, { modalCancelBtn, modalDangerBtn, modalPrimaryBtn } from "../components/shared/Modal.jsx";
+import { SkeletonRows } from "../components/shared/Skeleton.jsx";
+import VendorsSection from "../components/team/VendorsSection.jsx";
 import { createUser, deleteUser, listUsers, setUserActive, updateUser } from "../api/users.js";
 import { linkVendorUser, listKocVendors, unlinkVendorUser } from "../api/vendorToKoc.js";
 import { apiErrorText } from "../api/errors.js";
 import { useAuth } from "../auth/useAuth.js";
 import { roleLabel, ROLES } from "../auth/permissions.js";
 import { formatDay } from "../components/shared/dates.js";
-import { editFormOf, editProblem, emailConfirmed, userChanges, vendorChoices } from "./teamUtils.js";
+import { editFormOf, editProblem, emailConfirmed, listOrNull, rowMenuItems, userChanges, vendorChoices } from "./teamUtils.js";
 
 // Team (admin only; docs/API_REFERENCE.md section 12): logins with their role, vendor and status;
 // create a login (vendor logins pick their vendor); link / move / unlink a vendor login;
-// block / unblock, edit and remove through each row's ⋯ menu. Your own row: no role change, no
-// block, no remove. API errors (400, 404, 409, 422) are shown as the API returns them.
+// Status (Active / Blocked) is a control in the row; edit and remove are in each row's ⋯ menu.
+// Your own row: no role change, no status change, no remove. Below the members: the vendors
+// (VendorsSection; /vendors opens this page). API errors (400, 404, 409, 422) are shown as returned.
 
+const USERS_QUERY = { limit: 200 };
 const EMPTY_FORM = { name: "", email: "", password: "", role: "vendor", vendor_id: "" };
 // Roles that require a vendor to be linked
 const NEEDS_VENDOR = ["vendor"];
@@ -57,28 +61,6 @@ function VendorOptions({ vendors, current, placeholder }) {
         </option>
       ))}
     </>
-  );
-}
-
-function ConfirmDialog({ title, text, confirmLabel, danger, busy, error, onConfirm, onCancel }) {
-  return (
-    <Modal
-      title={title}
-      role="alertdialog"
-      size="sm:max-w-sm"
-      onClose={onCancel}
-      footer={
-        <>
-          <button type="button" onClick={onCancel} className={modalCancelBtn}>Cancel</button>
-          <button type="button" onClick={onConfirm} disabled={busy} className={danger ? modalDangerBtn : modalPrimaryBtn}>
-            {busy ? "Saving…" : confirmLabel}
-          </button>
-        </>
-      }
-    >
-      <p className="text-sm text-gray-600">{text}</p>
-      <ErrorText>{error}</ErrorText>
-    </Modal>
   );
 }
 
@@ -204,7 +186,7 @@ function RemoveDialog({ user, onRemoved, onCancel }) {
 }
 
 // The ⋯ menu of a row. Fixed position, so the table's scroll box never clips it.
-function RowMenu({ user, own, onEdit, onBlock, onRemove }) {
+export function RowMenu({ user, own, onEdit, onRemove }) {
   const [pos, setPos] = useState(null); // { top, right } while open
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
@@ -238,6 +220,7 @@ function RowMenu({ user, own, onEdit, onBlock, onRemove }) {
     fn();
   };
   const item = "flex min-h-11 w-full items-center gap-2 px-4 text-left text-sm hover:bg-gray-50";
+  const items = rowMenuItems({ own });
 
   return (
     <>
@@ -257,12 +240,7 @@ function RowMenu({ user, own, onEdit, onBlock, onRemove }) {
           <button type="button" role="menuitem" onClick={pick(onEdit)} className={`${item} text-gray-800`}>
             <Pencil size={15} /> Edit
           </button>
-          {!own && (
-            <button type="button" role="menuitem" onClick={pick(onBlock)} className={`${item} ${user.is_active ? "text-red-700" : "text-emerald-700"}`}>
-              {user.is_active ? "Block" : "Unblock"}
-            </button>
-          )}
-          {!own && (
+          {items.includes("remove") && (
             <button type="button" role="menuitem" onClick={pick(onRemove)} className={`${item} text-red-700`}>
               <Trash2 size={15} /> Remove
             </button>
@@ -270,6 +248,62 @@ function RowMenu({ user, own, onEdit, onBlock, onRemove }) {
         </div>
       )}
     </>
+  );
+}
+
+const STATUS_TONE = {
+  active: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  blocked: "border-red-200 bg-red-50 text-red-700",
+};
+
+// Status: a chip on your own row (and for non-admins); otherwise Active / Blocked, saved at once
+// with PATCH /users/{id} { is_active }. Blocked logins are signed out everywhere.
+export function StatusCell({ user, editable, onSaved }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const value = user.is_active ? "active" : "blocked";
+
+  if (!editable) {
+    return (
+      <span className={`rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_TONE[value]}`}>
+        {user.is_active ? "Active" : "Blocked"}
+      </span>
+    );
+  }
+
+  async function change(next) {
+    if (next === value) return;
+    setBusy(true);
+    setError("");
+    try {
+      const saved = await setUserActive(user.id, next === "active");
+      onSaved({ ...user, ...(saved && typeof saved === "object" ? saved : {}), is_active: next === "active" });
+    } catch (err) {
+      setError(apiErrorText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <select
+        aria-label={`Status of ${user.name}`}
+        title={value === "active" ? "Blocking signs them out everywhere" : undefined}
+        value={value}
+        disabled={busy}
+        onChange={(e) => change(e.target.value)}
+        className={`${smallSelect} font-medium ${STATUS_TONE[value]}`}
+      >
+        <option value="active">Active</option>
+        <option value="blocked">Blocked</option>
+      </select>
+      {error && (
+        <p role="alert" className="mt-1 max-w-[220px] text-[11px] leading-tight text-red-600">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -315,9 +349,10 @@ function VendorCell({ user, vendors, onChanged }) {
 }
 
 export default function Users() {
-  const { user: me } = useAuth();
-  const [users, setUsers] = useState([]);
-  const [vendors, setVendors] = useState([]);
+  const { user: me, isAdmin } = useAuth();
+  // The last answers show at once (null: never loaded, so placeholder rows); fresh ones replace them
+  const [users, setUsers] = useState(() => listOrNull(listUsers.peek(USERS_QUERY)));
+  const [vendors, setVendors] = useState(() => listOrNull(listKocVendors.peek()) ?? []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -326,9 +361,6 @@ export default function Users() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const [confirm, setConfirm] = useState(null); // { user, block }
-  const [confirmBusy, setConfirmBusy] = useState(false);
-  const [confirmError, setConfirmError] = useState("");
   const [editing, setEditing] = useState(null); // user
   const [removing, setRemoving] = useState(null); // user
 
@@ -336,7 +368,7 @@ export default function Users() {
     setLoading(true);
     setError("");
     try {
-      const [u, v] = await Promise.all([listUsers({ limit: 200 }), listKocVendors()]);
+      const [u, v] = await Promise.all([listUsers(USERS_QUERY), listKocVendors()]);
       setUsers(u);
       setVendors(v);
     } catch (err) {
@@ -384,19 +416,12 @@ export default function Users() {
     }
   }
 
-  async function confirmBlock() {
-    setConfirmBusy(true);
-    setConfirmError("");
-    try {
-      await setUserActive(confirm.user.id, !confirm.block);
-      setConfirm(null);
-      await load();
-    } catch (err) {
-      setConfirmError(apiErrorText(err));
-    } finally {
-      setConfirmBusy(false);
-    }
-  }
+  // Vendor changes in the section below: refresh the vendor pickers
+  const reloadVendors = useCallback(() => {
+    listKocVendors().then(setVendors).catch(() => {});
+  }, []);
+  const replaceUser = (saved) => setUsers((list) => (list ?? []).map((x) => (x.id === saved.id ? saved : x)));
+  const rows = listOrNull(users) ?? [];
 
   return (
     <DashboardLayout title="Team">
@@ -484,7 +509,7 @@ export default function Users() {
             </p>
           ) : (
             <table
-              className={`w-full min-w-[720px] text-left text-sm ${loading ? "opacity-50" : ""}`}
+              className="w-full min-w-[720px] text-left text-sm"
             >
               <thead className="border-y border-gray-100 bg-gray-50/60 text-xs text-gray-500">
                 <tr>
@@ -497,7 +522,8 @@ export default function Users() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => {
+                {users === null && <SkeletonRows rows={5} cols={6} label="Loading team members" />}
+                {rows.map((u) => {
                   const own = me?.id === u.id;
                   return (
                     <tr
@@ -536,15 +562,7 @@ export default function Users() {
                         )}
                       </td>
                       <td className="px-4 py-2.5 sm:px-6">
-                        <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
-                            u.is_active
-                              ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-                              : "bg-red-50 text-red-700 ring-red-200"
-                          }`}
-                        >
-                          {u.is_active ? "Active" : "Blocked"}
-                        </span>
+                        <StatusCell user={u} editable={isAdmin && !own} onSaved={replaceUser} />
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5 text-gray-600 sm:px-6">
                         {formatDate(u.created_at)}
@@ -554,17 +572,13 @@ export default function Users() {
                           user={u}
                           own={own}
                           onEdit={() => setEditing(u)}
-                          onBlock={() => {
-                            setConfirmError("");
-                            setConfirm({ user: u, block: u.is_active });
-                          }}
                           onRemove={() => setRemoving(u)}
                         />
                       </td>
                     </tr>
                   );
                 })}
-                {!loading && users.length === 0 && (
+                {!loading && users !== null && rows.length === 0 && (
                   <tr>
                     <td
                       colSpan={6}
@@ -580,22 +594,6 @@ export default function Users() {
         </div>
       </section>
 
-      {confirm && (
-        <ConfirmDialog
-          title={confirm.block ? `Block ${confirm.user.name}?` : `Unblock ${confirm.user.name}?`}
-          text={
-            confirm.block
-              ? "They're signed out everywhere at once and can't sign in until you unblock them."
-              : "They can sign in again."
-          }
-          confirmLabel={confirm.block ? "Block" : "Unblock"}
-          danger={confirm.block}
-          busy={confirmBusy}
-          error={confirmError}
-          onConfirm={confirmBlock}
-          onCancel={() => setConfirm(null)}
-        />
-      )}
       {editing && (
         <EditDialog
           user={editing}
@@ -612,12 +610,16 @@ export default function Users() {
         <RemoveDialog
           user={removing}
           onCancel={() => setRemoving(null)}
-          onRemoved={async () => {
+          onRemoved={() => {
+            // The login is gone: its row disappears at once
+            const id = removing.id;
             setRemoving(null);
-            await load();
+            setUsers((list) => (list ?? []).filter((x) => x.id !== id));
           }}
         />
       )}
+
+      <VendorsSection onChanged={reloadVendors} />
     </DashboardLayout>
   );
 }

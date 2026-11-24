@@ -153,10 +153,12 @@ function csvCell(value) {
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-export function rowsToCsv(fields, rows, branches = []) {
+// headers: "key" (default; the /crm-leads previews accept field keys) or "label" (the file's own
+// headers, for previews that read only those, e.g. KOC → Dhruva)
+export function rowsToCsv(fields, rows, branches = [], { headers = "key" } = {}) {
   const names = new Map(branches.map((b) => [String(b.id), b.name]));
   const keys = fields.map((f) => f.key);
-  const lines = [keys.map(csvCell).join(",")];
+  const lines = [fields.map((f) => (headers === "label" ? (f.label ?? f.key) : f.key)).map(csvCell).join(",")];
   for (const r of rows) {
     lines.push(
       keys

@@ -19,6 +19,7 @@ import { getFollowUpReminders } from "../../api/reminders.js";
 import { reminderDashboardDestination, reminderRequestEmpty, reminderRequestForUser, reminderScopeFor } from "../dashboard/reminderUtils.js";
 import { useAuth } from "../../auth/useAuth.js";
 import { dhruvaDirectionOf, flowOf } from "./leadFlow.js";
+import { ListSkeleton } from "../shared/Skeleton.jsx";
 
 const PAGE_SIZE = 10;
 
@@ -226,7 +227,7 @@ export default function NotificationBell({ variant = "default" }) {
           </div>
 
           <div className="max-h-[min(70vh,32rem)] overflow-y-auto">
-            {loading && items.length === 0 && <div className="flex justify-center p-8"><Loader2 size={20} className="animate-spin text-brand-600" /></div>}
+            {loading && items.length === 0 && <ListSkeleton rows={5} label="Loading notifications" />}
             {!loading && error && <div className="px-4 py-6 text-center text-sm text-gray-600"><p>Could not load notifications.</p><button type="button" onClick={() => loadPage(1)} className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline"><RefreshCw size={12} />Retry</button></div>}
             {!loading && !error && items.length === 0 && <p className="px-4 py-10 text-center text-sm text-gray-500">No notifications yet</p>}
             {items.map((item) => (

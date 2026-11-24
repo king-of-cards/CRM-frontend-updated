@@ -13,7 +13,6 @@ import {
   kocToDhruvaListLink,
   leadLink,
   monthlyPoints,
-  potentialText,
   quantityText,
   spinField,
 } from "./kocToDhruvaUtils.js";
@@ -21,7 +20,7 @@ import { TOP_CITIES_DEFAULTS } from "./topCities.js";
 import { branchOf, branchText } from "../components/leads/stores.js";
 
 describe("KOC → Dhruva labels", () => {
-  test("estimated budget per card, quantity and potential value", () => {
+  test("estimated budget per card and quantity", () => {
     expect(budgetText("70-100")).toBe("₹70–100");
     expect(budgetText("70_100")).toBe("₹70–100");
     expect(budgetText("500_PLUS")).toBe("₹500+");
@@ -31,9 +30,6 @@ describe("KOC → Dhruva labels", () => {
     expect(budgetText("")).toBe("—");
     expect(quantityText(1500)).toBe("1,500");
     expect(quantityText(null)).toBe("—");
-    expect(potentialText(84000)).toBe("₹84,000");
-    expect(potentialText(0)).toBe("₹0"); // UNDER_… budgets count as 0
-    expect(potentialText(null)).toBe("—");
     expect(budgetQuantityText({ budget: "70-100", quantity: 1200 })).toBe("₹70–100 × 1,200");
   });
   test("a list entry's status: the API's label, else ours (null = Pending)", () => {
@@ -56,22 +52,23 @@ describe("KOC → Dhruva KPI cards", () => {
   const kpis = {
     shared: 120, total: 120, pending: 70, interested: 14, quotes_count: 11, quoted_count: 11, quoted_total: 1650000,
     converted: 6, converted_pct: 5, conversion_count: 5, conversion_total: 720000,
-    conversion_amount_count: 4, conversion_amount_total: 600000, potential_value: 2520000, follow_ups_due: 3,
+    conversion_amount_count: 4, conversion_amount_total: 600000, follow_ups_due: 3,
   };
   const period = { from: "2026-11-01", to: "2026-11-21" };
   const cards = dashboardKpiCards(kpis, period);
   const by = Object.fromEntries(cards.map((c) => [c.key, c]));
   const dates = "date_from=2026-11-01&date_to=2026-11-21";
 
-  test("the ten cards, in order", () => {
+  test("the nine cards, in order (no Potential value)", () => {
     expect(cards.map((c) => c.label)).toEqual([
       "Leads shared", "Not contacted yet", "Interested", "Quotes sent", "Quoted amount",
-      "Converted", "Conversion amount", "AOV", "Potential value", "Follow-ups due",
+      "Converted", "Conversion amount", "AOV", "Follow-ups due",
     ]);
     expect(by.shared.value).toBe("120");
     expect(by.converted.value).toBe("6 · 5%");
     expect(by.aov.value).toBe("₹1.5 L");
-    expect(by.potential_value.value).toBe("₹25.2 L");
+    expect(by.potential_value).toBeUndefined();
+    expect(dashboardKpiCards({ ...kpis, potential_value: 2520000 }, period).map((c) => c.key)).not.toContain("potential_value");
     expect(by.follow_ups_due.value).toBe("3");
   });
   test("each opens the list with its exact filter and the period", () => {
@@ -84,10 +81,7 @@ describe("KOC → Dhruva KPI cards", () => {
     expect(by.conversion_amount.to).toBe(`/koc-to-dhruva?conversion=has&${dates}`);
     expect(by.aov.to).toBe(`/koc-to-dhruva?update_status=converted&conversion=has&${dates}`);
   });
-  test("Potential value: the period's open leads, highest first; Follow-ups due: every due lead, no period", () => {
-    expect(by.potential_value.to).toBe(
-      `/koc-to-dhruva?update_status=pending&update_status=interested&update_status=will_call_back&sort=potential_value%3Adesc&${dates}`,
-    );
+  test("Follow-ups due: every due lead, no period", () => {
     expect(by.follow_ups_due.to).toBe("/koc-to-dhruva?follow_up=due");
   });
   test("Leads shared falls back to total; empty values show —", () => {

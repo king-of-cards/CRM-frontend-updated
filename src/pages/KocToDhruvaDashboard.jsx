@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import LazyCharts from "../components/dashboard/LazyCharts.jsx";
+import { ChartSkeleton } from "../components/shared/Skeleton.jsx";
 import {
-  AlarmClock, BadgeCheck, CalendarDays, Clock3, Gem, Hourglass, IndianRupee, Receipt, Send, Share2, ThumbsUp, Wallet,
+  AlarmClock, BadgeCheck, CalendarDays, Clock3, Hourglass, IndianRupee, Receipt, Send, Share2, ThumbsUp, Wallet,
 } from "lucide-react";
 import { getKocToDhruvaDashboard } from "../api/kocToDhruva.js";
 import { Kpi, Panel } from "../components/dashboard/DashboardParts.jsx";
@@ -10,18 +11,18 @@ import FollowUpsCard from "../components/dashboard/FollowUpsCard.jsx";
 import { dayText, dhruvaErrors, rupeesText } from "./dhruvaUtils.js";
 import {
   branchRows, budgetBandRows, budgetQuantityText, dashboardKpiCards, daysSince, entryStatus, funnelRows,
-  leadLink, monthlyPoints, num, pctText, potentialText,
+  leadLink, monthlyPoints, num, pctText,
 } from "./kocToDhruvaUtils.js";
 import { kpiGridCols } from "../components/shared/kpiGrid.js";
 
 // KOC → Dhruva dashboard (GET /analytics/koc-to-dhruva, docs section 18): the shared period
 // (All time by default), the KPI cards (each opens the filtered list where an exact filter
-// exists), follow-ups, then three pairs of panels: Monthly | Funnel, Upcoming events | Top value
-// leads, By branch | By budget band, Stale leads | Latest leads.
+// exists), follow-ups, then the panels: Monthly | Funnel, Upcoming events (full width), By branch |
+// By budget band, Stale leads | Latest leads.
 
 const KPI_ICONS = {
   shared: Share2, pending: Clock3, interested: ThumbsUp, quotes_sent: Send, quoted_amount: Receipt,
-  converted: BadgeCheck, conversion_amount: IndianRupee, aov: Wallet, potential_value: Gem, follow_ups_due: AlarmClock,
+  converted: BadgeCheck, conversion_amount: IndianRupee, aov: Wallet, follow_ups_due: AlarmClock,
 };
 const kpiGradient = (key, i) =>
   key === "follow_ups_due" ? "from-amber-500 to-orange-600" : i % 2 ? "from-violet-500 to-violet-700" : "from-indigo-500 to-indigo-700";
@@ -93,8 +94,8 @@ export default function KocToDhruvaDashboard({ period, refreshKey }) {
       <section className="mt-6 grid gap-4 xl:grid-cols-2">
         <Panel title="Monthly" subtitle="Leads shared and converted, by the month they were received">
           <div className="h-64">
-            {monthly.some((m) => m.shared || m.converted) ? (
-              <ResponsiveContainer width="100%" height="100%">
+            {kpiLoading ? <ChartSkeleton /> : monthly.some((m) => m.shared || m.converted) ? (
+              <LazyCharts>{({ Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis }) => (<ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthly} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={16} />
@@ -104,7 +105,7 @@ export default function KocToDhruvaDashboard({ period, refreshKey }) {
                   <Bar dataKey="shared" name="Shared" fill="#6366f1" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="converted" name="Converted" fill="#10b981" radius={[4, 4, 0, 0]} />
                 </BarChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer>)}</LazyCharts>
             ) : <p className="pt-10 text-center text-sm text-gray-500">No leads received in this period.</p>}
           </div>
         </Panel>
@@ -129,27 +130,21 @@ export default function KocToDhruvaDashboard({ period, refreshKey }) {
           ) : empty("No leads received in this period.")}
         </Panel>
 
-        <Panel title="Upcoming events" subtitle="Open leads with an event from today" icon={CalendarDays}>
-          <div className="mb-3 flex flex-wrap gap-2 text-xs">
-            {[["Next 30 days", upcoming.next_30_days], ["Next 60 days", upcoming.next_60_days], ["Next 90 days", upcoming.next_90_days]].map(([label, n]) => (
-              <span key={label} className="rounded-full bg-indigo-50 px-2.5 py-1 font-medium text-indigo-700 ring-1 ring-indigo-100">{label}: {num(n)}</span>
-            ))}
-          </div>
-          <LeadList
-            leads={upcoming.next ?? []}
-            detail={(l) => `${budgetQuantityText(l)} · ${entryStatus(l)}`}
-            right={(l) => dayText(l.event_date)}
-            none="No upcoming events."
-          />
-        </Panel>
-        <Panel title="Top value leads" subtitle="Open leads with the highest potential value (budget × quantity)" icon={Gem}>
-          <LeadList
-            leads={data?.top_value_leads ?? []}
-            detail={(l) => `${budgetQuantityText(l)} · ${entryStatus(l)}`}
-            right={(l) => <span className="font-semibold">{potentialText(l.potential_value)}</span>}
-            none="No open leads with a potential value."
-          />
-        </Panel>
+        <div className="xl:col-span-2">
+          <Panel title="Upcoming events" subtitle="Open leads with an event from today" icon={CalendarDays}>
+            <div className="mb-3 flex flex-wrap gap-2 text-xs">
+              {[["Next 30 days", upcoming.next_30_days], ["Next 60 days", upcoming.next_60_days], ["Next 90 days", upcoming.next_90_days]].map(([label, n]) => (
+                <span key={label} className="rounded-full bg-indigo-50 px-2.5 py-1 font-medium text-indigo-700 ring-1 ring-indigo-100">{label}: {num(n)}</span>
+              ))}
+            </div>
+            <LeadList
+              leads={upcoming.next ?? []}
+              detail={(l) => `${budgetQuantityText(l)} · ${entryStatus(l)}`}
+              right={(l) => dayText(l.event_date)}
+              none="No upcoming events."
+            />
+          </Panel>
+        </div>
 
         <Panel title="By branch" subtitle="Leads received in the period">
           {branches.length ? (

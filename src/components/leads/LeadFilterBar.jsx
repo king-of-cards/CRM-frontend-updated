@@ -48,7 +48,7 @@ function FilterContents({ button, source, filters, update, options, isAdmin }) {
   const single = (key, opts, searchable = false) => <ChoiceList options={opts} value={filters[key]} onChange={updateLabel(key, update)} search={searchable || opts.length > 10} />;
   const multi = (key, opts, searchable = false) => <ChoiceList options={opts} value={filters[key] ?? []} onChange={updateLabel(key, update)} multi search={searchable || opts.length > 10} />;
   if (dateKeys[k]) return <RangeDates fromKey={dateKeys[k][0]} toKey={dateKeys[k][1]} filters={filters} update={update} />;
-  if (k === "event") return <div className="space-y-2"><button type="button" onClick={() => update({ upcoming_days: filters.upcoming_days ? "" : "30", event_from: "", event_to: "" })} className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-gray-50">{filters.upcoming_days ? "Any event date" : "Upcoming 30 days"}</button><RangeDates fromKey="event_from" toKey="event_to" filters={filters} update={(u) => update({ ...u, upcoming_days: "" })} /></div>;
+  if (k === "event") return <div className="space-y-2">{source === DHRUVA && <p className="px-2 text-xs text-gray-500">Matches any of a lead's event dates.</p>}<button type="button" onClick={() => update({ upcoming_days: filters.upcoming_days ? "" : "30", event_from: "", event_to: "" })} className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-gray-50">{filters.upcoming_days ? "Any event date" : "Upcoming 30 days"}</button><RangeDates fromKey="event_from" toKey="event_to" filters={filters} update={(u) => update({ ...u, upcoming_days: "" })} /></div>;
   if (k === "follow_up") return <div className="space-y-2"><RangeDates fromKey="follow_up_from" toKey="follow_up_to" filters={filters} update={update} /><button type="button" onClick={() => update({ follow_up_due: filters.follow_up_due ? "" : "true" })} className={`w-full rounded-lg px-2 py-2 text-left text-sm ${filters.follow_up_due ? "bg-brand-50 text-brand-800" : "hover:bg-gray-50"}`}>{filters.follow_up_due ? "✓ Due" : "Due"}</button></div>;
   if (["venue", "city", "country", "pincode", "last_step", "occasion", "budget"].includes(k)) {
     const key = k === "occasion" ? "occasion" : k;
@@ -88,6 +88,11 @@ function FilterContents({ button, source, filters, update, options, isAdmin }) {
   if (k === "origin") return multi("origin", countOptions(options.origins, (v) => ORIGIN_LABELS[v] ?? v));
   if (k === "shared_with") return single("shared_with", [{ value: NOT_SHARED, label: "Not shared yet" }, ...(options.shared_with ?? []).map((o) => ({ value: String(o.value), label: String(o.value) }))], true);
   if (k === "hot" || k === "hide_repeats") return <button type="button" onClick={() => update({ [k]: filters[k] ? "" : k === "hot" ? "yes" : "true" })} className="w-full rounded-lg px-2 py-2 text-left text-sm hover:bg-gray-50">{filters[k] ? "✓ " : ""}{button.label}</button>;
+  if (k === "needs_intervention") {
+    const count = (v) => (options.needs_intervention ?? []).find((o) => String(o.value).toLowerCase() === v || String(o.value) === String(v === "yes"))?.count;
+    const label = (v, text) => (count(v) == null ? text : `${text} (${count(v)})`);
+    return single("needs_intervention", [{ value: "yes", label: label("yes", "Yes") }, { value: "no", label: label("no", "No") }]);
+  }
   if (k === "has_phone" || k === "also_in" || k === "fits_budget") {
     const opts = k === "has_phone" ? [{ value: "yes", label: "Has phone" }, { value: "no", label: "No phone" }] : k === "also_in" ? [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] : [{ value: "true", label: "Fits budget" }, { value: "false", label: "Over budget" }];
     return single(k, opts);

@@ -36,11 +36,12 @@ export const SOURCE_KEYS = {
 };
 // Vendors → KOC list (docs section 11): its own filters, not the lead sources' ones
 export const KOC = "vendor_to_koc";
+// Dhruva → KOC (docs section 13): the event date filters match ANY of a lead's event dates
 export const DHRUVA = "dhruva";
 export const DHRUVA_KEYS = [
   "search", "date_from", "date_to", "event_from", "event_to", "upcoming_days",
   "venue", "event_type", "update_status", "quote", "conversion",
-  "follow_up_from", "follow_up_to", "follow_up_due", "has_phone", "hot", "also_in",
+  "follow_up_from", "follow_up_to", "follow_up_due", "has_phone", "needs_intervention", "hot", "also_in",
 ];
 // KOC → Dhruva (docs section 18): the shared filters plus Spin's and its own; never vendor_id /
 // unassigned (the API answers 400: these leads are never assigned)
@@ -151,7 +152,7 @@ export function activeCount(filters, source) {
     return [
       ["date_from", "date_to"], ["event_from", "event_to", "upcoming_days"], ["venue"],
       ["event_type"], ["update_status"], ["quote"], ["conversion"],
-      ["follow_up_from", "follow_up_to", "follow_up_due"], ["has_phone"], ["hot"], ["also_in"],
+      ["follow_up_from", "follow_up_to", "follow_up_due"], ["has_phone"], ["needs_intervention"], ["hot"], ["also_in"],
     ].filter((group) => group.some(has)).length;
   }
   if (source === KOC_TO_DHRUVA) {

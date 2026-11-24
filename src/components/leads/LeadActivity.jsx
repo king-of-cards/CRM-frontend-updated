@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { getLeadActivity } from "../../api/leadActivity.js";
 import { activityActorRole, activityDescription, activityTime, groupActivityByDay } from "./activityUtils.js";
+import { ListSkeleton } from "../shared/Skeleton.jsx";
 
 const PAGE_SIZE = 25;
 
@@ -64,19 +65,21 @@ export default function LeadActivity({ source, leadKey, refreshKey = 0, vendorNa
     <section aria-label="Activity" className="rounded-3xl bg-white/80 p-5 ring-1 ring-gray-100 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-gray-900">Activity</h3>
-        {loading && <Loader2 size={15} className="animate-spin text-gray-400" aria-label="Loading activity" />}
       </div>
       {error ? (
         <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
           <span>Activity couldn’t be loaded.</span>
           <button type="button" onClick={() => load(1)} className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:underline"><RefreshCw size={12} />Retry</button>
         </div>
+      ) : loading && !items.length ? (
+        <ListSkeleton rows={3} className="-mx-5 mt-2" label="Loading activity" />
       ) : !loading && !items.length ? (
         <p className="mt-3 text-sm text-gray-500">No changes recorded yet</p>
       ) : (
         <div className="mt-4 space-y-5">
           <ActivityList items={items} vendorName={vendorName} />
-          {page < pages && <button type="button" onClick={() => load(page + 1)} disabled={loading} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50">Load more</button>}
+          {loading && <ListSkeleton rows={2} className="-mx-5" label="Loading more activity" />}
+          {page < pages && !loading && <button type="button" onClick={() => load(page + 1)} disabled={loading} className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50">Load more</button>}
         </div>
       )}
     </section>

@@ -1,7 +1,7 @@
 // KOC → Dhruva helpers (docs/API_REFERENCE.md section 18). Pure, no React.
 // Spin leads KOC shares with Dhruva by rule (budget per card ≥ ₹70 or quantity ≥ 1000).
 import { AOV_FILTERS, aovOf } from "./aov.js";
-import { PENDING, rupeesText, shortRupees, statusLabel } from "./dhruvaUtils.js";
+import { PENDING, shortRupees, statusLabel } from "./dhruvaUtils.js";
 
 export const KOC_TO_DHRUVA_PATH = "/koc-to-dhruva";
 
@@ -10,9 +10,6 @@ export const pctText = (p) => (p == null ? "" : `${p}%`);
 
 // Open leads (docs: Update pending, interested or will call back); the rest are closed
 export const OPEN_UPDATES = [PENDING, "interested", "will_call_back"];
-
-// Sort for the list: highest potential value first (empty values last, as the API sorts)
-export const POTENTIAL_SORT = "potential_value:desc";
 
 // A link to the KOC → Dhruva list with these filters and, unless All time, the period (received)
 export function kocToDhruvaListLink(filters = {}, period) {
@@ -46,9 +43,6 @@ export function budgetText(value) {
 
 export const quantityText = (q) =>
   q == null || q === "" ? "—" : Number.isFinite(Number(q)) ? Number(q).toLocaleString("en-IN") : String(q);
-
-// Potential value (budget-per-card lower bound × quantity, rupees): "₹84,000", or "—" when null
-export const potentialText = (v) => (v == null || v === "" ? "—" : rupeesText(Number(v)));
 
 // "₹70–100 × 1,200" for a dashboard list entry (budget, quantity)
 export const budgetQuantityText = (lead) => `${budgetText(lead?.budget)} × ${quantityText(lead?.quantity)}`;
@@ -133,8 +127,7 @@ export const branchRows = (byBranch, period) =>
   }));
 
 // The dashboard's KPI cards; each opens the list where an exact filter exists (with the period).
-// Follow-ups due covers every open lead (not only the period); Potential value: the period's open
-// leads, sorted by potential value.
+// Follow-ups due covers every open lead (not only the period).
 export function dashboardKpiCards(kpis, period) {
   const k = kpis ?? {};
   const link = (filters) => kocToDhruvaListLink(filters, period);
@@ -154,12 +147,6 @@ export function dashboardKpiCards(kpis, period) {
     },
     { key: "conversion_amount", label: "Conversion amount", value: k.conversion_count ? shortRupees(k.conversion_total ?? 0) : "—", to: link({ conversion: "has" }) },
     { key: "aov", label: "AOV", value: aov == null ? "—" : shortRupees(Math.round(aov)), to: link(AOV_FILTERS) },
-    {
-      key: "potential_value",
-      label: "Potential value",
-      value: k.potential_value ? shortRupees(k.potential_value) : "—",
-      to: link({ update_status: OPEN_UPDATES, sort: POTENTIAL_SORT }),
-    },
     { key: "follow_ups_due", label: "Follow-ups due", value: num(k.follow_ups_due), to: kocToDhruvaListLink({ follow_up: "due" }) },
   ];
 }

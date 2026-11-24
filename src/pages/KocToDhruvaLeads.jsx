@@ -1,7 +1,7 @@
 import DateInput from "../components/shared/DateInput.jsx";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Download, Send } from "lucide-react";
+import { Download, FileUp, Send } from "lucide-react";
 import { useAuth } from "../auth/useAuth.js";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import {
@@ -25,8 +25,10 @@ import { branchOf } from "../components/leads/stores.js";
 import BranchCell from "../components/leads/BranchCell.jsx";
 import { fieldCls } from "../components/crmLeads/Drawer.jsx";
 import KocToDhruvaLeadPanel from "../components/vendorToKoc/KocToDhruvaLeadPanel.jsx";
+import BulkUploadDialog from "../components/crmLeads/BulkUploadDialog.jsx";
 import { dateTimeText, dayText, dhruvaErrors, phoneText } from "./dhruvaUtils.js";
-import { budgetText, POTENTIAL_SORT, potentialText, quantityText, spinField } from "./kocToDhruvaUtils.js";
+import { budgetText, quantityText, spinField } from "./kocToDhruvaUtils.js";
+import { SkeletonRows } from "../components/shared/Skeleton.jsx";
 
 // KOC → Dhruva (docs/API_REFERENCE.md section 18): the spin leads shared with Dhruva by rule
 // (budget per card ≥ ₹70 or quantity ≥ 1000). Admins and Dhruva logins edit this section's CRM
@@ -39,7 +41,6 @@ const SORTS = [
   { value: "received:asc", label: "Oldest first" },
   { value: "event_date:asc", label: "Event date (soonest)" },
   { value: "quantity_required:desc", label: "Quantity (largest)" },
-  { value: POTENTIAL_SORT, label: "Potential value (highest)" }, // empty values last (API)
 ];
 const sortQuery = (value) => {
   if (!value) return {};
@@ -104,6 +105,10 @@ export default function KocToDhruvaLeads() {
   const [message, setMessage] = useState(null);
   const [openKey, setOpenKey] = useState(null);
   const [exporting, setExporting] = useState(false);
+  // Bulk upload (docs section 18): admins only; view-only, Dhruva and vendor logins never see it
+  const canUpload = isAdmin && canEdit;
+  const [uploading, setUploading] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => setPage(1), [queryKey, sortValue, pageSize]);
   useEffect(() => { getKocToDhruvaFilterOptions().then(setOptions).catch(() => {}); }, []);
@@ -120,7 +125,7 @@ export default function KocToDhruvaLeads() {
     getKocToDhruvaStats(query).then((res) => !cancelled && setStats(res)).catch(() => {});
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, pageSize, queryKey, sortValue]);
+  }, [page, pageSize, queryKey, sortValue, reloadKey]);
 
   const branches = useMemo(() => options.branches ?? [], [options]);
   // Spin's raw fields (name, phone, email) as display values; the branch is the API's item.branch
@@ -184,7 +189,7 @@ export default function KocToDhruvaLeads() {
       .catch((err) => setMessage({ kind: "error", text: dhruvaErrors(err).message || err.message }))
       .finally(() => setHotPending((c) => ({ ...c, [key]: false })));
   };
-  const colCount = 15 + (showHot ? 1 : 0);
+  const colCount = 14 + (showHot ? 1 : 0);
   const stop = (e) => e.stopPropagation();
   const description = "Spin leads shared with Dhruva: budget per card ≥ ₹70 or quantity ≥ 1000";
 
@@ -196,13 +201,14 @@ export default function KocToDhruvaLeads() {
         title="KOC → Dhruva"
         subtitle="Also listed in Spin; this section keeps its own updates"
         action={<div className="flex flex-wrap gap-2">
+          {canUpload && <button type="button" onClick={() => setUploading(true)} className="flex min-h-11 items-center gap-1.5 rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-4 py-2 text-sm font-medium text-white sm:min-h-0"><FileUp size={15} />Bulk upload</button>}
           <button type="button" onClick={() => runExport("xlsx")} disabled={exporting} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm disabled:opacity-60"><Download size={15} />{exporting ? "Exporting…" : "Export"}</button>
           <button type="button" onClick={() => runExport("csv")} disabled={exporting} className="rounded-full border border-gray-200 bg-white px-3 py-2 text-sm disabled:opacity-60">CSV</button>
         </div>}
         message={message ?? error}
         stats={kpiCards(stats?.kpis)}
         toolbar={<LeadFilterBar source={KOC_TO_DHRUVA} filters={filters} update={update} clear={clear} apply={apply} clearFilters={clearFilters} count={count} options={options} isAdmin={seesAll} sorts={SORTS} sortValue={sortValue} placeholder="Search name, phone, email, occasion…" />}
-        footer={<Pagination page={page} pageSize={pageSize} total={data?.total} onPage={setPage} onPageSize={setPageSize} disabled={loading} />}
+        footer={<Pagination page={page} pageSize={pageSize} total={data?.total} onPage={setPage} onPageSize={setPageSize} disabled={loading} onPrefetch={(n) => listKocToDhruvaLeads(listParams(n)).catch(() => {})} />}
       >
         <div className="overflow-x-auto">
           <table className={`w-full min-w-[1400px] text-sm transition-opacity ${loading && data ? "opacity-50" : ""}`}>
@@ -211,13 +217,13 @@ export default function KocToDhruvaLeads() {
                 {showHot && <th className={th} aria-label="Hot lead" />}
                 <th className={th}>Name</th><th className={th}>Phone</th><th className={th}>Occasion</th><th className={th}>Event date</th>
                 <th className={th}>Branch</th><th className={`${th} text-right`}>Estimated budget per card</th>
-                <th className={`${th} text-right`}>Quantity required</th><th className={`${th} text-right`}>Potential value</th><th className={th}>Received</th>
+                <th className={`${th} text-right`}>Quantity required</th><th className={th}>Received</th>
                 <th className={th}>Update</th><th className={th}>Additional comments</th><th className={`${th} text-right`}>Quoted amount</th>
                 <th className={th}>Quoted date</th><th className={`${th} text-right`}>Conversion amount</th><th className={th}>Follow-up date</th>
               </tr>
             </thead>
             <tbody>
-              {loading && !data && <tr><td colSpan={colCount} className="px-6 py-10 text-center text-gray-400">Loading…</td></tr>}
+              {loading && !data && <SkeletonRows cols={colCount} label="Loading leads" />}
               {items.map((l) => {
                 const crm = l.crm ?? {};
                 const save = saveFor(l);
@@ -235,7 +241,6 @@ export default function KocToDhruvaLeads() {
                     <td className="px-3 py-3"><BranchCell branch={l.display.branch} empty="—" /></td>
                     <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">{budgetText(l.estimated_budget_per_card)}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">{quantityText(l.quantity_required)}</td>
-                    <td className="whitespace-nowrap px-3 py-3 text-right font-semibold tabular-nums">{potentialText(l.potential_value)}</td>
                     <td className="whitespace-nowrap px-3 py-3 text-gray-600" title={dateTimeText(l.received)}>{dayText(l.received)}</td>
                     <td className="px-2 py-2" onClick={stop}><UpdateCell crm={crm} save={save} /></td>
                     <td className="px-2 py-2" onClick={stop}><SaveCell key={`notes-${crm.notes ?? ""}`} kind="text" field="notes" label="Additional comments" value={crm.notes} save={save} canEdit={canEdit} /></td>
@@ -259,6 +264,13 @@ export default function KocToDhruvaLeads() {
           hotPending={openLead ? Boolean(hotPending[String(openLead.lead_key)]) : false}
           onToggleHot={canToggleHot && openLead ? () => toggleHot(openLead) : null}
         />
+        {canUpload && uploading && (
+          <BulkUploadDialog
+            source="koc_to_dhruva"
+            onClose={() => setUploading(false)}
+            onImported={() => setReloadKey((k) => k + 1)}
+          />
+        )}
       </SectionShell>
     </DashboardLayout>
   );

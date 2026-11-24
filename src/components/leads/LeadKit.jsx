@@ -814,13 +814,16 @@ function pageList(current, total) {
 export { PAGE_SIZES };
 
 // onPageSize (optional): show "Rows per page" (10 / 25 / 50 / 100)
-export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled }) {
+// onPrefetch (optional): onPrefetch(n) when the button for page n is hovered or focused, so the
+// list can load that page in the background and show it at once when clicked
+export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled, onPrefetch }) {
   if (!total || total <= (onPageSize ? PAGE_SIZES[0] : pageSize)) return null;
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
   const nav =
     "flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-gray-100 hover:text-gray-900 disabled:pointer-events-none disabled:opacity-40";
+  const prefetch = (n) => onPrefetch && n !== page && n >= 1 && n <= pages ? { onMouseEnter: () => onPrefetch(n), onFocus: () => onPrefetch(n) } : {};
   return (
     <nav
       aria-label="Pages"
@@ -850,6 +853,7 @@ export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled
         <button
           type="button"
           onClick={() => onPage(page - 1)}
+          {...prefetch(page - 1)}
           disabled={page <= 1 || disabled}
           aria-label="Previous page"
           className={nav}
@@ -866,6 +870,7 @@ export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled
               key={p}
               type="button"
               onClick={() => onPage(p)}
+              {...prefetch(p)}
               disabled={disabled}
               aria-current={p === page ? "page" : undefined}
               className={`h-8 min-w-8 rounded-full px-2 tabular-nums transition ${p === page ? "bg-gray-900 font-medium text-white" : "hover:bg-gray-100 hover:text-gray-900"}`}
@@ -877,6 +882,7 @@ export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled
         <button
           type="button"
           onClick={() => onPage(page + 1)}
+          {...prefetch(page + 1)}
           disabled={page >= pages || disabled}
           aria-label="Next page"
           className={nav}

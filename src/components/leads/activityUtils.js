@@ -19,6 +19,15 @@ const FIELD_LABELS = {
   event_type: "Event type",
   venue: "Venue",
   date: "Event date",
+  // Dhruva → KOC (docs section 13)
+  event_dates: "Event dates",
+  phones: "Phone numbers",
+  whatsapp_status: "WhatsApp status",
+  response: "Response",
+  message_sent: "Message sent",
+  follow_up_notes: "Follow-up notes",
+  comments: "Comments",
+  needs_intervention: "Needs Dhruva intervention",
 };
 
 const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
@@ -51,6 +60,9 @@ function valueText(field, value, vendorName) {
   if (field === "follow_up_date" || field === "quoted_date" || field === "lead_date" || field === "date") return dayText(value);
   if (field === "vendor_id" || field === "assigned_to") return vendorText(value, vendorName);
   if (field === "is_hot") return String(value) === "true" ? "Hot" : "Not hot";
+  if (field === "needs_intervention") return /^(true|yes)$/i.test(String(value)) ? "Yes" : "No";
+  // "2026-12-04, 2026-12-05" -> "4 Dec 2026, 5 Dec 2026"
+  if (field === "event_dates") return String(value).split(",").map((d) => d.trim()).filter(Boolean).map((d) => dayText(d)).join(", ");
   return String(value);
 }
 

@@ -50,3 +50,9 @@ export function vendorChoices(vendors, currentId) {
     .filter((v) => v.is_active !== false || String(v.id) === current)
     .map((v) => ({ id: String(v.id), name: v.name, disabled: v.is_active === false }));
 }
+
+// The ⋯ menu of a Team row: Edit always; Remove for other logins only (Status has its own control)
+export const rowMenuItems = ({ own = false } = {}) => (own ? ["edit"] : ["edit", "remove"]);
+
+// A cached list answer, or null when there is none (null: show placeholder rows)
+export const listOrNull = (value) => (Array.isArray(value) ? value : null);

@@ -1,17 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import {
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import LazyCharts from "../components/dashboard/LazyCharts.jsx";
+import { BarListSkeleton, ChartSkeleton } from "../components/shared/Skeleton.jsx";
 import {
   AlarmClock,
   BadgeCheck,
@@ -103,7 +93,8 @@ function InflowTooltip({ active, payload, granularity, vendors }) {
   );
 }
 
-function LinkedBars({ rows, period, color = "from-brand-600 to-brand-800", empty = "No data yet" }) {
+function LinkedBars({ rows, period, color = "from-brand-600 to-brand-800", empty = "No data yet", loading = false }) {
+  if (loading) return <BarListSkeleton />;
   const shown = rows.filter((r) => r.count);
   if (!shown.length) return <p className="text-sm text-gray-500">{empty}</p>;
   const max = Math.max(...shown.map((r) => r.count));
@@ -352,8 +343,10 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
               <div className="h-64">
                 {d && vendors.length > 0 && !shownVendors.length ? (
                   <p className="flex h-full items-center justify-center text-sm text-gray-500">Select at least one source</p>
-                ) : d && (
-                  <ResponsiveContainer width="100%" height="100%">
+                ) : !d ? (
+                  kpiLoading && <ChartSkeleton />
+                ) : (
+                  <LazyCharts>{({ CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis }) => (<ResponsiveContainer width="100%" height="100%">
                     <LineChart data={points} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                       <XAxis
@@ -378,7 +371,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                         />
                       ))}
                     </LineChart>
-                  </ResponsiveContainer>
+                  </ResponsiveContainer>)}</LazyCharts>
                 )}
               </div>
             </Panel>
@@ -386,8 +379,10 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
             {outcomes && (
               <Panel title="Update breakdown" subtitle="Leads received in the period" icon={PieIcon}>
                 <div className="h-44">
-                  {d && d.received > 0 && (
-                    <ResponsiveContainer width="100%" height="100%">
+                  {!d ? (
+                    kpiLoading && <ChartSkeleton />
+                  ) : d.received > 0 && (
+                    <LazyCharts>{({ Cell, Pie, PieChart, ResponsiveContainer, Tooltip }) => (<ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={statuses.filter((s) => s.count)}
@@ -406,7 +401,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
                         </Pie>
                         <Tooltip formatter={(v, n) => [num(v), n]} />
                       </PieChart>
-                    </ResponsiveContainer>
+                    </ResponsiveContainer>)}</LazyCharts>
                   )}
                 </div>
                 <ul className="mt-3 space-y-1.5">
@@ -429,13 +424,13 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
               {/* ── Funnel (everyone), cities and sources (admins) ── */}
               <div className={`mt-6 grid gap-4 ${isAdmin ? "md:grid-cols-2 xl:grid-cols-3" : ""}`}>
                 <Panel title="Funnel" subtitle="Received → updated → engaged → converted" icon={FunnelIcon}>
-                  <LinkedBars rows={funnelRows(d?.funnel)} period={period} />
+                  <LinkedBars rows={funnelRows(d?.funnel)} period={period} loading={kpiLoading} />
                 </Panel>
                 {isAdmin && (
                 <>
                 <TopCities rows={d?.top_cities} sources={d?.top_cities_sources} defaultSource="vendor_to_koc" flow="vendors" />
                 <Panel title="By source" subtitle="How the leads were added" icon={Sparkles}>
-                  <LinkedBars rows={sourceRows(d?.by_source)} period={period} color="from-rose-400 to-rose-600" />
+                  <LinkedBars rows={sourceRows(d?.by_source)} period={period} color="from-rose-400 to-rose-600" loading={kpiLoading} />
                 </Panel>
                 </>
                 )}

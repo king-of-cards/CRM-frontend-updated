@@ -1,20 +1,8 @@
-import { lazy, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { formatDay, MONTHS } from "../components/shared/dates.js";
 import { Link, useLocation, useSearchParams } from "react-router";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import LazyCharts, { loadCharts } from "../components/dashboard/LazyCharts.jsx";
+import { ChartSkeleton, DashboardSkeleton } from "../components/shared/Skeleton.jsx";
 import {
   BadgeCheck,
   Calculator,
@@ -55,6 +43,8 @@ import { aovOf } from "./aov.js";
 import VendorToKocDashboard from "./VendorToKocDashboard.jsx";
 const DhruvaLeadsDashboard = lazy(() => import("./DhruvaLeadsDashboard.jsx"));
 const KocToDhruvaDashboard = lazy(() => import("./KocToDhruvaDashboard.jsx"));
+// The charts' code starts downloading with the page (in parallel with its data), not after it
+if (typeof window !== "undefined") loadCharts();
 
 // Overview of every lead source, built from GET /analytics/overview, for a period
 // (?from=YYYY-MM-DD&to=YYYY-MM-DD; default the last 30 days). See dashboardPeriod.js.
@@ -451,10 +441,10 @@ export default function Dashboard() {
         }
       >
         {flow === "dhruva" && direction === "dhruva" && (canSeeLeads || isDhruva) && (
-          <DhruvaLeadsDashboard period={period} refreshKey={refreshKey} />
+          <Suspense fallback={<DashboardSkeleton />}><DhruvaLeadsDashboard period={period} refreshKey={refreshKey} /></Suspense>
         )}
         {flow === "dhruva" && direction === "koc_to_dhruva" && (canSeeLeads || isDhruva) && (
-          <KocToDhruvaDashboard period={period} refreshKey={refreshKey} />
+          <Suspense fallback={<DashboardSkeleton />}><KocToDhruvaDashboard period={period} refreshKey={refreshKey} /></Suspense>
         )}
         {flow === "vendors" && canSeeLeads && (
           <VendorToKocDashboard period={period} refreshKey={refreshKey} isAdmin={seesAll} />
@@ -678,8 +668,10 @@ export default function Dashboard() {
                     <p className="flex h-full items-center justify-center text-sm text-gray-500">
                       Select at least one source
                     </p>
-                  ) : o && (
-                    <ResponsiveContainer width="100%" height="100%">
+                  ) : !o ? (
+                    kpiLoading && <ChartSkeleton />
+                  ) : (
+                    <LazyCharts>{({ Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis }) => (<ResponsiveContainer width="100%" height="100%">
                       <AreaChart
                         data={o.trend}
                         margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
@@ -753,7 +745,7 @@ export default function Dashboard() {
                           />
                         ))}
                       </AreaChart>
-                    </ResponsiveContainer>
+                    </ResponsiveContainer>)}</LazyCharts>
                   )}
                 </div>
               </Panel>
@@ -764,8 +756,10 @@ export default function Dashboard() {
                 icon={Sparkles}
               >
                 <div className="relative h-52">
-                  {view && (
-                    <ResponsiveContainer width="100%" height="100%">
+                  {!view ? (
+                    kpiLoading && <ChartSkeleton />
+                  ) : (
+                    <LazyCharts>{({ Cell, Pie, PieChart, ResponsiveContainer, Tooltip }) => (<ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
                           data={view.mix}
@@ -782,7 +776,7 @@ export default function Dashboard() {
                         </Pie>
                         <Tooltip formatter={(v, n) => [fmt(v), n]} />
                       </PieChart>
-                    </ResponsiveContainer>
+                    </ResponsiveContainer>)}</LazyCharts>
                   )}
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-2xl font-bold tabular-nums text-gray-900">
@@ -828,8 +822,10 @@ export default function Dashboard() {
                 }
               >
                 <div className="h-64">
-                  {o && (
-                    <ResponsiveContainer width="100%" height="100%">
+                  {!o ? (
+                    kpiLoading && <ChartSkeleton />
+                  ) : (
+                    <LazyCharts>{({ Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis }) => (<ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={o.upcoming_by_month}
                         margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
@@ -869,7 +865,7 @@ export default function Dashboard() {
                           />
                         ))}
                       </BarChart>
-                    </ResponsiveContainer>
+                    </ResponsiveContainer>)}</LazyCharts>
                   )}
                 </div>
               </Panel>
@@ -884,6 +880,7 @@ export default function Dashboard() {
                 icon={Globe}
               >
                 <BarList
+                  loading={kpiLoading}
                   items={o?.top_countries}
                   color="from-violet-400 to-violet-600"
                 />
@@ -894,6 +891,7 @@ export default function Dashboard() {
                 icon={CalendarHeart}
               >
                 <BarList
+                  loading={kpiLoading}
                   items={o?.occasions}
                   color="from-rose-400 to-rose-600"
                 />
@@ -952,7 +950,7 @@ export default function Dashboard() {
                 subtitle="Who your wedding leads went to"
                 icon={Handshake}
               >
-                <BarList items={o?.partners} empty="Nothing shared yet" />
+                <BarList items={o?.partners} empty="Nothing shared yet" loading={kpiLoading} />
                 {o?.sharing.not_shared ? (
                   <div className="mt-4 flex items-center justify-between rounded-xl bg-amber-50 px-3 py-2.5 text-sm">
                     <span className="font-medium text-amber-800">

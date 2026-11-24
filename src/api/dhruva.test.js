@@ -25,6 +25,23 @@ describe("Dhruva API", () => {
     await listDhruvaLeads({ page: 2, page_size: 25, event_type: ["wedding", "engagement"] });
     expect(calls[0].url).toBe("/api/v1/dhruva/leads?page=2&page_size=25&event_type=wedding&event_type=engagement");
   });
+  test("patch sends phones as the full list, [] to clear", async () => {
+    replies.push(json(200, { id: 8 }), json(200, { id: 8 }));
+    await updateDhruvaLead(8, { phones: ["9845012345", "9845012346"] });
+    await updateDhruvaLead(8, { phones: [] });
+    expect(JSON.parse(calls[0].body)).toEqual({ phones: ["9845012345", "9845012346"] });
+    expect(JSON.parse(calls[1].body)).toEqual({ phones: [] });
+  });
+  test("patch sends event_dates as the full list", async () => {
+    replies.push(json(200, { id: 8, activity: [] }));
+    await updateDhruvaLead(8, { event_dates: ["2026-12-04", "2026-12-05"] });
+    expect(JSON.parse(calls[0].body)).toEqual({ event_dates: ["2026-12-04", "2026-12-05"] });
+  });
+  test("list sends the needs_intervention filter and the new sorts", async () => {
+    replies.push(json(200, { items: [] }));
+    await listDhruvaLeads({ needs_intervention: "yes", sort: "whatsapp_status", order: "asc" });
+    expect(calls[0].url).toBe("/api/v1/dhruva/leads?needs_intervention=yes&sort=whatsapp_status&order=asc");
+  });
   test("patch uses the lead id and forwards allow_duplicate", async () => {
     replies.push(json(200, { id: 8 }));
     await updateDhruvaLead(8, { phone: "9800000000", allow_duplicate: true });

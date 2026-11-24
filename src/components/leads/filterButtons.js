@@ -15,7 +15,7 @@ export function buildFilterButtons(source, filters = {}, optionsIn = {}, isAdmin
   // filter-options may not have loaded yet (null): treat it as empty, never crash the page
   const options = optionsIn ?? {};
   const specs = source === DHRUVA
-    ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["venue", "Venue", ["venue"]], ["event_type", "Event type", ["event_type"]], ["update", "Update", ["update_status"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["has_phone", "Has phone", ["has_phone"]], ["hot", "Hot only", ["hot"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
+    ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["venue", "Venue", ["venue"]], ["event_type", "Event type", ["event_type"]], ["update", "Update", ["update_status"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_up", "Follow-up", ["follow_up_from", "follow_up_to", "follow_up_due"]], ["has_phone", "Has phone", ["has_phone"]], ["needs_intervention", "Needs intervention", ["needs_intervention"]], ["hot", "Hot only", ["hot"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
     : source === KOC_TO_DHRUVA
       ? [["event", "Event date", ["event_from", "event_to", "upcoming_days"]], ["branch", "Branch", ["branch"]], ["pincode", "Pincode", ["pincode"]], ["budget", "Budget", ["budget"]], ["quantity", "Quantity", ["quantity_min", "quantity_max"]], ["occasion", "Occasion", ["occasion"]], ["update", "Update", ["update_status"]], ["hot", "Hot only", ["hot"]], ["quote", "Quote", ["quote"]], ["conversion", "Conversion", ["conversion"]], ["follow_when", "Follow-up", ["follow_up"]], ["origin", "Origin", ["origin"]], ...(isAdmin ? [["also_in", "In other sources", ["also_in"]]] : [])]
     : source === KOC
@@ -47,6 +47,7 @@ export function buildFilterButtons(source, filters = {}, optionsIn = {}, isAdmin
     if (kind === "hot") return filters.hot ? ["Hot only"] : [];
     if (kind === "hide_repeats") return filters.hide_repeats ? ["Hide repeats"] : [];
     if (kind === "has_phone") return filters.has_phone ? [filters.has_phone === "yes" ? "Has phone" : "No phone"] : [];
+    if (kind === "needs_intervention") return filters.needs_intervention ? [filters.needs_intervention === "yes" ? "Yes" : "No"] : [];
     if (kind === "also_in") return filters.also_in ? [filters.also_in === "yes" ? "Yes" : "No"] : [];
     if (kind === "fits_budget") return filters.fits_budget ? [filters.fits_budget === "true" ? "Fits budget" : "Over budget"] : [];
     const v = filters[kind];

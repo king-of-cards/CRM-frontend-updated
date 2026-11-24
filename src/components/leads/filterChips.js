@@ -79,6 +79,7 @@ export function filterChips(filters, source, options = {}, isAdmin = false) {
     if (has("conversion")) add("conversion", `Conversion: ${filters.conversion}`, ["conversion"]);
     if (has("follow_up_from") || has("follow_up_to") || has("follow_up_due")) add("follow_up", `Follow-up: ${has("follow_up_due") ? "due" : rangeText(filters.follow_up_from, filters.follow_up_to)}`, ["follow_up_from", "follow_up_to", "follow_up_due"]);
     if (has("has_phone")) add("has_phone", filters.has_phone === "yes" ? "Has phone" : "No phone", ["has_phone"]);
+    if (has("needs_intervention")) add("needs_intervention", `Needs intervention: ${filters.needs_intervention === "yes" ? "Yes" : "No"}`, ["needs_intervention"]);
     if (has("hot")) add("hot", "Hot only", ["hot"]);
     if (isAdmin && has("also_in")) add("also_in", `Also in another section: ${filters.also_in}`, ["also_in"]);
     return chips;

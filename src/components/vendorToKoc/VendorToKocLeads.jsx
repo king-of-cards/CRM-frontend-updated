@@ -28,6 +28,7 @@ import { setKocLeadHot } from "../../api/hotLeads.js";
 import HotLeadStar from "../leads/HotLeadStar.jsx";
 import AlsoInBadges from "../leads/AlsoInBadges.jsx";
 import { toggleHotOptimistically } from "../leads/hotLeadToggle.js";
+import { SkeletonRows } from "../shared/Skeleton.jsx";
 
 // Vendors → KOC leads (docs/API_REFERENCE.md section 11). Admins see every vendor's leads and
 // edit Update, Additional comments and Follow-up date in the table; vendor logins see only
@@ -383,6 +384,7 @@ export default function VendorToKocLeads() {
           onPage={setPage}
           onPageSize={setPageSize}
           disabled={loading}
+          onPrefetch={(n) => listKocLeads(listParams(n)).catch(() => {})}
         />
       }
     >
@@ -406,13 +408,7 @@ export default function VendorToKocLeads() {
             </tr>
           </thead>
           <tbody>
-            {loading && !data && (
-              <tr>
-                <td colSpan={colCount} className="px-6 py-10 text-center text-sm text-gray-400">
-                  Loading…
-                </td>
-              </tr>
-            )}
+            {loading && !data && <SkeletonRows cols={colCount} label="Loading leads" />}
             {items.map((l) => (
               <tr
                 key={l.id}

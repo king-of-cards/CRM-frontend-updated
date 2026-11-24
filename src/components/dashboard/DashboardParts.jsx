@@ -1,5 +1,6 @@
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router";
+import { BarListSkeleton } from "../shared/Skeleton.jsx";
 
 // Building blocks shared by the two dashboards (KOC → Vendors and Vendors → KOC),
 // moved unchanged from src/pages/Dashboard.jsx.
@@ -92,7 +93,9 @@ export function BarList({
   items,
   color = "from-brand-600 to-brand-800",
   empty = "No data yet",
+  loading = false, // data not here yet: bar-shaped placeholders
 }) {
+  if (loading && !items?.length) return <BarListSkeleton />;
   if (!items?.length) return <p className="text-sm text-gray-500">{empty}</p>;
   const max = Math.max(...items.map((i) => i.count));
   return (

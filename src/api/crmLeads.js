@@ -1,4 +1,4 @@
-import { ApiError, apiRequest, getAccessToken, notifyViewOnly, refreshAccessToken } from "./client.js";
+import { ApiError, apiRequest, getAccessToken, markDataChanged, notifyViewOnly, refreshAccessToken } from "./client.js";
 import { exportQuery, filenameFromDisposition, parseCsvHeader } from "../components/crmLeads/crmLeadUtils.js";
 import { toQueryString } from "../components/leads/leadFilters.js";
 
@@ -20,6 +20,7 @@ function url(path, query) {
 
 export async function rawFetch(path, { method = "GET", query, body } = {}) {
   if (!getAccessToken()) await refreshAccessToken();
+  if (method !== "GET") markDataChanged(); // uploads change data: lists reload (client.js)
   const send = () => {
     const token = getAccessToken();
     return fetch(url(path, query), {
@@ -35,6 +36,8 @@ export async function rawFetch(path, { method = "GET", query, body } = {}) {
     if (res.status === 401 && (await refreshAccessToken())) res = await send();
   } catch {
     throw new ApiError(0, null);
+  } finally {
+    if (method !== "GET") markDataChanged();
   }
   if (!res.ok) {
     let detail = null;
