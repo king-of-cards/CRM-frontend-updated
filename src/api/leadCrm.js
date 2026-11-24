@@ -24,9 +24,13 @@ export const updateInfo = (value) =>
 // changes: any of { vendor_id (admins; null = automatic), update_status (null = Pending),
 //   quoted_date, quoted_amount, conversion_amount (rupees, 0–10,00,00,000), notes }
 // context: { location, pincode, sheet_vendor } so the answer includes the automatic vendor
-export function saveLeadCrm(source, leadKey, changes, context = {}) {
+// vendor (admins, docs section 19): whose copy of a lead with several vendors to change, as
+// ?vendor=<id> (0 = the lead's own row). Without it a lead with several vendors answers 422 for
+// Update, amounts, quoted date, follow-up and notes. Vendor logins never send it (their own copy).
+export function saveLeadCrm(source, leadKey, changes, context = {}, { vendor } = {}) {
   return apiRequest(`/leads/${encodeURIComponent(source)}/${encodeURIComponent(leadKey)}/crm`, {
     method: "PUT",
+    query: vendor != null ? { vendor } : undefined,
     body: { ...changes, ...context },
   });
 }

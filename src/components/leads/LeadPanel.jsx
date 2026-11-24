@@ -1,4 +1,6 @@
 import DateInput from "../shared/DateInput.jsx";
+import VendorCopyCard from "./VendorCopyCard.jsx";
+import { isMultiVendor, vendorChips, vendorCopies } from "./leadVendors.js";
 import ContactActions from "../shared/ContactActions.jsx";
 import { displayPhone } from "../shared/contact.js";
 import { useEffect, useState } from "react";
@@ -37,6 +39,24 @@ function lastUpdated(crm) {
 
 // Who edits what: Assigned to = admins (vendors see it as text); Update, Quoted amount/date,
 // Conversion amount and Notes = admins and the assigned vendor. Only changed, allowed fields are sent.
+// A lead with several vendors (docs section 19), for admins and viewers: Assigned to stays here
+// (it changes the lead, no ?vendor=), and each vendor's copy is a card with its own Save
+// (VendorCopyCard, ?vendor=<id>). Vendor logins only ever get their own copy: the form below.
+
+// "Phodeo · auto, Kraftyz · auto"
+const chipsText = (crm) => vendorChips(crm).map((c) => c.text).join(", ");
+
+function VendorChips({ crm }) {
+  return (
+    <ul className="mt-1.5 flex flex-wrap gap-1.5" aria-label="Assigned to">
+      {vendorChips(crm).map((c) => (
+        <li key={c.key} className={`inline-flex max-w-full break-words rounded-full px-3 py-1 text-xs font-medium ring-1 ${c.tone === "manual" ? "bg-brand-700 text-white ring-brand-700" : c.tone === "auto" ? "bg-brand-50 text-brand-800 ring-brand-200" : "bg-amber-50 text-amber-700 ring-amber-200"}`}>
+          {c.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 // Side panel for one lead: header in the app's green, a soft white gradient body,
 // contact buttons, the editable CRM details, every field, and a PDF download.
@@ -80,7 +100,7 @@ function formFrom(crm) {
 }
 
 export default function LeadPanel({ lead, onClose, onSaved }) {
-  const { isAdmin, canEdit } = useAuth();
+  const { isAdmin, canEdit, seesAll } = useAuth();
   const vendors = useVendors();
   const [shown, setShown] = useState(false);
   const [crm, setCrm] = useState(lead?.crm ?? null);
@@ -127,6 +147,8 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
   }, [leadId]);
 
   if (!lead) return null;
+  // Several vendors (admins and viewers): one card per vendor's copy
+  const multi = Boolean(seesAll) && isMultiVendor(crm);
 
   const set = (k, v) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -147,7 +169,8 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
       conversion_amount: amount(f.conversion_amount),
       notes: f.notes,
     });
-    const changes = panelChanges(isAdmin, toValues(formFrom(crm)), toValues(form));
+    // Several vendors: this form only changes who has the lead; the copies save in their cards
+    const changes = multi ? {} : panelChanges(isAdmin, toValues(formFrom(crm)), toValues(form));
     if (isAdmin && form.assignment !== formFrom(crm).assignment) Object.assign(changes, assignmentChange(form.assignment));
     if (!Object.keys(changes).length) {
       setError("Nothing to save: no changes.");
@@ -171,6 +194,21 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  // A card's star changed: that copy, and the lead's overall star (hot on any copy)
+  function copyHotChanged(vendorId, isHot) {
+    const vendors = (crm?.vendors ?? []).map((c) => (String(c.vendor?.id) === String(vendorId) ? { ...c, is_hot: isHot } : c));
+    const next = { ...crm, vendors, is_hot: vendors.some((c) => c.is_hot) };
+    setCrm(next);
+    setActivityRefreshKey((key) => key + 1);
+    onSaved?.(crm.lead_key, next);
+  }
+
+  function copySaved(next) {
+    setCrm(next);
+    setActivityRefreshKey((key) => key + 1);
+    onSaved?.(next?.lead_key ?? crm.lead_key, next);
   }
 
   async function download() {
@@ -198,7 +236,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
             rows: [
               [
                 "Assigned to",
-                assignedText(crm),
+                multi ? chipsText(crm) : assignedText(crm),
               ],
               ["Update", update.label],
               [
@@ -273,7 +311,9 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              {(lead.onToggleHot || lead.showHot) && <HotLeadStar isHot={lead.isHot} pending={lead.hotPending} onToggle={lead.onToggleHot} />}
+              {(lead.onToggleHot || lead.showHot) && (multi
+                ? <HotLeadStar isHot={Boolean(crm?.is_hot)} note="Per vendor: set it in each vendor's card" />
+                : <HotLeadStar isHot={lead.isHot} pending={lead.hotPending} onToggle={lead.onToggleHot} />)}
               <LeadBackButton inverted />
               <button
                 type="button"
@@ -327,7 +367,8 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
           <ContactActions variant="panel" phone={lead.phone} email={lead.email} name={lead.title} />
 
           {/* CRM: view-only logins read it as plain text (no inputs, no Save) */}
-          {crm && !canEdit && (
+          {crm && !canEdit && multi && <ReadOnlyFields title="Lead status" items={[["Assigned to", chipsText(crm)]]} />}
+          {crm && !canEdit && !multi && (
             <ReadOnlyFields
               title="Lead status"
               items={[
@@ -379,6 +420,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                     </option>
                   ))}
                 </select>
+                {multi && <VendorChips crm={crm} />}
                 <span className="mt-1 block text-[11px] text-gray-500">
                   {lead.context?.sheet_vendor
                     ? `Sheet says ${lead.context.sheet_vendor}. `
@@ -392,7 +434,8 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
               </label>
               )}
 
-              {/* Update and the amounts: admins and the assigned vendor */}
+              {/* Update and the amounts: admins and the assigned vendor (several vendors: in the cards) */}
+              {!multi && (<>
               <label className="mt-4 block">
                 <span className="text-xs font-medium text-gray-600">Update</span>
                 <select
@@ -468,6 +511,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   className={`mt-1.5 resize-y ${fieldCls}`}
                 />
               </label>
+              </>)}
 
               {error && (
                 <p
@@ -487,13 +531,36 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   disabled={saving}
                   className="rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-6 py-2 text-sm font-semibold text-white shadow-md shadow-brand-700/25 transition hover:-translate-y-0.5 disabled:opacity-60"
                 >
-                  {saving ? "Saving…" : "Save changes"}
+                  {saving ? "Saving…" : multi ? "Save assignment" : "Save changes"}
                 </button>
               </div>
-              {lastUpdated(crm) && (
+              {!multi && lastUpdated(crm) && (
                 <p className="mt-3 text-right text-xs text-gray-500">Last updated by {lastUpdated(crm)}</p>
               )}
             </form>
+          )}
+
+          {/* Several vendors: one card per vendor's copy, each with its own Save (admins) */}
+          {crm && multi && (
+            <section aria-label="Vendors' copies" className="space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Vendors</h3>
+                <p className="mt-0.5 text-xs text-gray-500">Each vendor works its own copy; Save changes only that vendor's.</p>
+              </div>
+              {vendorCopies(crm).map((c) => (
+                <VendorCopyCard
+                  key={`${crm.lead_key}:${c.vendor.id}`}
+                  copy={c}
+                  source={lead.source}
+                  leadKey={crm.lead_key}
+                  context={lead.context ?? {}}
+                  isAdmin={isAdmin}
+                  canEdit={Boolean(isAdmin && canEdit)}
+                  onSaved={copySaved}
+                  onHotChanged={copyHotChanged}
+                />
+              ))}
+            </section>
           )}
 
           {/* Other places with the same phone (the API's also_in) */}
