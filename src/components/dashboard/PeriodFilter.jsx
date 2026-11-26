@@ -70,7 +70,7 @@ export default function PeriodFilter({ period, today, onChange, disabled, alignS
     }
   }
   return <>
-    <button ref={anchor} type="button" {...hover.anchorProps} onClick={begin} disabled={disabled} aria-haspopup="dialog" aria-expanded={open} className={`inline-flex h-9 items-center gap-2 rounded-full border px-3 text-sm transition ${open || !period.all ? "border-brand-300 bg-brand-50 text-brand-800" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"} disabled:opacity-50`}>
+    <button ref={anchor} type="button" {...hover.anchorProps} onClick={begin} disabled={disabled} aria-haspopup="dialog" aria-expanded={open} className={`inline-flex h-10 items-center gap-2 rounded-full border px-3 text-sm transition sm:h-9 ${open || !period.all ? "border-brand-300 bg-brand-50 text-brand-800" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"} disabled:opacity-50`}>
       <CalendarDays size={15} aria-hidden="true" /><span>{label}</span>
     </button>
     {open && rect && createPortal(<div ref={panel} role="dialog" aria-label="Date range" {...hover.panelProps} style={{ position: "fixed", top: rect.top, left: rect.left, width: rect.width }} className="z-[1000] rounded-2xl bg-white p-3 shadow-xl ring-1 ring-black/10">

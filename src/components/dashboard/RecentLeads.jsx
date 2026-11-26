@@ -349,11 +349,11 @@ export default function RecentLeads({ source = "spin" }) {
       title={look.title}
       subtitle={`Live from the workflow database (read-only) · ${columns.length || "—"} fields per lead`}
       action={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {seesAll && look.explore && (
             <Link
               to="/leads"
-              className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
+              className="flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
             >
               Explore all fields <ArrowUpRight size={15} />
             </Link>

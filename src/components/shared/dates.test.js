@@ -42,10 +42,10 @@ describe("personName", () => {
 });
 
 describe("kpiGridCols", () => {
-  test("1 per row on phones, 2 from sm, 3 or 4 from lg", () => {
-    expect(kpiGridCols(6)).toBe("grid-cols-1 sm:grid-cols-2 lg:grid-cols-3");
-    expect(kpiGridCols(8)).toBe("grid-cols-1 sm:grid-cols-2 lg:grid-cols-4");
-    expect(kpiGridCols(5)).toBe("grid-cols-1 sm:grid-cols-2 lg:grid-cols-4");
-    expect(kpiGridCols(2)).toBe("grid-cols-1 sm:grid-cols-2");
+  test("2 per row on phones, 3 or 4 from lg", () => {
+    expect(kpiGridCols(6)).toBe("grid-cols-2 lg:grid-cols-3");
+    expect(kpiGridCols(8)).toBe("grid-cols-2 lg:grid-cols-4");
+    expect(kpiGridCols(5)).toBe("grid-cols-2 lg:grid-cols-4");
+    expect(kpiGridCols(2)).toBe("grid-cols-2");
   });
 });

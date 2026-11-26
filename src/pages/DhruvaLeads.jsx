@@ -1,7 +1,8 @@
 import DateInput from "../components/shared/DateInput.jsx";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { useSearchParams } from "react-router";
-import { Download, FileUp, Plus, Star } from "lucide-react";
+import { FileUp, PanelRightOpen, Plus, Star } from "lucide-react";
+import ExportMenu from "../components/shared/ExportMenu.jsx";
 import { useAuth } from "../auth/useAuth.js";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import { exportDhruvaLeads, getDhruvaFilterOptions, getDhruvaStats, listDhruvaLeads, updateDhruvaLead } from "../api/dhruva.js";
@@ -10,7 +11,7 @@ import HotLeadStar from "../components/leads/HotLeadStar.jsx";
 import AlsoInBadges from "../components/leads/AlsoInBadges.jsx";
 import { toggleHotOptimistically } from "../components/leads/hotLeadToggle.js";
 import { parseSort } from "../components/dashboard/FilterSelect.jsx";
-import { Pagination, SectionShell } from "../components/leads/LeadKit.jsx";
+import { CARD_AMOUNTS, Pagination, SectionShell } from "../components/leads/LeadKit.jsx";
 import LeadFilterBar from "../components/leads/LeadFilterBar.jsx";
 import { useLeadFilters } from "../components/leads/useLeadFilters.js";
 import { DHRUVA } from "../components/leads/leadFilters.js";
@@ -127,11 +128,50 @@ export default function DhruvaLeads() {
   const saveAmount = (lead) => async (changes) => onSaved(await updateDhruvaLead(lead.id, changes));
 
   return <DashboardLayout title="Dhruva → KOC" description={seesAll ? "Leads added by Dhruva team members" : "Leads you and your team have added"}><SectionShell theme="whatsapp" icon={Star} title="Dhruva → KOC" subtitle={seesAll ? "Leads added by Dhruva team members" : "Leads you and your team have added"}
-    action={<div className="flex flex-wrap gap-2">{canEdit && <button type="button" onClick={() => setDialog("single")} className="flex items-center gap-1.5 rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-4 py-2 text-sm font-medium text-white"><Plus size={15} />Add lead</button>}{canUpload && <button type="button" onClick={() => setDialog("bulk")} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm"><FileUp size={15} />Bulk upload</button>}<button type="button" onClick={() => runExport("xlsx")} disabled={exporting} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm disabled:opacity-60"><Download size={15} />{exporting ? "Exporting…" : "Export"}</button><button type="button" onClick={() => runExport("csv")} disabled={exporting} className="rounded-full border border-gray-200 bg-white px-3 py-2 text-sm disabled:opacity-60">CSV</button></div>}
+    action={<div className="flex flex-wrap gap-2">{canEdit && <button type="button" onClick={() => setDialog("single")} className="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-4 py-2 text-sm font-medium text-white shadow-md shadow-brand-700/25 sm:min-h-0"><Plus size={15} />Add lead</button>}{canUpload && <button type="button" onClick={() => setDialog("bulk")} className="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 sm:min-h-0"><FileUp size={15} />Bulk upload</button>}<ExportMenu onExport={runExport} busy={exporting} /></div>}
     message={message ?? error} stats={statsCards}
     toolbar={<LeadFilterBar source={DHRUVA} filters={filters} update={update} clear={clear} apply={apply} clearFilters={clearFilters} count={count} options={options} isAdmin={seesAll} sorts={sorts} sortValue={sortValue} placeholder="Search name, phone, venue, WhatsApp status, notes…" />}
     footer={<Pagination page={page} pageSize={pageSize} total={data?.total} onPage={setPage} onPageSize={setPageSize} disabled={loading} onPrefetch={(n) => listDhruvaLeads(listParams(n)).catch(() => {})} />}>
-    <div className="overflow-x-auto"><table className={`w-full min-w-[2000px] text-sm transition-opacity ${loading && data ? "opacity-50" : ""}`}>
+    {/* Phones: one card per lead (the wide table is for md and up); the full details are in the panel */}
+    <ul aria-label="Leads" className={`divide-y divide-gray-100 border-t border-gray-100 transition-opacity md:hidden ${loading && data ? "opacity-50" : ""}`}>
+      {loading && !data && Array.from({ length: 4 }).map((_, i) => <li key={`s${i}`} className="px-4 py-4"><span className="block h-3 w-40 animate-pulse rounded bg-gray-100" /><span className="mt-3 block h-8 w-48 animate-pulse rounded-full bg-gray-100" /></li>)}
+      {items.map((l) => {
+        const stop = (event) => event.stopPropagation();
+        const meta = [l.event_type, eventDatesText(eventDatesOf(l)), l.venue].filter((v) => v && v !== "—").join(" · ");
+        return <li key={l.id}><div onClick={() => setOpenLead(l)} className="cursor-pointer px-4 py-3.5 transition-colors active:bg-brand-50/60">
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <p className="flex flex-wrap items-center gap-2 font-semibold text-gray-900"><span className="truncate">{l.name || "—"}</span>{!phonesOf(l).length && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-medium text-sky-700">No phone</span>}</p>
+              {meta && <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{meta}</p>}
+              <AlsoInBadges alsoIn={l.also_in} />
+            </div>
+            {showHot && <div onClick={stop}><HotLeadStar isHot={isHot(l)} pending={Boolean(hotPending[String(l.id)])} onToggle={canToggleHot ? () => toggleHot(l) : null} /></div>}
+            <button type="button" onClick={(event) => { stop(event); setOpenLead(l); }} aria-label={`Open ${l.name || "lead"}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-brand-700"><PanelRightOpen size={18} /></button>
+          </div>
+          {phonesOf(l).length > 0 && <div className="mt-2.5" onClick={stop}><PhoneList entries={phoneEntriesOf(l)} limit={2} name={l.name} label={`Phone numbers of ${l.name || "lead"}`} /></div>}
+          <div className="mt-3 space-y-2.5 rounded-2xl bg-gray-50/80 p-2.5 text-xs" onClick={isAdmin ? stop : undefined}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-gray-500">WhatsApp status</span>
+              <span className="font-medium text-gray-800">{l.whatsapp_status || "—"}</span>
+            </div>
+            <div>
+              <p className="mb-1 text-gray-500">Update</p>
+              {isAdmin ? <AdminStatus lead={l} onSaved={onSaved} /> : <span className={`inline-flex rounded-full px-2.5 py-1 font-medium ${l.update_status ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{statusLabel(l.update_status)}</span>}
+            </div>
+            <div className={`grid grid-cols-2 gap-2 ${CARD_AMOUNTS}`}>
+              <div className="flex flex-col items-start"><span className="text-gray-500">Quoted</span>{isAdmin ? <AmountCell crm={l} save={saveAmount(l)} field="quoted_amount" label="Quoted amount" setQuotedDate={false} /> : <span className="mt-0.5 tabular-nums text-gray-800">{rupeesText(l.quoted_amount)}</span>}</div>
+              <div className="flex flex-col items-start"><span className="text-gray-500">Converted</span>{isAdmin ? <AmountCell crm={l} save={saveAmount(l)} field="conversion_amount" label="Conversion amount" setQuotedDate={false} /> : <span className="mt-0.5 tabular-nums text-gray-800">{rupeesText(l.conversion_amount)}</span>}</div>
+            </div>
+            <div>
+              <p className="mb-1 text-gray-500">Follow-up date</p>
+              {isAdmin ? <AdminFollowUp lead={l} onSaved={onSaved} /> : <span className="text-gray-800">{dayText(l.follow_up_date)}</span>}
+            </div>
+          </div>
+        </div></li>;
+      })}
+      {!loading && !items.length && <li className="px-4 py-12 text-center text-sm text-gray-500">{count || filters.search ? "No leads match these filters." : "No Dhruva leads yet."}</li>}
+    </ul>
+    <div className="hidden overflow-x-auto md:block"><table className={`w-full min-w-[2000px] text-sm transition-opacity ${loading && data ? "opacity-50" : ""}`}>
       <thead className="border-y border-gray-100 bg-gray-50/80"><tr>{showHot && <th className={th} aria-label="Hot lead" />}<th className={th}>Sl. No</th><th className={th}>Name</th><th className={th}>Phone numbers</th><th className={th}>Event dates</th><th className={th}>Event type</th><th className={th}>Venue</th><th className={th}>Sent at</th><th className={th}>WhatsApp status</th><th className={th}>Response</th><th className={th}>Message sent</th><th className={th}>Follow-up notes</th><th className={th}>Comments</th><th className={th}>Needs intervention</th><th className={th}>Update</th><th className={`${th} text-right`}>Quoted amount</th><th className={`${th} text-right`}>Conversion amount</th><th className={th}>Follow-up date</th></tr></thead>
       <tbody>
         {loading && !data && <SkeletonRows cols={colCount} label="Loading leads" />}

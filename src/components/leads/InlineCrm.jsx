@@ -71,7 +71,7 @@ function PillSelect({ value, onChange, className, children, label, busy }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={busy}
-        className={`cursor-pointer appearance-none rounded-full py-1 pl-3 pr-7 text-xs font-medium outline-none ring-1 transition focus:ring-2 focus:ring-brand-600/40 disabled:opacity-60 ${className}`}
+        className={`pill-select min-h-8 cursor-pointer appearance-none rounded-full py-1 pl-3 pr-7 text-xs font-medium outline-none sm:min-h-0 ring-1 transition focus:ring-2 focus:ring-brand-600/40 disabled:opacity-60 ${className}`}
       >
         {children}
       </select>

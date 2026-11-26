@@ -206,7 +206,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
           shown ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 pb-5 pt-5 text-white sm:px-6">
+        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-white sm:px-6 sm:pb-5 sm:pt-5">
           <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
           <div className="relative flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
@@ -238,7 +238,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
           )}
         </header>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+        <div className="flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:py-6">
           <ContactActions variant="panel" phone={lead.phone} email={lead.email} name={lead.name} />
 
           {/* Other places with the same phone (the API's also_in) */}
@@ -306,12 +306,13 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
                   {error}
                 </p>
               )}
-              <div className="mt-4 flex items-center justify-end gap-3">
-                {saved && <span className="text-sm text-emerald-600">Saved ✓</span>}
+              {/* Phones: the Save button stays at the bottom of the screen while the form scrolls */}
+              <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 flex items-center justify-end gap-3 rounded-b-3xl bg-white/95 px-5 py-3 backdrop-blur sm:static sm:m-0 sm:mt-4 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+                {saved && <span className="shrink-0 text-sm text-emerald-600">Saved ✓</span>}
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-6 py-2 text-sm font-semibold text-white shadow-md shadow-brand-700/25 transition hover:-translate-y-0.5 disabled:opacity-60"
+                  className="min-h-11 flex-1 sm:min-h-0 sm:flex-none rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-6 py-2 text-sm font-semibold text-white shadow-md shadow-brand-700/25 transition hover:-translate-y-0.5 disabled:opacity-60"
                 >
                   {saving ? "Saving…" : "Save changes"}
                 </button>

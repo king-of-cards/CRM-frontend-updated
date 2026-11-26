@@ -141,11 +141,37 @@ export default function DashboardLayout({
     }
   }
 
-  // The nav pill scrolls sideways when tight: start at the left so the first tab is never cut off
+  // The nav pill scrolls sideways when tight (phones): bring the open tab into view, so it is never
+  // hidden past the edge (the Dashboard tab is first, so it starts at the left)
   const navRef = useRef(null);
   useEffect(() => {
-    if (navRef.current) navRef.current.scrollLeft = 0;
-  }, [flow]);
+    const bar = navRef.current;
+    if (!bar) return;
+    const active = bar.querySelector('[aria-current="page"]');
+    bar.scrollLeft = active ? Math.max(0, active.offsetLeft - 8) : 0;
+  }, [flow, location.pathname]);
+
+  // Phones and tablets: the top bar slides away while scrolling down (more room for the leads) and
+  // comes back as soon as the person scrolls up. Always shown from lg.
+  // Hidden only on the page where it was hidden, so a new page always starts with the bar visible
+  const [hiddenOn, setHiddenOn] = useState(null);
+  const barHidden = hiddenOn === location.pathname;
+  useEffect(() => {
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (window.innerWidth >= 1024 || y < 120) {
+        setHiddenOn(null);
+        last = y;
+        return;
+      }
+      if (Math.abs(y - last) < 10) return;
+      setHiddenOn(y > last ? window.location.pathname : null);
+      last = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Remember whether the sidebar was collapsed, so it stays that way between pages and visits.
   const [collapsed, setCollapsed] = useState(() => {
@@ -299,11 +325,11 @@ export default function DashboardLayout({
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Floating pill top bar: tabs for the overview and each lead source */}
         <header
-          className={`sticky top-0 z-30 flex min-w-0 justify-center px-3 pt-3 sm:px-4 sm:pt-4 ${
-            topBarExtra ? "flex-col items-center gap-3 lg:flex-row lg:items-center" : ""
-          }`}
+          className={`sticky top-0 z-30 flex min-w-0 justify-center px-3 pt-[max(0.75rem,env(safe-area-inset-top))] transition-transform duration-300 ease-out sm:px-4 sm:pt-4 lg:translate-y-0 ${
+            topBarExtra ? "flex-col items-center gap-2 sm:gap-3 lg:flex-row lg:items-center" : ""
+          } ${barHidden && !drawerOpen ? "-translate-y-[calc(100%+2.5rem)]" : "translate-y-0"}`}
         >
-          <div className={`relative flex w-full min-w-0 max-w-4xl items-center gap-1 rounded-full sm:gap-2 ${topBarExtra ? "lg:min-w-0 lg:flex-1" : ""} bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 p-1.5 shadow-xl shadow-brand-800/25 ring-1 ring-white/10`}>
+          <div className={`relative flex w-full min-w-0 max-w-4xl items-center gap-1 rounded-full sm:gap-2 ${topBarExtra ? "lg:min-w-0 lg:flex-1" : ""} bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 p-1 shadow-xl shadow-brand-800/25 ring-1 ring-white/10 sm:p-1.5`}>
             {/* Soft light sweep across the bar */}
             <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-full">
               <span className="absolute inset-0 bg-linear-to-r from-white/0 via-white/10 to-white/0" />
@@ -315,14 +341,14 @@ export default function DashboardLayout({
               aria-label="Open menu"
               aria-controls="app-sidebar"
               aria-expanded={drawerOpen}
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white/85 transition-colors hover:bg-white/10 hover:text-white md:hidden"
+              className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white/85 transition-colors hover:bg-white/10 hover:text-white sm:h-11 sm:w-11 md:hidden"
             >
-              <Menu size={20} />
+              <Menu size={18} />
             </button>
             <nav
               ref={navRef}
               aria-label="Sections"
-              className="relative flex min-w-0 flex-1 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="relative flex min-w-0 flex-1 items-center gap-1 overflow-x-auto pr-4 [scrollbar-width:none] [mask-image:linear-gradient(to_right,#000_92%,transparent)] lg:pr-0 lg:[mask-image:none] [&::-webkit-scrollbar]:hidden"
             >
               {visibleTabs.map(({ path, to, label, icon: Icon }) => (
                 <NavLink
@@ -332,7 +358,8 @@ export default function DashboardLayout({
                   onFocus={() => preloadRoute(path)}
                   end={path === "/dashboard"}
                   className={({ isActive }) =>
-                    `relative flex min-h-11 shrink-0 items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-all sm:px-4 md:min-h-0 ${
+                    // Phones: a slimmer tab (13 px text); from sm the full size
+                    `relative flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all sm:min-h-11 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm md:min-h-0 ${
                       isActive
                         ? "bg-white text-brand-800 shadow-md shadow-black/10"
                         : "text-white/75 hover:bg-white/10 hover:text-white"
@@ -380,7 +407,7 @@ export default function DashboardLayout({
           {topBarExtra && <div className="w-full min-w-0 max-w-4xl shrink-0 lg:w-auto">{topBarExtra}</div>}
         </header>
 
-        <main className="min-w-0 flex-1 px-4 pb-10 pt-6 sm:px-6 sm:pt-8">
+        <main className="min-w-0 flex-1 px-3 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:pt-8">
           {showDirection && (
             <div className="mb-4">
               <DhruvaDirectionSwitch value={direction} onChange={chooseDirection} />

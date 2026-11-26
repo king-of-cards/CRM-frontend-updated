@@ -53,7 +53,7 @@ export default function DhruvaLeadsDashboard({ period, refreshKey }) {
   const latest = data?.latest ?? [];
   return <>
     {error && <p role="alert" className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">{error}</p>}
-    <section className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Dhruva key numbers">
+    <section className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3" aria-label="Dhruva key numbers">
       {cards.map((c, i) => <Kpi key={c.label} icon={kpiIcons[i]} label={c.label} value={c.value} to={c.to} gradient={kpiGradient(c, i)} loading={kpiLoading} />)}
     </section>
     <div className="mt-6"><FollowUpsCard flow="dhruva" /></div>

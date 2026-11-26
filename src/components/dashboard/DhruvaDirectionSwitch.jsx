@@ -16,7 +16,7 @@ export default function DhruvaDirectionSwitch({ value, onChange }) {
             role="tab"
             aria-selected={active}
             onClick={() => !active && onChange(d.value)}
-            className={`flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium sm:min-h-0 sm:px-4 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${
+            className={`flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium sm:min-h-0 sm:px-4 sm:text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${
               active ? "bg-brand-800 text-white shadow" : "text-gray-600 hover:bg-gray-100"
             }`}
           >

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Archive, RotateCcw } from "lucide-react";
+import { Archive, BadgeCheck, RotateCcw } from "lucide-react";
+import ContactActions from "../shared/ContactActions.jsx";
 import {
   archiveDhruvaLead,
   unarchiveDhruvaLead,
@@ -10,7 +11,7 @@ import LeadPdfButton from "../leads/LeadPdfButton.jsx";
 import HotLeadStar from "../leads/HotLeadStar.jsx";
 import Drawer, { Alert, primaryBtn, secondaryBtn } from "../crmLeads/Drawer.jsx";
 import {
-  dateTimeText, dhruvaChanges, dhruvaErrors, dhruvaFieldAccess, dhruvaFormErrors, dhruvaFormOf, KOC_FIELDS, LEAD_FIELDS, phoneEntriesOf, phonesOf, phoneText,
+  dateTimeText, dhruvaChanges, dhruvaErrors, dhruvaFieldAccess, dhruvaFormErrors, dhruvaFormOf, eventDatesOf, eventDatesText, KOC_FIELDS, LEAD_FIELDS, phonesOf, phoneText, rupeesText, statusLabel,
 } from "../../pages/dhruvaUtils.js";
 import LeadActivity from "../leads/LeadActivity.jsx";
 import AlsoInBadges from "../leads/AlsoInBadges.jsx";
@@ -19,7 +20,21 @@ import { useAuth } from "../../auth/useAuth.js";
 import { ViewOnlyBadge } from "../shared/ViewOnly.jsx";
 import { duplicateMessage } from "../shared/duplicates.js";
 import { DhruvaFieldInput, DhruvaFieldList, dhruvaValueText } from "./DhruvaFields.jsx";
-import { PhoneList } from "./PhoneNumbers.jsx";
+
+// The lead's initials for the header (as in the Spin / Wedding lead panels)
+const initials = (name) =>
+  String(name || "?")
+    .replace(/[^\p{L}\p{N} ]/gu, "")
+    .trim()
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "?";
+
+// White rounded cards, the same as the Spin lead panel's "Lead status" card
+const CARD = "space-y-4 rounded-3xl bg-white/80 p-5 ring-1 ring-gray-100 shadow-sm backdrop-blur";
+const CHIP = "rounded-full bg-white/15 px-2.5 py-1 ring-1 ring-white/20";
 
 // Dhruva → KOC lead (docs section 13). Lead fields (name … venue): admins and Dhruva logins edit.
 // KOC fields (WhatsApp status … follow-up date): admins edit; read-only for everyone else.
@@ -143,38 +158,63 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
     </div>
   );
 
+  const title = lead.name || (phonesOf(lead).length ? phoneText(phonesOf(lead)[0]) : "") || "Lead details";
+  const dates = eventDatesText(eventDatesOf(lead));
+  const subtitle = [lead.event_type, dates !== "—" ? dates : null, lead.venue].filter(Boolean).join(" · ");
+  // Status chips under the name: update, WhatsApp status, intervention, amounts, archived
+  const chips = (
+    <>
+      <span className={CHIP}>{statusLabel(lead.update_status)}</span>
+      {lead.whatsapp_status && <span className={CHIP}>WhatsApp: {lead.whatsapp_status}</span>}
+      {lead.needs_intervention && <span className="rounded-full bg-amber-300 px-2.5 py-1 font-semibold text-amber-950">Needs intervention</span>}
+      {lead.quoted_amount != null && <span className={CHIP}>Quoted {rupeesText(lead.quoted_amount)}</span>}
+      {lead.conversion_amount != null && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400 px-2.5 py-1 font-semibold text-emerald-950">
+          <BadgeCheck size={13} /> Converted {rupeesText(lead.conversion_amount)}
+        </span>
+      )}
+      {lead.archived && <span className={CHIP}>Archived</span>}
+    </>
+  );
+
   return (
-    <Drawer kicker="Dhruva → KOC" title={lead.name || "Lead details"} onClose={onClose} wide headerActions={<>{!canEdit && <ViewOnlyBadge inverted />}{(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}<LeadPdfButton onClick={pdf} loading={downloading} /></>}
+    <Drawer lead kicker="Dhruva → KOC" title={title} avatar={initials(lead.name || title)} subtitle={subtitle} chips={chips} onClose={onClose} headerActions={<>{!canEdit && <ViewOnlyBadge inverted />}{(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}</>} endActions={<LeadPdfButton onClick={pdf} loading={downloading} />}
       footer={<>
         {access.archive && <button type="button" onClick={archive} disabled={archiveBusy} className={secondaryBtn}>{lead.archived ? <RotateCcw size={15} className="mr-1 inline" /> : <Archive size={15} className="mr-1 inline" />}{lead.archived ? "Unarchive" : "Archive"}</button>}
         <button type="button" onClick={onClose} className={secondaryBtn}>Close</button>
         {canSave && <button type="submit" form="dhruva-edit-lead" disabled={busy} className={primaryBtn}>{busy ? "Saving…" : access.editAdmin ? "Save changes" : "Save lead details"}</button>}
       </>}
     >
-      <form id="dhruva-edit-lead" onSubmit={save} className="space-y-5" noValidate>
+      {/* Contact: wide Call / WhatsApp / Copy buttons (one line per number), for every role */}
+      <ContactActions variant="panel" phones={phonesOf(lead)} name={lead.name} />
+
+      <form id="dhruva-edit-lead" onSubmit={save} className="space-y-6" noValidate>
         {error && <Alert>{error}</Alert>}
         {saved && <Alert kind="success">Lead saved.</Alert>}
         {duplicate && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900 ring-1 ring-amber-200"><span>Save this lead despite the duplicate match?</span><button type="button" disabled={busy} onClick={() => save(undefined, true)} className={primaryBtn}>Save anyway</button></div>}
-        <section className="space-y-3" aria-label="Lead details">
-          <h3 className="text-sm font-semibold text-gray-900">Lead details</h3>
-          {access.editBasic && phoneEntriesOf(lead).length > 0 && <div className="rounded-xl bg-white p-3 text-sm ring-1 ring-gray-100"><span className="mb-1 block text-xs font-medium text-gray-500">Call or copy</span><PhoneList entries={phoneEntriesOf(lead)} name={lead.name} label="Saved phone numbers" /></div>}
-          {access.editBasic ? inputs(LEAD_FIELDS) : <DhruvaFieldList fields={LEAD_FIELDS} lead={lead} label="Lead details, read only" />}
-        </section>
-        {alsoInPlaces(lead.also_in).length > 0 && <section className="rounded-2xl bg-white p-4 ring-1 ring-gray-100"><h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-700">Also in</h3><AlsoInBadges alsoIn={lead.also_in} variant="panel" /></section>}
-        <p className="text-xs text-gray-500">
-          Sent at {dateTimeText(lead.sent_at)} · Received {dateTimeText(lead.created_at)} · Added by {lead.created_by_name || "—"} · {lead.source === "bulk_upload" ? "Bulk upload" : "Manual"}
-        </p>
-        <section className="space-y-3 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100" aria-label="KOC details">
+
+        {/* KOC details first: the lead's status, like "Lead status" in the Spin panel */}
+        <section className={CARD} aria-label="KOC details">
           <h3 className="text-sm font-semibold text-gray-900">KOC details{!access.editAdmin && <span className="ml-2 text-xs font-normal text-gray-500">Read only</span>}</h3>
           {access.editAdmin ? inputs(KOC_FIELDS) : <DhruvaFieldList fields={KOC_FIELDS} lead={lead} label="KOC details, read only" />}
           {(lead.status_updated_by_name || lead.status_updated_at) && (
-            <p className="text-xs text-gray-500">
-              Updated by {lead.status_updated_by_name || "—"}{lead.status_updated_at ? ` · ${dateTimeText(lead.status_updated_at)}` : ""}
+            <p className="text-right text-xs text-gray-500">
+              Last updated by {lead.status_updated_by_name || "—"}{lead.status_updated_at ? ` · ${dateTimeText(lead.status_updated_at)}` : ""}
             </p>
           )}
         </section>
+
+        <section className={CARD} aria-label="Lead details">
+          <h3 className="text-sm font-semibold text-gray-900">Lead details</h3>
+          {access.editBasic ? inputs(LEAD_FIELDS) : <DhruvaFieldList fields={LEAD_FIELDS} lead={lead} label="Lead details, read only" />}
+          <p className="text-xs text-gray-500">
+            Sent at {dateTimeText(lead.sent_at)} · Received {dateTimeText(lead.created_at)} · Added by {lead.created_by_name || "—"} · {lead.source === "bulk_upload" ? "Bulk upload" : "Manual"}
+          </p>
+        </section>
+
+        {alsoInPlaces(lead.also_in).length > 0 && <section className={CARD}><h3 className="text-xs font-semibold uppercase tracking-wider text-brand-700">Also in</h3><AlsoInBadges alsoIn={lead.also_in} variant="panel" /></section>}
       </form>
-      <div className="mt-5"><LeadActivity source="dhruva" leadKey={lead.id} refreshKey={activityRefreshKey} /></div>
+      <LeadActivity source="dhruva" leadKey={lead.id} refreshKey={activityRefreshKey} />
     </Drawer>
   );
 }

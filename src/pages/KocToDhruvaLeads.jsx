@@ -2,7 +2,8 @@ import DateInput from "../components/shared/DateInput.jsx";
 import ContactActions from "../components/shared/ContactActions.jsx";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import { Download, FileUp, Send } from "lucide-react";
+import { FileUp, PanelRightOpen, Send } from "lucide-react";
+import ExportMenu from "../components/shared/ExportMenu.jsx";
 import { useAuth } from "../auth/useAuth.js";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import {
@@ -15,7 +16,7 @@ import {
 import { setKocToDhruvaLeadHot } from "../api/hotLeads.js";
 import HotLeadStar from "../components/leads/HotLeadStar.jsx";
 import { toggleHotOptimistically } from "../components/leads/hotLeadToggle.js";
-import { Pagination, SectionShell } from "../components/leads/LeadKit.jsx";
+import { CARD_AMOUNTS, Pagination, SectionShell } from "../components/leads/LeadKit.jsx";
 import LeadFilterBar from "../components/leads/LeadFilterBar.jsx";
 import { useLeadFilters } from "../components/leads/useLeadFilters.js";
 import { KOC_TO_DHRUVA } from "../components/leads/leadFilters.js";
@@ -202,16 +203,55 @@ export default function KocToDhruvaLeads() {
         title="KOC → Dhruva"
         subtitle="Also listed in Spin; this section keeps its own updates"
         action={<div className="flex flex-wrap gap-2">
-          {canUpload && <button type="button" onClick={() => setUploading(true)} className="flex min-h-11 items-center gap-1.5 rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-4 py-2 text-sm font-medium text-white sm:min-h-0"><FileUp size={15} />Bulk upload</button>}
-          <button type="button" onClick={() => runExport("xlsx")} disabled={exporting} className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm disabled:opacity-60"><Download size={15} />{exporting ? "Exporting…" : "Export"}</button>
-          <button type="button" onClick={() => runExport("csv")} disabled={exporting} className="rounded-full border border-gray-200 bg-white px-3 py-2 text-sm disabled:opacity-60">CSV</button>
+          {canUpload && <button type="button" onClick={() => setUploading(true)} className="flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-4 py-2 text-sm font-medium text-white shadow-md shadow-brand-700/25 sm:min-h-0"><FileUp size={15} />Bulk upload</button>}
+          <ExportMenu onExport={runExport} busy={exporting} />
         </div>}
         message={message ?? error}
         stats={kpiCards(stats?.kpis)}
         toolbar={<LeadFilterBar source={KOC_TO_DHRUVA} filters={filters} update={update} clear={clear} apply={apply} clearFilters={clearFilters} count={count} options={options} isAdmin={seesAll} sorts={SORTS} sortValue={sortValue} placeholder="Search name, phone, email, occasion…" />}
         footer={<Pagination page={page} pageSize={pageSize} total={data?.total} onPage={setPage} onPageSize={setPageSize} disabled={loading} onPrefetch={(n) => listKocToDhruvaLeads(listParams(n)).catch(() => {})} />}
       >
-        <div className="overflow-x-auto">
+        {/* Phones: one card per lead (the wide table is for md and up); the full details are in the panel */}
+        <ul aria-label="Leads" className={`divide-y divide-gray-100 border-t border-gray-100 transition-opacity md:hidden ${loading && data ? "opacity-50" : ""}`}>
+          {loading && !data && Array.from({ length: 4 }).map((_, i) => <li key={`s${i}`} className="px-4 py-4"><span className="block h-3 w-40 animate-pulse rounded bg-gray-100" /><span className="mt-3 block h-8 w-48 animate-pulse rounded-full bg-gray-100" /></li>)}
+          {items.map((l) => {
+            const crm = l.crm ?? {};
+            const save = saveFor(l);
+            const meta = [l.occasion, l.event_date ? dayText(l.event_date) : null].filter(Boolean).join(" · ");
+            return (
+              <li key={l.lead_key}>
+                <div onClick={() => setOpenKey(l.lead_key)} className="cursor-pointer px-4 py-3.5 transition-colors active:bg-brand-50/60">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-gray-900">{l.display.name || "Unnamed lead"}</p>
+                      {meta && <p className="mt-0.5 truncate text-xs text-gray-500">{meta}</p>}
+                      <AlsoInBadges alsoIn={l.also_in} />
+                    </div>
+                    {showHot && <div onClick={stop}><HotLeadStar isHot={isHot(l)} pending={Boolean(hotPending[String(l.lead_key)])} onToggle={canToggleHot ? () => toggleHot(l) : null} /></div>}
+                    <button type="button" onClick={(event) => { stop(event); setOpenKey(l.lead_key); }} aria-label={`Open ${l.display.name || "lead"}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-brand-700"><PanelRightOpen size={18} /></button>
+                  </div>
+                  {(l.display.phone || l.display.email) && <div className="mt-2.5" onClick={stop}><ContactActions phone={l.display.phone} email={l.display.email} name={l.display.name} /></div>}
+                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                    <div className="min-w-0"><dt className="text-gray-500">Budget per card</dt><dd className="mt-0.5 font-semibold tabular-nums text-gray-800">{budgetText(l.estimated_budget_per_card)}</dd></div>
+                    <div className="min-w-0"><dt className="text-gray-500">Quantity</dt><dd className="mt-0.5 font-semibold tabular-nums text-gray-800">{quantityText(l.quantity_required)}</dd></div>
+                    <div className="min-w-0"><dt className="text-gray-500">Branch</dt><dd className="mt-0.5 truncate text-gray-800"><BranchCell branch={l.display.branch} empty="—" /></dd></div>
+                    <div className="min-w-0"><dt className="text-gray-500">Received</dt><dd className="mt-0.5 text-gray-800">{dayText(l.received)}</dd></div>
+                  </dl>
+                  <div className="mt-3 space-y-2.5 rounded-2xl bg-gray-50/80 p-2.5 text-xs" onClick={stop}>
+                    <div className="flex flex-wrap items-center gap-2"><span className="w-20 shrink-0 text-gray-500">Update</span><UpdateCell crm={crm} save={save} /></div>
+                    <div className={`grid grid-cols-2 gap-2 ${CARD_AMOUNTS}`}>
+                      <div className="flex flex-col items-start"><span className="text-gray-500">Quoted</span><AmountCell crm={crm} save={save} field="quoted_amount" label="Quoted amount" /></div>
+                      <div className="flex flex-col items-start"><span className="text-gray-500">Converted</span><AmountCell crm={crm} save={save} field="conversion_amount" label="Conversion amount" setQuotedDate={false} /></div>
+                    </div>
+                    <div><p className="mb-1 text-gray-500">Follow-up date</p><SaveCell key={`mfu-${crm.follow_up_date ?? ""}`} field="follow_up_date" label="Follow-up date" value={crm.follow_up_date} save={save} canEdit={canEdit} /></div>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+          {!loading && !items.length && <li className="px-4 py-12 text-center text-sm text-gray-500">{count || filters.search ? "No leads match these filters." : "No KOC → Dhruva leads yet."}</li>}
+        </ul>
+        <div className="hidden overflow-x-auto md:block">
           <table className={`w-full min-w-[1400px] text-sm transition-opacity ${loading && data ? "opacity-50" : ""}`}>
             <thead className="border-y border-gray-100 bg-gray-50/80">
               <tr>

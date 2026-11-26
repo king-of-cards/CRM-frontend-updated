@@ -288,7 +288,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
         }`}
       >
         {/* Header */}
-        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 pb-5 pt-5 text-white sm:px-6">
+        <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-white sm:px-6 sm:pb-5 sm:pt-5">
           <span
             aria-hidden="true"
             className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl"
@@ -319,14 +319,15 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                 type="button"
                 onClick={download}
                 disabled={downloading}
-                className="flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-brand-800 shadow-sm transition hover:bg-brand-50 disabled:opacity-70"
+                aria-label="Download PDF"
+                className="flex h-10 w-10 items-center justify-center gap-1.5 rounded-full bg-white text-sm font-medium text-brand-800 shadow-sm transition hover:bg-brand-50 disabled:opacity-70 sm:h-auto sm:w-auto sm:px-3.5 sm:py-1.5"
               >
                 {downloading ? (
                   <Loader2 size={14} className="animate-spin" />
                 ) : (
                   <Download size={14} />
                 )}
-                Download
+                <span className="hidden sm:inline">Download</span>
               </button>
               <button
                 type="button"
@@ -362,7 +363,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
           )}
         </header>
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+        <div className="flex-1 space-y-6 overflow-y-auto overscroll-contain px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:py-6">
           {/* Contact */}
           <ContactActions variant="panel" phone={lead.phone} email={lead.email} name={lead.title} />
 
@@ -522,14 +523,15 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                 </p>
               )}
 
-              <div className="mt-4 flex items-center justify-end gap-3">
+              {/* Phones: the Save button stays at the bottom of the screen while the form scrolls */}
+              <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 flex items-center justify-end gap-3 rounded-b-3xl bg-white/95 px-5 py-3 backdrop-blur sm:static sm:m-0 sm:mt-4 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
                 {saved && (
-                  <span className="text-sm text-emerald-600">Saved ✓</span>
+                  <span className="shrink-0 text-sm text-emerald-600">Saved ✓</span>
                 )}
                 <button
                   type="submit"
                   disabled={saving}
-                  className="rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-6 py-2 text-sm font-semibold text-white shadow-md shadow-brand-700/25 transition hover:-translate-y-0.5 disabled:opacity-60"
+                  className="min-h-11 flex-1 rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-6 py-2 text-sm font-semibold sm:min-h-0 sm:flex-none text-white shadow-md shadow-brand-700/25 transition hover:-translate-y-0.5 disabled:opacity-60"
                 >
                   {saving ? "Saving…" : multi ? "Save assignment" : "Save changes"}
                 </button>
@@ -592,7 +594,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   {rows.map(([label, value]) => (
                     <div
                       key={label}
-                      className="grid grid-cols-[150px_1fr] gap-3 px-4 py-2.5 text-sm"
+                      className="grid grid-cols-[120px_1fr] gap-3 px-4 py-2.5 text-sm sm:grid-cols-[150px_1fr]"
                     >
                       <dt className="text-gray-500">{label}</dt>
                       <dd className="whitespace-pre-line break-words text-gray-900">

@@ -46,8 +46,9 @@ export default function FollowUpsCard({ flow = "" }) {
               const tag = reminderTag(item.days_overdue);
               const to = reminderLeadDestination(item);
               return (
-                <li key={`${item.source}-${item.lead_key}-${index}`} className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-gray-50">
-                  <Link to={to} className="min-w-0 flex-1">
+                <li key={`${item.source}-${item.lead_key}-${index}`} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-gray-50 sm:flex-nowrap sm:px-5">
+                  {/* Phones: the call/WhatsApp buttons wrap onto their own line under the name */}
+                  <Link to={to} className="min-w-0 flex-1 basis-full sm:basis-auto">
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="truncate text-sm font-medium text-gray-900">{item.name || reminderPhone(item.phone)}</span>
                       <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">{reminderSourceLabel(item.source)}</span>

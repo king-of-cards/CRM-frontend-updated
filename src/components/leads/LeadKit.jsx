@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isMultiVendor } from "./leadVendors.js";
 import ContactActions from "../shared/ContactActions.jsx";
 import { useSearchParams } from "react-router";
@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { listSheetSources, syncSheet } from "../../api/sheets.js";
 import { saveLeadCrm } from "../../api/leadCrm.js";
-import { CrmHeaderCells, InlineCrmCells } from "./InlineCrm.jsx";
+import { AmountCell, CrmHeaderCells, InlineCrmCells, UpdateCell, VendorCell } from "./InlineCrm.jsx";
 import LeadPanel from "./LeadPanel.jsx";
 import { PAGE_SIZES } from "./leadFilters.js";
 import { useAuth } from "../../auth/useAuth.js";
@@ -25,6 +25,9 @@ import { kpiGridCols } from "../shared/kpiGrid.js";
 // One design for every lead section (Spin, International, Wedding, Wedding planner):
 // the section frame, stat chips, toolbar, the table with contact buttons + CRM columns,
 // expandable details and pagination. Each section only says WHAT to show.
+
+// Phone cards: amount cells sit left under their label (in the table they are right-aligned)
+export const CARD_AMOUNTS = "[&_.justify-end]:justify-start [&_.justify-end]:px-0";
 
 // ── Small helpers ────────────────────────────────────────────────────────
 export const inr = new Intl.NumberFormat("en-IN", {
@@ -234,8 +237,8 @@ export function SectionShell({
       {/* Coloured strip */}
       <div className={`h-1 bg-linear-to-r ${t.chip}`} />
 
-      <div className="flex flex-wrap items-start justify-between gap-4 px-4 pt-5 sm:px-6">
-        <div className="flex items-start gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 px-4 pt-5 sm:gap-4 sm:px-6">
+        <div className="flex min-w-0 items-start gap-3">
           <span
             className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-linear-to-br text-white shadow-md ${t.chip}`}
             aria-hidden="true"
@@ -269,8 +272,10 @@ export function SectionShell({
 
       {stats?.length > 0 && (
         <div
-          className={`mt-5 grid gap-3 px-4 sm:px-6 ${kpiGridCols(stats.length)}`}
+          className={`mt-4 grid gap-3 px-4 sm:mt-5 sm:px-6 ${kpiGridCols(stats.length)}`}
+          aria-label="Key numbers"
         >
+          {/* Phones: two per row, every number visible (as on the Dashboard) */}
           {stats.map((s) => {
             const tone =
               {
@@ -281,11 +286,11 @@ export function SectionShell({
             return (
               <div
                 key={s.label}
-                className={`rounded-2xl px-4 py-3 ring-1 ${tone}`}
+                className={`flex min-h-[5.5rem] flex-col justify-between rounded-2xl px-3.5 py-3 ring-1 sm:min-h-0 sm:px-4 sm:py-3 ${tone}`}
               >
-                <p className="text-xs">{s.label}</p>
+                <p className="text-xs font-medium leading-snug sm:font-normal">{s.label}</p>
                 <p
-                  className={`mt-1 text-xl font-bold tabular-nums ${s.tone ? "" : "text-gray-900"}`}
+                  className={`mt-2 text-xl font-bold tabular-nums sm:mt-1 ${s.tone ? "" : "text-gray-900"}`}
                 >
                   {s.value ?? "—"}
                 </p>
@@ -568,8 +573,120 @@ export function LeadTable({
     };
   })();
 
+  // Phones: the same leads as cards (the wide table is for md and up). Same data, same actions:
+  // tap a card to open the side panel; the controls inside a card don't open it.
+  const stop = (event) => event.stopPropagation();
+  const cards = (
+    <ul
+      aria-label="Leads"
+      className={`divide-y divide-gray-100 border-t border-gray-100 transition-opacity md:hidden ${dimmed ? "opacity-50" : ""}`}
+    >
+      {loading &&
+        Array.from({ length: 4 }).map((_, i) => (
+          <li key={`s${i}`} className="px-4 py-4">
+            <div className="flex items-center gap-3">
+              <span className="h-9 w-9 animate-pulse rounded-full bg-gray-100" />
+              <span className="h-3 w-36 animate-pulse rounded bg-gray-100" />
+            </div>
+            <span className="mt-3 block h-8 w-48 animate-pulse rounded-full bg-gray-100" />
+          </li>
+        ))}
+
+      {!loading &&
+        rows.map((row) => {
+          const k = rowKey(row);
+          const id = identity(row);
+          const c = contact(row);
+          const rowCrm = crmOf(row);
+          const several = Boolean(seesAll) && isMultiVendor(rowCrm);
+          // The page's own columns, as label / value pairs (the first four that have a value)
+          const facts = all
+            .map((col) => ({ id: col.id, header: col.header, value: col.render(row) }))
+            .filter((f) => f.value != null && f.value !== "")
+            .slice(0, 4);
+          return (
+            <li key={k}>
+              <div
+                onClick={() => setOpenRow(k)}
+                className={`cursor-pointer px-4 py-3.5 transition-colors active:bg-brand-50/60 ${openRow === k ? "bg-brand-50/60" : ""}`}
+              >
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <LeadIdentity theme={theme} {...id} />
+                    <AlsoInBadges alsoIn={row.also_in} />
+                  </div>
+                  {showHot && (
+                    <div onClick={stop}>
+                      <HotLeadStar isHot={isHot(row)} pending={Boolean(hotPending[hotKey(row)])} onToggle={canToggleHot && !severalVendors(row) ? () => toggleHot(row) : null} note={severalVendors(row) && canToggleHot ? "Per vendor: set it in the lead panel" : undefined} />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      stop(event);
+                      setOpenRow(k);
+                    }}
+                    aria-label={`Open ${id.name || "lead"}`}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-brand-700"
+                  >
+                    <PanelRightOpen size={18} />
+                  </button>
+                </div>
+
+                {(c.phone || c.email) && (
+                  <div className="mt-2.5" onClick={stop}>
+                    <ContactActions phone={c.phone} email={c.email} name={id.name} />
+                  </div>
+                )}
+
+                {facts.length > 0 && (
+                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                    {facts.map((f) => (
+                      <div key={f.id} className="min-w-0">
+                        <dt className="text-gray-500">{f.header}</dt>
+                        <dd className="mt-0.5 truncate font-medium text-gray-800">{f.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+
+                {rowCrm && (
+                  <div className={`mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5 rounded-2xl bg-gray-50/80 p-3 [&_select]:max-w-full ${CARD_AMOUNTS}`} onClick={stop}>
+                    <div className="col-span-2 min-w-0">
+                      <p className="mb-1 text-[11px] font-medium text-gray-500">Update</p>
+                      <UpdateCell crm={rowCrm} save={saveFor(row)} readOnly={several} />
+                    </div>
+                    {seesAll && (
+                      <div className="col-span-2 min-w-0">
+                        <p className="mb-1 text-[11px] font-medium text-gray-500">Assigned to</p>
+                        <VendorCell crm={rowCrm} save={saveFor(row)} />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium text-gray-500">Quoted</p>
+                      <AmountCell crm={rowCrm} save={saveFor(row)} field="quoted_amount" label="Quoted amount" readOnly={several} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium text-gray-500">Converted</p>
+                      <AmountCell crm={rowCrm} save={saveFor(row)} field="conversion_amount" label="Conversion amount" readOnly={several} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+
+      {!loading && rows.length === 0 && (
+        <li className="px-4 py-12 text-center text-sm text-gray-500">{empty}</li>
+      )}
+    </ul>
+  );
+
   return (
-    <div className="overflow-x-auto">
+    <div>
+    {cards}
+    <div className="hidden overflow-x-auto md:block">
       <table
         className={`w-full min-w-[1200px] text-sm transition-opacity ${dimmed ? "opacity-50" : ""}`}
       >
@@ -687,7 +804,9 @@ export function LeadTable({
           )}
         </tbody>
       </table>
+    </div>
 
+      {/* Outside the table wrapper, so it also opens on phones (where the table is hidden) */}
       <LeadPanel
         lead={openLead}
         onClose={() => setOpenRow(null)}
@@ -746,16 +865,25 @@ export { PAGE_SIZES };
 // onPageSize (optional): show "Rows per page" (10 / 25 / 50 / 100)
 // onPrefetch (optional): onPrefetch(n) when the button for page n is hovered or focused, so the
 // list can load that page in the background and show it at once when clicked
-export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled, onPrefetch }) {
+export function Pagination({ page, pageSize, total, onPage: setPage, onPageSize, disabled, onPrefetch }) {
+  const navRef = useRef(null);
+  // Phones: after changing page, go back up to the start of the list (not stay at the bottom)
+  const onPage = (n) => {
+    setPage(n);
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      navRef.current?.closest("section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
   if (!total || total <= (onPageSize ? PAGE_SIZES[0] : pageSize)) return null;
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
   const nav =
-    "flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-gray-100 hover:text-gray-900 disabled:pointer-events-none disabled:opacity-40";
+    "flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition hover:bg-gray-100 hover:text-gray-900 disabled:pointer-events-none disabled:opacity-40 sm:h-8 sm:w-8 sm:bg-transparent sm:text-current";
   const prefetch = (n) => onPrefetch && n !== page && n >= 1 && n <= pages ? { onMouseEnter: () => onPrefetch(n), onFocus: () => onPrefetch(n) } : {};
   return (
     <nav
+      ref={navRef}
       aria-label="Pages"
       className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 text-sm text-gray-500 sm:px-6"
     >
@@ -790,9 +918,13 @@ export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled
         >
           <ChevronLeft size={18} />
         </button>
+        {/* Phones: "Page 2 of 9" between big arrows instead of the number list */}
+        <span className="px-2 tabular-nums text-gray-700 sm:hidden">
+          Page {page} of {pages}
+        </span>
         {pageList(page, pages).map((p) =>
           typeof p === "string" ? (
-            <span key={p} className="px-1 text-gray-400" aria-hidden="true">
+            <span key={p} className="hidden px-1 text-gray-400 sm:inline" aria-hidden="true">
               …
             </span>
           ) : (
@@ -803,7 +935,7 @@ export function Pagination({ page, pageSize, total, onPage, onPageSize, disabled
               {...prefetch(p)}
               disabled={disabled}
               aria-current={p === page ? "page" : undefined}
-              className={`h-8 min-w-8 rounded-full px-2 tabular-nums transition ${p === page ? "bg-gray-900 font-medium text-white" : "hover:bg-gray-100 hover:text-gray-900"}`}
+              className={`hidden h-8 min-w-8 rounded-full px-2 tabular-nums transition sm:inline-block ${p === page ? "bg-gray-900 font-medium text-white" : "hover:bg-gray-100 hover:text-gray-900"}`}
             >
               {p}
             </button>

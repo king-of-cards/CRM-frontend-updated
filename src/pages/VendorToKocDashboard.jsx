@@ -175,7 +175,7 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
         <>
           {/* ── KPIs ── */}
           <section
-            className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+            className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3"
             aria-label="Key numbers"
           >
             <Kpi

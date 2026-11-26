@@ -191,7 +191,7 @@ export default function NotificationBell({ variant = "default" }) {
         aria-expanded={open}
         title="Notifications"
         onClick={toggleOpen}
-        className={`relative flex h-11 w-11 items-center justify-center rounded-full transition sm:h-9 sm:w-9 focus-visible:outline-2 ${gold ? "text-amber-950 hover:bg-amber-950/10 focus-visible:outline-amber-950" : "text-white/90 hover:bg-white/15 hover:text-white focus-visible:outline-white"}`}
+        className={`relative flex h-9 w-9 items-center justify-center rounded-full transition focus-visible:outline-2 ${gold ? "text-amber-950 hover:bg-amber-950/10 focus-visible:outline-amber-950" : "text-white/90 hover:bg-white/15 hover:text-white focus-visible:outline-white"}`}
       >
         <Bell size={18} aria-hidden="true" />
         {badge && <span className={`absolute -right-1 -top-1 min-w-4 rounded-full bg-rose-500 px-1 text-center text-[10px] font-bold leading-4 text-white ring-2 ${gold ? "ring-amber-300" : "ring-brand-700"}`}>{badge}</span>}

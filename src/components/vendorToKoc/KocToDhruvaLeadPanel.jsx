@@ -1,6 +1,7 @@
 import DateInput from "../shared/DateInput.jsx";
 import ContactActions from "../shared/ContactActions.jsx";
 import { useEffect, useState } from "react";
+import { BadgeCheck } from "lucide-react";
 import { saveKocToDhruvaCrm } from "../../api/kocToDhruva.js";
 import { downloadLeadPdf } from "../leads/leadPdf.js";
 import LeadPdfButton from "../leads/LeadPdfButton.jsx";
@@ -19,6 +20,21 @@ import { branchText } from "../leads/stores.js";
 // details (Update, comments, quoted amount / date, conversion amount, follow-up date); view-only
 // logins read them. The Spin record of the same lead is never changed here.
 // lead: the list item plus { display: { name, phone, email, branch ({ name, code, city } | null), city } }.
+// Laid out like the Spin / Wedding lead panels: header with initials and status chips, the status
+// card first, then the lead's fields as a list, then the activity.
+
+const initials = (name) =>
+  String(name || "?")
+    .replace(/[^\p{L}\p{N} ]/gu, "")
+    .trim()
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "?";
+const CARD = "space-y-4 rounded-3xl bg-white/80 p-5 ring-1 ring-gray-100 shadow-sm backdrop-blur";
+const CHIP = "rounded-full bg-white/15 px-2.5 py-1 ring-1 ring-white/20";
+const SECTION_TITLE = "text-[11px] font-semibold uppercase tracking-wider text-brand-700";
 
 export default function KocToDhruvaLeadPanel({ lead, onClose, onSaved, isHot = false, hotPending = false, onToggleHot = null, showHot = false }) {
   const { canEdit } = useAuth();
@@ -106,67 +122,101 @@ export default function KocToDhruvaLeadPanel({ lead, onClose, onSaved, isHot = f
   }
 
   const label = (text, control) => <label className="block"><span className="mb-1 block text-xs font-medium text-gray-600">{text}</span>{control}</label>;
+  const title = d.name || (d.phone ? phoneText(d.phone) : "") || "Lead details";
+  const subtitle = [lead.occasion, lead.event_date ? dayText(lead.event_date) : null, d.branch ? branchText(d.branch) : null].filter((v) => v && v !== "—").join(" · ");
+  const chips = (
+    <>
+      <span className={CHIP}>{statusLabel(crm.update_status)}</span>
+      {crm.quoted_amount != null && <span className={CHIP}>Quoted {rupeesText(crm.quoted_amount)}</span>}
+      {crm.conversion_amount != null && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400 px-2.5 py-1 font-semibold text-emerald-950">
+          <BadgeCheck size={13} /> Converted {rupeesText(crm.conversion_amount)}
+        </span>
+      )}
+      {crm.follow_up_date && <span className={CHIP}>Follow-up {dayText(crm.follow_up_date)}</span>}
+    </>
+  );
+  const lastUpdated = crm.updated_by_name && (
+    <p className="text-right text-xs text-gray-500">
+      Last updated by {crm.updated_by_name}
+      {crm.updated_at ? ` · ${dateTimeText(crm.updated_at)}` : ""}
+    </p>
+  );
+  const shownDetails = details.filter(([, v]) => v && v !== "—");
   return (
     <Drawer
+      lead
       kicker="KOC → Dhruva"
-      title={d.name || "Lead details"}
+      title={title}
+      avatar={initials(d.name || title)}
+      subtitle={subtitle}
+      chips={chips}
       onClose={onClose}
-      wide
-      headerActions={<>{!canEdit && <ViewOnlyBadge inverted />}{(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}<LeadPdfButton onClick={pdf} loading={downloading} /></>}
+      headerActions={<>{!canEdit && <ViewOnlyBadge inverted />}{(onToggleHot || showHot) && <HotLeadStar isHot={isHot} pending={hotPending} onToggle={onToggleHot} />}</>}
+      endActions={<LeadPdfButton onClick={pdf} loading={downloading} />}
       footer={<>
         <button type="button" onClick={onClose} className={secondaryBtn}>Close</button>
         {canEdit && <button type="submit" form="koc-to-dhruva-crm" disabled={busy} className={primaryBtn}>{busy ? "Saving…" : "Save changes"}</button>}
       </>}
     >
-      <div className="space-y-5">
-        {error && <Alert>{error}</Alert>}
-        {saved && <Alert kind="success">Saved.</Alert>}
-        <ContactActions variant="panel" phone={d.phone} email={d.email} name={d.name} />
-        <dl className="grid gap-4 sm:grid-cols-3" aria-label="Lead details">
-          {details.map(([k, v]) => <div key={k}><dt className="text-xs font-medium text-gray-500">{k}</dt><dd className="mt-1 break-words text-sm text-gray-900">{v}</dd></div>)}
-        </dl>
-        {alsoInPlaces(lead.also_in).length > 0 && (
-          <section className="rounded-2xl bg-white p-4 ring-1 ring-gray-100">
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-brand-700">Also in</h3>
+      <ContactActions variant="panel" phone={d.phone} email={d.email} name={d.name} />
+      {error && <Alert>{error}</Alert>}
+      {saved && <Alert kind="success">Saved.</Alert>}
+
+      {/* The lead's status first, like "Lead status" in the Spin panel */}
+      {canEdit ? (
+        <form id="koc-to-dhruva-crm" onSubmit={save} className={CARD}>
+          <h3 className="text-sm font-semibold text-gray-900">Lead status</h3>
+          {label("Update", <select value={form.update_status} onChange={(e) => set("update_status", e.target.value)} className={fieldCls}><option value={PENDING}>Pending</option>{STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>)}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {label("Quoted amount (₹)", <input inputMode="numeric" placeholder="e.g. 45000" value={form.quoted_amount} onChange={(e) => set("quoted_amount", e.target.value.replace(/[^\d,]/g, ""))} className={fieldCls} />)}
+            {label("Quoted date", <DateInput type="date" value={form.quoted_date} onChange={(e) => set("quoted_date", e.target.value)} className={fieldCls} />)}
+            {label("Conversion amount (₹)", <input inputMode="numeric" placeholder="e.g. 40000" value={form.conversion_amount} onChange={(e) => set("conversion_amount", e.target.value.replace(/[^\d,]/g, ""))} className={fieldCls} />)}
+            {label("Follow-up date", <DateInput type="date" value={form.follow_up_date} onChange={(e) => set("follow_up_date", e.target.value)} className={fieldCls} />)}
+          </div>
+          {label("Additional comments", <textarea rows={3} maxLength={5000} placeholder="Calls, follow-ups, anything useful…" value={form.notes} onChange={(e) => set("notes", e.target.value)} className={fieldCls} />)}
+          {lastUpdated}
+        </form>
+      ) : (
+        <section className={CARD} aria-label="Lead status, read only">
+          <h3 className="text-sm font-semibold text-gray-900">Lead status</h3>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            {[
+              ["Update", statusLabel(crm.update_status)],
+              ["Quoted amount", rupeesText(crm.quoted_amount)],
+              ["Quoted date", dayText(crm.quoted_date)],
+              ["Conversion amount", rupeesText(crm.conversion_amount)],
+              ["Follow-up date", dayText(crm.follow_up_date)],
+            ].map(([k, v]) => <div key={k}><dt className="text-xs font-medium text-gray-500">{k}</dt><dd className="mt-1 text-sm text-gray-900">{v}</dd></div>)}
+            <div className="sm:col-span-2"><dt className="text-xs font-medium text-gray-500">Additional comments</dt><dd className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{crm.notes || "—"}</dd></div>
+          </dl>
+          {lastUpdated}
+        </section>
+      )}
+
+      {alsoInPlaces(lead.also_in).length > 0 && (
+        <section>
+          <h3 className={SECTION_TITLE}>Also in</h3>
+          <div className="mt-2 rounded-2xl bg-white/80 px-4 py-3 ring-1 ring-gray-100">
             <AlsoInBadges alsoIn={lead.also_in} variant="panel" />
-          </section>
-        )}
-        {canEdit ? (
-          <form id="koc-to-dhruva-crm" onSubmit={save} className="space-y-4 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900">Update details</h3>
-            {label("Update", <select value={form.update_status} onChange={(e) => set("update_status", e.target.value)} className={fieldCls}><option value={PENDING}>Pending</option>{STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>)}
-            {label("Additional comments", <textarea rows={3} maxLength={5000} value={form.notes} onChange={(e) => set("notes", e.target.value)} className={fieldCls} />)}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {label("Quoted amount", <input inputMode="numeric" value={form.quoted_amount} onChange={(e) => set("quoted_amount", e.target.value.replace(/[^\d,]/g, ""))} className={fieldCls} />)}
-              {label("Quoted date", <DateInput type="date" value={form.quoted_date} onChange={(e) => set("quoted_date", e.target.value)} className={fieldCls} />)}
-              {label("Conversion amount", <input inputMode="numeric" value={form.conversion_amount} onChange={(e) => set("conversion_amount", e.target.value.replace(/[^\d,]/g, ""))} className={fieldCls} />)}
-              {label("Follow-up date", <DateInput type="date" value={form.follow_up_date} onChange={(e) => set("follow_up_date", e.target.value)} className={fieldCls} />)}
+          </div>
+        </section>
+      )}
+
+      {/* The lead's fields: label / value rows, as in the Spin panel */}
+      <section aria-label="Lead details">
+        <h3 className={SECTION_TITLE}>Lead details</h3>
+        <dl className="mt-2 divide-y divide-gray-100 rounded-2xl bg-white/80 ring-1 ring-gray-100">
+          {shownDetails.map(([k, v]) => (
+            <div key={k} className="grid grid-cols-[120px_1fr] gap-3 px-4 py-2.5 text-sm sm:grid-cols-[150px_1fr]">
+              <dt className="text-gray-500">{k}</dt>
+              <dd className="whitespace-pre-line break-words text-gray-900">{v}</dd>
             </div>
-          </form>
-        ) : (
-          <section className="space-y-3 rounded-2xl bg-gray-50 p-4 ring-1 ring-gray-100" aria-label="Update details, read only">
-            <h3 className="text-sm font-semibold text-gray-900">Update details</h3>
-            <dl className="grid gap-3 sm:grid-cols-3">
-              {[
-                ["Update", statusLabel(crm.update_status)],
-                ["Quoted amount", rupeesText(crm.quoted_amount)],
-                ["Quoted date", dayText(crm.quoted_date)],
-                ["Conversion amount", rupeesText(crm.conversion_amount)],
-                ["Follow-up date", dayText(crm.follow_up_date)],
-              ].map(([k, v]) => <div key={k}><dt className="text-xs font-medium text-gray-500">{k}</dt><dd className="mt-1 text-sm text-gray-900">{v}</dd></div>)}
-              <div className="sm:col-span-3"><dt className="text-xs font-medium text-gray-500">Additional comments</dt><dd className="mt-1 whitespace-pre-wrap text-sm text-gray-900">{crm.notes || "—"}</dd></div>
-            </dl>
-          </section>
-        )}
-        {/* Who last saved the update details (the API's name; "Deleted user" for a removed login) */}
-        {crm.updated_by_name && (
-          <p className="text-xs text-gray-500">
-            Last updated by {crm.updated_by_name}
-            {crm.updated_at ? ` · ${dateTimeText(crm.updated_at)}` : ""}
-          </p>
-        )}
-      </div>
-      <div className="mt-5"><LeadActivity source="koc_to_dhruva" leadKey={lead.lead_key} refreshKey={activityKey} /></div>
+          ))}
+        </dl>
+      </section>
+
+      <LeadActivity source="koc_to_dhruva" leadKey={lead.lead_key} refreshKey={activityKey} />
     </Drawer>
   );
 }

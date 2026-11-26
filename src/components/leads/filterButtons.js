@@ -4,9 +4,11 @@ const countLabel = (value, list = []) => {
   const found = list.find((item) => String(item.value) === String(value));
   return found?.count == null ? "" : ` (${found.count})`;
 };
-const optionName = (value, list = [], fallback = value) =>
-  list.find((item) => String(item.value) === String(value))?.name ??
-  list.find((item) => String(item.value) === String(value))?.label ?? fallback;
+// Branches and vendors are identified by id, the other options by value
+const optionName = (value, list = [], fallback = value) => {
+  const item = list.find((o) => String(o.value ?? o.id) === String(value));
+  return item?.name ?? item?.label ?? fallback;
+};
 const plural = (label, values) => values.length === 1 ? `${label}: ${values[0]}` : `${label} (${values.length})`;
 
 // Describes the controls available in each list and their URL keys. Kept pure so the

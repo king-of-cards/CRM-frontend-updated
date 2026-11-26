@@ -1,8 +1,8 @@
 import DateInput from "../shared/DateInput.jsx";
 import ContactActions from "../shared/ContactActions.jsx";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
-import { ChevronDown, Download, FileUp, Handshake, Loader2, Plus } from "lucide-react";
+import { FileUp, Handshake, Loader2, PanelRightOpen, Plus } from "lucide-react";
 import { useAuth } from "../../auth/useAuth.js";
 import {
   exportKocLeads,
@@ -12,7 +12,7 @@ import {
   updateKocLead,
 } from "../../api/vendorToKoc.js";
 import { parseSort } from "../dashboard/FilterSelect.jsx";
-import { fmt, Pagination, SectionShell } from "../leads/LeadKit.jsx";
+import { CARD_AMOUNTS, fmt, Pagination, SectionShell } from "../leads/LeadKit.jsx";
 import LeadFilterBar from "../leads/LeadFilterBar.jsx";
 import { useLeadFilters } from "../leads/useLeadFilters.js";
 import { KOC, withoutKocAdminKeys } from "../leads/leadFilters.js";
@@ -20,6 +20,7 @@ import { fieldCls } from "../crmLeads/Drawer.jsx";
 import KocAddLeadDialog from "./KocAddLeadDialog.jsx";
 import KocBulkUploadDialog from "./KocBulkUploadDialog.jsx";
 import KocLeadPanel from "./KocLeadPanel.jsx";
+import ExportMenu from "../shared/ExportMenu.jsx";
 import { flowLabels } from "../layout/leadFlow.js";
 import { listUsers } from "../../api/users.js";
 import { AmountCell } from "../leads/InlineCrm.jsx";
@@ -138,52 +139,6 @@ function FollowUpCell({ lead, onSaved }) {
       />
       {busy && <Loader2 size={13} className="animate-spin text-gray-400" />}
       <CellError text={error} />
-    </div>
-  );
-}
-
-function ExportMenu({ onExport, busy }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return undefined;
-    const close = (e) => !ref.current?.contains(e.target) && setOpen(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
-      >
-        <Download size={15} />
-        {busy ? "Exporting…" : "Export"}
-        <ChevronDown size={14} className="opacity-70" />
-      </button>
-      {open && (
-        <div role="menu" className="absolute right-0 z-30 mt-2 w-44 overflow-hidden rounded-2xl bg-white py-1 shadow-xl ring-1 ring-gray-100">
-          {[
-            ["xlsx", "Excel (.xlsx)"],
-            ["csv", "CSV"],
-          ].map(([f, label]) => (
-            <button
-              key={f}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onExport(f);
-              }}
-              className="flex w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-brand-50"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -336,7 +291,7 @@ export default function VendorToKocLeads() {
       title={flowLabels(me?.role === "vendor" ? me.vendor : null).vendors}
       subtitle={seesAll ? "Leads vendors send to KOC" : "Leads you send to KOC"}
       action={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Adding leads: vendor logins only (admins and view-only logins get 403 from the API) */}
           {!seesAll && canEdit && (
             <>
@@ -389,7 +344,113 @@ export default function VendorToKocLeads() {
         />
       }
     >
-      <div className="overflow-x-auto">
+      {/* Phones: one card per lead (the table below is for md and up). Tap a card for the panel;
+          the edit controls inside it don't open the panel. */}
+      <ul aria-label="Leads" className={`divide-y divide-gray-100 border-t border-gray-100 transition-opacity md:hidden ${loading && data ? "opacity-50" : ""}`}>
+        {loading && !data &&
+          Array.from({ length: 4 }).map((_, i) => (
+            <li key={`s${i}`} className="px-4 py-4">
+              <span className="block h-3 w-40 animate-pulse rounded bg-gray-100" />
+              <span className="mt-3 block h-8 w-48 animate-pulse rounded-full bg-gray-100" />
+            </li>
+          ))}
+        {items.map((l) => {
+          const stop = (event) => event.stopPropagation();
+          const meta = [dayText(l.lead_date), seesAll ? l.vendor_name : null, l.city].filter(Boolean).join(" · ");
+          return (
+            <li key={l.id}>
+              <div onClick={() => setOpenId(l.id)} className={`cursor-pointer px-4 py-3.5 transition-colors active:bg-brand-50/60 ${openId === l.id ? "bg-brand-50/60" : ""}`}>
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold text-gray-900">{l.name || "—"}</p>
+                    {meta && <p className="mt-0.5 truncate text-xs text-gray-500">{meta}</p>}
+                    <AlsoInBadges alsoIn={l.also_in} />
+                  </div>
+                  {showHot && (
+                    <div onClick={stop}>
+                      <HotLeadStar isHot={isHot(l)} pending={Boolean(hotPending[String(l.id)])} onToggle={canToggleHot ? () => toggleHot(l) : null} />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      stop(event);
+                      setOpenId(l.id);
+                    }}
+                    aria-label={`Open ${l.name || "lead"}`}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-brand-700"
+                  >
+                    <PanelRightOpen size={18} />
+                  </button>
+                </div>
+                {(l.phone || l.email) && (
+                  <div className="mt-2.5" onClick={stop}>
+                    <ContactActions phone={l.phone} email={l.email} name={l.name} />
+                  </div>
+                )}
+                {isAdmin && canEdit ? (
+                  <div className="mt-3 space-y-2.5 rounded-2xl bg-gray-50/80 p-2.5" onClick={stop}>
+                    <div>
+                      <p className="mb-1 text-xs text-gray-500">Update</p>
+                      <StatusCell lead={l} onSaved={onSaved} />
+                    </div>
+                    <div>
+                      <p className="mb-1 text-xs text-gray-500">Additional comments</p>
+                      <CommentCell lead={l} onSaved={onSaved} />
+                    </div>
+                    <div>
+                      <p className="mb-1 text-xs text-gray-500">Follow-up date</p>
+                      <FollowUpCell lead={l} onSaved={onSaved} />
+                    </div>
+                    <div className={`grid grid-cols-2 gap-2 ${CARD_AMOUNTS}`}>
+                      <div className="flex flex-col items-start">
+                        <span className="text-xs text-gray-500">Quoted</span>
+                        <AmountCell crm={l} save={saveAmount(l)} field="quoted_amount" label="Quoted amount" setQuotedDate={false} />
+                      </div>
+                      <div className="flex flex-col items-start">
+                        <span className="text-xs text-gray-500">Converted</span>
+                        <AmountCell crm={l} save={saveAmount(l)} field="conversion_amount" label="Conversion amount" setQuotedDate={false} />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-2xl bg-gray-50/80 p-2.5 text-xs">
+                    <div className="col-span-2">
+                      <dt className="text-gray-500">Update</dt>
+                      <dd className="mt-0.5 font-medium text-gray-900">{statusLabel(l.update_status)}</dd>
+                    </div>
+                    {l.additional_comments && (
+                      <div className="col-span-2">
+                        <dt className="text-gray-500">Additional comments</dt>
+                        <dd className="mt-0.5 line-clamp-2 whitespace-pre-line text-gray-700">{l.additional_comments}</dd>
+                      </div>
+                    )}
+                    <div>
+                      <dt className="text-gray-500">Follow-up date</dt>
+                      <dd className="mt-0.5 text-gray-800">{l.follow_up_date ? dayText(l.follow_up_date) : "—"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500">Quoted</dt>
+                      <dd className="mt-0.5 tabular-nums text-gray-800">{l.quoted_amount != null ? inr.format(l.quoted_amount) : "—"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-500">Converted</dt>
+                      <dd className="mt-0.5 tabular-nums text-gray-800">{l.conversion_amount != null ? inr.format(l.conversion_amount) : "—"}</dd>
+                    </div>
+                  </dl>
+                )}
+              </div>
+            </li>
+          );
+        })}
+        {!loading && items.length === 0 && (
+          <li className="px-4 py-12 text-center text-sm text-gray-500">
+            {count || filters.search ? "No leads match these filters." : "No leads yet."}
+          </li>
+        )}
+      </ul>
+
+      <div className="hidden overflow-x-auto md:block">
         <table className={`w-full text-sm transition-opacity ${loading && data ? "opacity-50" : ""}`}>
           <thead className="border-y border-gray-100 bg-gray-50/80">
             <tr>

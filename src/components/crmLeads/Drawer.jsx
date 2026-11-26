@@ -8,7 +8,10 @@ import { isLeadRoute } from "../layout/leadBack.js";
 // Right-hand drawer in the same style as the Branches and Vendors forms.
 // Rendered in document.body, so it isn't clipped by the table it may be opened from (inline when
 // there is no document, e.g. server rendering in tests).
-export default function Drawer({ kicker, title, onClose, wide = false, children, footer, headerActions }) {
+// lead: the lead-panel look (as in the Spin / Wedding lead panels): narrower, a header with the
+// lead's initials (avatar), a details line under the name (subtitle) and status chips
+// endActions: buttons after Back (e.g. Download), in the lead-panel header's order
+export default function Drawer({ kicker, title, onClose, wide = false, lead = false, avatar, subtitle, chips, children, footer, headerActions, endActions }) {
   const { pathname } = useLocation();
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -30,9 +33,42 @@ export default function Drawer({ kicker, title, onClose, wide = false, children,
         className="absolute inset-0 bg-gray-900/30 backdrop-blur-[2px]"
       />
       <div
-        className={`relative flex h-full w-full flex-col bg-linear-to-b from-white via-white to-brand-50 shadow-2xl ${wide ? "max-w-6xl" : "max-w-lg"}`}
+        className={`relative flex h-full w-full flex-col bg-linear-to-b from-white via-white to-brand-50 shadow-2xl ${lead ? "max-w-xl" : wide ? "max-w-6xl" : "max-w-lg"}`}
       >
-        <div className="flex items-center justify-between gap-3 bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 py-4 text-white sm:px-6 sm:py-5">
+        {lead ? (
+          <header className="relative overflow-hidden bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-white sm:px-6 sm:pb-5 sm:pt-5">
+            <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+            <div className="relative flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                {avatar && (
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-base font-semibold ring-1 ring-white/30">
+                    {avatar}
+                  </span>
+                )}
+                <div className="min-w-0">
+                  {kicker && <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">{kicker}</p>}
+                  <h2 className="truncate text-xl font-semibold">{title}</h2>
+                  {subtitle && <p className="truncate text-sm text-white/80">{subtitle}</p>}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                {headerActions}
+                {isLeadRoute(pathname) && <LeadBackButton inverted />}
+                {endActions}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close"
+                  className="flex h-11 w-11 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            {chips && <div className="relative mt-4 flex flex-wrap gap-2 text-xs">{chips}</div>}
+          </header>
+        ) : (
+        <div className="flex items-center justify-between gap-3 bg-linear-to-r from-brand-800 via-brand-700 to-brand-600 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-white sm:px-6 sm:py-5">
           <div className="min-w-0">
             {kicker && (
               <p className="text-[11px] font-semibold uppercase tracking-wider text-white/70">{kicker}</p>
@@ -52,10 +88,12 @@ export default function Drawer({ kicker, title, onClose, wide = false, children,
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+        )}
+        <div className={`flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 sm:py-6 ${lead ? "space-y-6" : ""}`}>
           {children}
         </div>
-        {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 px-4 py-3 sm:px-6 sm:py-4">{footer}</div>}
+        {/* Phones: footer buttons are full-width and clear of the iPhone home bar */}
+        {footer && <div className="flex flex-wrap items-center justify-end gap-2 border-t border-gray-100 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:py-4 [&>button]:min-h-11 [&>button]:whitespace-nowrap [&>button:last-child]:flex-1 sm:[&>button]:min-h-0 sm:[&>button:last-child]:flex-none">{footer}</div>}
       </div>
     </div>
   );

@@ -41,27 +41,28 @@ export function Panel({
   );
 }
 
+// Phones: two cards per row, so the card is tighter (smaller padding, icon and number) below sm
 export function Kpi({ icon: Icon, label, value, delta, gradient, loading, to, onClick }) {
   const card = (
-    <div className="group relative overflow-hidden rounded-2xl bg-white p-5 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 transition-shadow hover:shadow-lg hover:shadow-gray-200/80">
+    <div className="group relative h-full overflow-hidden rounded-2xl bg-white p-3.5 sm:p-5 ring-1 ring-gray-100 shadow-sm shadow-gray-200/60 transition-shadow hover:shadow-lg hover:shadow-gray-200/80">
       {/* Corner glow in the card's colour */}
       <span
         aria-hidden="true"
         className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-linear-to-br opacity-15 blur-xl ${gradient}`}
       />
-      <div className="relative flex items-start justify-between">
-        <p className="text-sm font-medium text-gray-500">{label}</p>
+      <div className="relative flex items-start justify-between gap-2">
+        <p className="min-w-0 text-xs font-medium leading-snug text-gray-500 sm:text-sm">{label}</p>
         <span
-          className={`flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br text-white shadow-sm ${gradient}`}
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-linear-to-br text-white shadow-sm sm:h-9 sm:w-9 sm:rounded-xl ${gradient}`}
         >
-          <Icon size={17} aria-hidden="true" />
+          <Icon size={15} aria-hidden="true" />
         </span>
       </div>
       {loading ? (
-        <span className="mt-3 block h-8 w-24 animate-pulse rounded-lg bg-gray-100" />
+        <span className="mt-3 block h-7 w-20 animate-pulse rounded-lg bg-gray-100 sm:h-8 sm:w-24" />
       ) : (
-        <div className="relative mt-2 flex items-baseline gap-2">
-          <p className="text-3xl font-bold tracking-tight tabular-nums text-gray-900">
+        <div className="relative mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <p className="text-xl font-bold tracking-tight tabular-nums text-gray-900 sm:text-3xl">
             {value}
           </p>
           {delta != null && (
@@ -84,8 +85,8 @@ export function Kpi({ icon: Icon, label, value, delta, gradient, loading, to, on
       )}
     </div>
   );
-  if (to) return <Link to={to} className="block rounded-2xl focus-visible:outline-2 focus-visible:outline-brand-600">{card}</Link>;
-  if (onClick) return <button type="button" onClick={onClick} aria-label={label} className="block w-full rounded-2xl text-left focus-visible:outline-2 focus-visible:outline-brand-600">{card}</button>;
+  if (to) return <Link to={to} className="block h-full rounded-2xl focus-visible:outline-2 focus-visible:outline-brand-600">{card}</Link>;
+  if (onClick) return <button type="button" onClick={onClick} aria-label={label} className="block h-full w-full rounded-2xl text-left focus-visible:outline-2 focus-visible:outline-brand-600">{card}</button>;
   return card;
 }
 

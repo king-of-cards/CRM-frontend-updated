@@ -73,3 +73,17 @@ html,
 body {
   overflow-x: clip;
 }
+
+/* Phones: no grey flash when a button or card is tapped */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Phones: everything a touch smaller. Text, spacing and controls are sized in rem, so this one
+   line scales the whole app down evenly below sm; laptops and tablets keep 16 px.
+   (iPhones no longer zoom into small fields: see the viewport script in index.html.) */
+@media (max-width: 639px) {
+  html {
+    font-size: 15px;
+  }
+}
