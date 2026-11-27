@@ -28,6 +28,8 @@ import { ReadOnlyFields } from "../shared/ViewOnly.jsx";
 import AlsoInBadges from "./AlsoInBadges.jsx";
 import { alsoInPlaces, alsoInLine } from "./alsoIn.js";
 import { formatDateTime, formatDay, personName } from "../shared/dates.js";
+import PayoutField from "./PayoutField.jsx";
+import { payoutText, payoutValues, percentError } from "./payout.js";
 
 // Who last saved the CRM details (docs section 5: crm.updated_by_name, "Deleted user" from the
 // API) and when: "Asha · 19 Nov 2026, 10:30 am". null when nobody saved them yet.
@@ -95,6 +97,7 @@ function formFrom(crm) {
     quoted_amount: crm?.quoted_amount != null ? String(crm.quoted_amount) : "",
     quoted_date: crm?.quoted_date ?? "",
     conversion_amount: crm?.conversion_amount != null ? String(crm.conversion_amount) : "",
+    payout_percent: crm?.payout_percent != null ? String(crm.payout_percent) : "",
     notes: crm?.notes ?? "",
   };
 }
@@ -167,8 +170,14 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
       quoted_amount: amount(f.quoted_amount),
       quoted_date: f.quoted_date || null,
       conversion_amount: amount(f.conversion_amount),
+      // Payout: % of the conversion amount, and the rupees that works out to (admins only)
+      ...payoutValues(f.conversion_amount, f.payout_percent),
       notes: f.notes,
     });
+    if (isAdmin && percentError(form.payout_percent)) {
+      setError(percentError(form.payout_percent));
+      return;
+    }
     // Several vendors: this form only changes who has the lead; the copies save in their cards
     const changes = multi ? {} : panelChanges(isAdmin, toValues(formFrom(crm)), toValues(form));
     if (isAdmin && form.assignment !== formFrom(crm).assignment) Object.assign(changes, assignmentChange(form.assignment));
@@ -359,6 +368,11 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   <BadgeCheck size={13} /> Converted {inr.format(crm.conversion_amount)}
                 </span>
               )}
+              {crm.payout_amount != null && (
+                <span className="rounded-full bg-amber-300 px-2.5 py-1 font-semibold text-amber-950">
+                  Payout {inr.format(crm.payout_amount)}
+                </span>
+              )}
             </div>
           )}
         </header>
@@ -378,6 +392,7 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                 ["Quoted amount", crm.quoted_amount != null ? inr.format(crm.quoted_amount) : null],
                 ["Quoted date", formatDay(crm.quoted_date)],
                 ["Conversion amount", crm.conversion_amount != null ? inr.format(crm.conversion_amount) : null],
+                ["Payout", payoutText(crm.payout_amount, crm.payout_percent, inr)],
                 ["Notes", crm.notes],
                 ["Last updated by", lastUpdated(crm)],
               ]}
@@ -501,6 +516,16 @@ export default function LeadPanel({ lead, onClose, onSaved }) {
                   className={`mt-1.5 ${fieldCls}`}
                 />
               </label>
+
+              {/* Payout (commission): admins set the %, vendors see the result */}
+              <PayoutField
+                className="mt-4"
+                conversion={form.conversion_amount}
+                value={form.payout_percent}
+                onChange={(v) => set("payout_percent", v)}
+                fieldCls={fieldCls}
+                readOnly={!isAdmin}
+              />
 
               <label className="mt-4 block">
                 <span className="text-xs font-medium text-gray-600">Notes</span>

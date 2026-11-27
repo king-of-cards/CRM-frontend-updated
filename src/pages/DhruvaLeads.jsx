@@ -45,7 +45,7 @@ function useSave(lead, onSaved) {
 }
 function AdminStatus({ lead, onSaved }) {
   const { busy, error, save } = useSave(lead, onSaved);
-  return <div><select aria-label="Update status" value={lead.update_status ?? PENDING} disabled={busy} onChange={(e) => save({ update_status: e.target.value === PENDING ? null : e.target.value })} className={`${fieldCls} w-48 py-1.5 text-xs`}><option value={PENDING}>Pending</option>{UPDATE_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select><InlineError text={error} /></div>;
+  return <div><select aria-label="Update status" value={lead.update_status ?? PENDING} disabled={busy} onChange={(e) => save({ update_status: e.target.value === PENDING ? null : e.target.value })} className={`${fieldCls} w-48 min-w-[11rem] py-1.5 text-xs`}><option value={PENDING}>Pending</option>{UPDATE_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select><InlineError text={error} /></div>;
 }
 function AdminComments({ lead, onSaved }) {
   const { busy, error, save } = useSave(lead, onSaved); const [text, setText] = useState(lead.comments ?? "");
@@ -55,10 +55,6 @@ function AdminComments({ lead, onSaved }) {
 function AdminFollowUp({ lead, onSaved }) {
   const { busy, error, save } = useSave(lead, onSaved);
   return <div><DateInput aria-label="Follow-up date" type="date" value={lead.follow_up_date ?? ""} disabled={busy} onChange={(e) => save({ follow_up_date: e.target.value || null })} className={`${fieldCls} w-36 py-1.5 text-xs`} /><InlineError text={error} /></div>;
-}
-function AdminIntervention({ lead, onSaved }) {
-  const { busy, error, save } = useSave(lead, onSaved);
-  return <div><label className="inline-flex items-center gap-1.5 text-xs"><input type="checkbox" aria-label="Needs Dhruva intervention" checked={lead.needs_intervention === true} disabled={busy} onChange={(e) => save({ needs_intervention: e.target.checked })} />Yes</label><InlineError text={error} /></div>;
 }
 const LongText = ({ text }) => <td className="max-w-56 whitespace-pre-line px-3 py-3 text-gray-700"><span className="line-clamp-3">{text || "—"}</span></td>;
 export default function DhruvaLeads() {
@@ -121,7 +117,7 @@ export default function DhruvaLeads() {
       .finally(() => setHotPending((current) => ({ ...current, [key]: false })));
   };
   const statsCards = dhruvaStatCards(stats, kpiCards);
-  const colCount = 17 + (showHot ? 1 : 0);
+  const colCount = 14 + (showHot ? 1 : 0);
   const whatsappStatuses = (options?.whatsapp_statuses ?? []).map((o) => String(o.value)).filter(Boolean);
   // Upload: admins only (docs section 13: Dhruva and view-only logins 403)
   const canUpload = isAdmin && canEdit;
@@ -150,10 +146,6 @@ export default function DhruvaLeads() {
           </div>
           {phonesOf(l).length > 0 && <div className="mt-2.5" onClick={stop}><PhoneList entries={phoneEntriesOf(l)} limit={2} name={l.name} label={`Phone numbers of ${l.name || "lead"}`} /></div>}
           <div className="mt-3 space-y-2.5 rounded-2xl bg-gray-50/80 p-2.5 text-xs" onClick={isAdmin ? stop : undefined}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-gray-500">WhatsApp status</span>
-              <span className="font-medium text-gray-800">{l.whatsapp_status || "—"}</span>
-            </div>
             <div>
               <p className="mb-1 text-gray-500">Update</p>
               {isAdmin ? <AdminStatus lead={l} onSaved={onSaved} /> : <span className={`inline-flex rounded-full px-2.5 py-1 font-medium ${l.update_status ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{statusLabel(l.update_status)}</span>}
@@ -171,8 +163,8 @@ export default function DhruvaLeads() {
       })}
       {!loading && !items.length && <li className="px-4 py-12 text-center text-sm text-gray-500">{count || filters.search ? "No leads match these filters." : "No Dhruva leads yet."}</li>}
     </ul>
-    <div className="hidden overflow-x-auto md:block"><table className={`w-full min-w-[2000px] text-sm transition-opacity ${loading && data ? "opacity-50" : ""}`}>
-      <thead className="border-y border-gray-100 bg-gray-50/80"><tr>{showHot && <th className={th} aria-label="Hot lead" />}<th className={th}>Sl. No</th><th className={th}>Name</th><th className={th}>Phone numbers</th><th className={th}>Event dates</th><th className={th}>Event type</th><th className={th}>Venue</th><th className={th}>Sent at</th><th className={th}>WhatsApp status</th><th className={th}>Response</th><th className={th}>Message sent</th><th className={th}>Follow-up notes</th><th className={th}>Comments</th><th className={th}>Needs intervention</th><th className={th}>Update</th><th className={`${th} text-right`}>Quoted amount</th><th className={`${th} text-right`}>Conversion amount</th><th className={th}>Follow-up date</th></tr></thead>
+    <div className="hidden overflow-x-auto md:block"><table className={`w-full min-w-[1500px] text-sm transition-opacity ${loading && data ? "opacity-50" : ""}`}>
+      <thead className="border-y border-gray-100 bg-gray-50/80"><tr>{showHot && <th className={th} aria-label="Hot lead" />}<th className={th}>Sl. No</th><th className={th}>Name</th><th className={th}>Phone numbers</th><th className={th}>Event dates</th><th className={th}>Event type</th><th className={th}>Venue</th><th className={th}>Update</th><th className={th}>Sent at</th><th className={th}>Message sent</th><th className={th}>Follow-up notes</th><th className={th}>Comments</th><th className={`${th} text-right`}>Quoted amount</th><th className={`${th} text-right`}>Conversion amount</th><th className={th}>Follow-up date</th></tr></thead>
       <tbody>
         {loading && !data && <SkeletonRows cols={colCount} label="Loading leads" />}
         {items.map((l) => <tr key={l.id} onClick={() => setOpenLead(l)} className="cursor-pointer border-b border-gray-50 align-top hover:bg-brand-50/40">
@@ -183,12 +175,11 @@ export default function DhruvaLeads() {
           <td className="px-3 py-3"><span className="block max-w-48">{eventDatesText(eventDatesOf(l))}</span></td>
           <td className="px-3 py-3">{l.event_type || "—"}<span className="mt-1 block w-fit rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">{l.source === "bulk_upload" ? "Bulk upload" : "Manual"}</span></td>
           <td className="px-3 py-3">{l.venue || "—"}</td>
-          <td className="whitespace-nowrap px-3 py-3 text-gray-600" title={`Sent ${dateTimeText(l.sent_at)} · Received ${dateTimeText(l.created_at)}`}>{dayText(l.sent_at)}</td>
-          <td className="px-3 py-3">{l.whatsapp_status || "—"}</td>
-          <LongText text={l.response} /><LongText text={l.message_sent} /><LongText text={l.follow_up_notes} />
-          {isAdmin ? <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}><AdminComments lead={l} onSaved={onSaved} /></td> : <LongText text={l.comments} />}
-          {isAdmin ? <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}><AdminIntervention lead={l} onSaved={onSaved} /></td> : <td className="px-3 py-3">{l.needs_intervention ? <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">Yes</span> : "No"}</td>}
+          {/* Update right after Venue, so it is seen without scrolling sideways */}
           {isAdmin ? <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}><AdminStatus lead={l} onSaved={onSaved} /></td> : <td className="px-3 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${l.update_status ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}>{statusLabel(l.update_status)}</span></td>}
+          <td className="whitespace-nowrap px-3 py-3 text-gray-600" title={`Sent ${dateTimeText(l.sent_at)} · Received ${dateTimeText(l.created_at)}`}>{dayText(l.sent_at)}</td>
+          <LongText text={l.message_sent} /><LongText text={l.follow_up_notes} />
+          {isAdmin ? <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}><AdminComments lead={l} onSaved={onSaved} /></td> : <LongText text={l.comments} />}
           {isAdmin ? <td className="whitespace-nowrap px-2 py-2 text-right" onClick={(e) => e.stopPropagation()}><AmountCell crm={l} save={saveAmount(l)} field="quoted_amount" label="Quoted amount" setQuotedDate={false} /></td> : <td className="whitespace-nowrap px-3 py-3 text-right">{rupeesText(l.quoted_amount)}</td>}
           {isAdmin ? <td className="whitespace-nowrap px-2 py-2 text-right" onClick={(e) => e.stopPropagation()}><AmountCell crm={l} save={saveAmount(l)} field="conversion_amount" label="Conversion amount" setQuotedDate={false} /></td> : <td className="whitespace-nowrap px-3 py-3 text-right">{rupeesText(l.conversion_amount)}</td>}
           {isAdmin ? <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}><AdminFollowUp lead={l} onSaved={onSaved} /></td> : <td className="whitespace-nowrap px-3 py-3">{dayText(l.follow_up_date)}</td>}

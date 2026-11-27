@@ -21,6 +21,7 @@ import {
   Star,
   TrendingUp,
   Users,
+  Coins,
 } from "lucide-react";
 import { getKocDashboard } from "../api/vendorToKoc.js";
 import { Kpi, Panel, SeriesToggles, toggled } from "../components/dashboard/DashboardParts.jsx";
@@ -210,6 +211,14 @@ export default function VendorToKocDashboard({ period, refreshKey, isAdmin }) {
               value={d?.kpis?.conversion_count ? shortRupees(d.kpis.conversion_total) : "—"}
               to={kpiLinks.conversion_amount}
               gradient="from-teal-500 to-teal-700"
+              loading={kpiLoading}
+            />
+            {/* Payout: commission on converted leads (Vendors → KOC: what the vendors earn) */}
+            <Kpi
+              icon={Coins}
+              label="Payout (vendors earn)"
+              value={d?.kpis?.payout_count ? shortRupees(d.kpis.payout_total) : "—"}
+              gradient="from-amber-400 to-amber-600"
               loading={kpiLoading}
             />
             <Kpi

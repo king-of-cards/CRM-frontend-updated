@@ -10,6 +10,8 @@ import HotLeadStar from "../leads/HotLeadStar.jsx";
 import LeadActivity from "../leads/LeadActivity.jsx";
 import AlsoInBadges from "../leads/AlsoInBadges.jsx";
 import { alsoInLine, alsoInPlaces } from "../leads/alsoIn.js";
+import PayoutField from "../leads/PayoutField.jsx";
+import { payoutText, payoutValues, percentError } from "../leads/payout.js";
 import { useAuth } from "../../auth/useAuth.js";
 import { flowLabels } from "../layout/leadFlow.js";
 import {
@@ -49,6 +51,7 @@ const formOf = (lead) => ({
   follow_up_date: lead?.follow_up_date ?? "",
   quoted_amount: lead?.quoted_amount != null ? String(lead.quoted_amount) : "",
   conversion_amount: lead?.conversion_amount != null ? String(lead.conversion_amount) : "",
+  payout_percent: lead?.payout_percent != null ? String(lead.payout_percent) : "",
 });
 const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const amountOf = (text) => {
@@ -61,6 +64,8 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
   const { canEdit, user } = useAuth();
   const flowName = flowLabels(user?.role === "vendor" ? user.vendor : null).vendors; // "Kraftyz → KOC" for a vendor
   const editable = isAdmin && canEdit;
+  // Vendor logins: they set their own commission (payout %) on their leads; the rest is KOC's
+  const vendorPayout = !isAdmin && canEdit && user?.role === "vendor";
   const [shown, setShown] = useState(false);
   const [form, setForm] = useState(() => formOf(lead));
   const [saving, setSaving] = useState(false);
@@ -121,6 +126,7 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
         ["Follow-up date", lead.follow_up_date ? dayText(lead.follow_up_date) : null],
         ["Quoted amount", lead.quoted_amount != null ? inr.format(lead.quoted_amount) : null],
         ["Conversion amount", lead.conversion_amount != null ? inr.format(lead.conversion_amount) : null],
+        ["Payout", payoutText(lead.payout_amount, lead.payout_percent, inr)],
         [
           "Last updated",
           lead.status_updated_at
@@ -145,11 +151,40 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
     if (form.follow_up_date !== before.follow_up_date) changes.follow_up_date = form.follow_up_date || null;
     if (form.quoted_amount !== before.quoted_amount) changes.quoted_amount = amountOf(form.quoted_amount);
     if (form.conversion_amount !== before.conversion_amount) changes.conversion_amount = amountOf(form.conversion_amount);
+    // Payout (the vendor's commission): admins only; sent again when the % or the conversion changes
+    if (isAdmin) {
+      if (percentError(form.payout_percent)) return setError(percentError(form.payout_percent));
+      const now = payoutValues(form.conversion_amount, form.payout_percent);
+      const was = payoutValues(before.conversion_amount, before.payout_percent);
+      if (now.payout_percent !== was.payout_percent || now.payout_amount !== was.payout_amount) Object.assign(changes, now);
+    }
     if (!Object.keys(changes).length) return setError("Nothing to save: no changes.");
     setSaving(true);
     setError("");
     try {
       const next = await updateKocLead(lead.id, changes);
+      setSaved(true);
+      setActivityRefreshKey((key) => key + 1);
+      onSaved(next);
+    } catch (err) {
+      const { fields, message } = kocErrors(err);
+      setError(message || Object.values(fields).join(" "));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Vendor logins: save only the payout % (the server works out the rupees)
+  async function savePayout(e) {
+    e.preventDefault();
+    if (percentError(form.payout_percent)) return setError(percentError(form.payout_percent));
+    const now = payoutValues(lead.conversion_amount, form.payout_percent);
+    const was = payoutValues(lead.conversion_amount, formOf(lead).payout_percent);
+    if (now.payout_percent === was.payout_percent) return setError("Nothing to save: no changes.");
+    setSaving(true);
+    setError("");
+    try {
+      const next = await updateKocLead(lead.id, { payout_percent: now.payout_percent });
       setSaved(true);
       setActivityRefreshKey((key) => key + 1);
       onSaved(next);
@@ -234,6 +269,9 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
               {lead.follow_up_date && (
                 <span className="rounded-full bg-white/15 px-2.5 py-1 ring-1 ring-white/20">Follow-up {dayText(lead.follow_up_date)}</span>
               )}
+              {lead.payout_amount != null && (
+                <span className="rounded-full bg-amber-300 px-2.5 py-1 font-semibold text-amber-950">Payout {inr.format(lead.payout_amount)}</span>
+              )}
             </div>
           )}
         </header>
@@ -301,6 +339,14 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
                   />
                 </label>
               </div>
+              <PayoutField
+                className="mt-4"
+                conversion={form.conversion_amount}
+                value={form.payout_percent}
+                onChange={(v) => set("payout_percent", v)}
+                fieldCls={fieldCls}
+                readOnly={!isAdmin}
+              />
               {error && (
                 <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">
                   {error}
@@ -319,7 +365,38 @@ export default function KocLeadPanel({ lead, isAdmin, people, onClose, onSaved, 
               </div>
             </form>
           )}
-          {!editable && error && (
+          {/* Vendor logins: their commission on this lead (a % of what KOC converted it for) */}
+          {vendorPayout && (
+            <form onSubmit={savePayout} className="rounded-3xl bg-white/80 p-5 ring-1 ring-gray-100 shadow-sm backdrop-blur">
+              <h3 className="text-sm font-semibold text-gray-900">Your commission</h3>
+              <p className="mt-1 text-xs text-gray-500">
+                {lead.conversion_amount != null
+                  ? `KOC converted this lead for ${inr.format(lead.conversion_amount)}. Enter your payout %.`
+                  : "You can add your payout % once KOC enters the conversion amount."}
+              </p>
+              <PayoutField
+                className="mt-4"
+                conversion={lead.conversion_amount != null ? String(lead.conversion_amount) : ""}
+                value={form.payout_percent}
+                onChange={(v) => set("payout_percent", v)}
+                fieldCls={fieldCls}
+              />
+              {error && (
+                <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">{error}</p>
+              )}
+              <div className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 flex items-center justify-end gap-3 rounded-b-3xl bg-white/95 px-5 py-3 backdrop-blur sm:static sm:m-0 sm:mt-4 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+                {saved && <span className="shrink-0 text-sm text-emerald-600">Saved ✓</span>}
+                <button
+                  type="submit"
+                  disabled={saving || lead.conversion_amount == null}
+                  className="min-h-11 flex-1 rounded-full bg-linear-to-r from-brand-600 to-brand-800 px-6 py-2 text-sm font-semibold text-white shadow-md shadow-brand-700/25 transition hover:-translate-y-0.5 disabled:opacity-60 sm:min-h-0 sm:flex-none"
+                >
+                  {saving ? "Saving…" : "Save payout"}
+                </button>
+              </div>
+            </form>
+          )}
+          {!editable && !vendorPayout && error && (
             <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">
               {error}
             </p>

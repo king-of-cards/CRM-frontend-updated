@@ -6,6 +6,8 @@ import { toggleHotOptimistically } from "./hotLeadToggle.js";
 import DateInput from "../shared/DateInput.jsx";
 import { formatDateTime, formatDay, personName } from "../shared/dates.js";
 import { copyChanges, copyForm, copyOf, copySaveOptions } from "./leadVendors.js";
+import PayoutField from "./PayoutField.jsx";
+import { payoutText, percentError } from "./payout.js";
 
 // One vendor's copy of a lead's CRM details (docs section 19): Update, follow-up date, notes and
 // the amounts, with its own Save. The save changes only this vendor's copy: admins send
@@ -28,6 +30,7 @@ function ReadOnlyCopy({ copy }) {
     ["Follow-up date", formatDay(copy.follow_up_date)],
     ["Quoted amount", copy.quoted_amount != null ? inr.format(copy.quoted_amount) : null],
     ["Conversion amount", copy.conversion_amount != null ? inr.format(copy.conversion_amount) : null],
+    ["Payout", payoutText(copy.payout_amount, copy.payout_percent, inr)],
     ["Notes", copy.notes],
   ].filter(([, v]) => v != null && String(v).trim() !== "");
   return (
@@ -77,6 +80,14 @@ export default function VendorCopyCard({ copy, source, leadKey, context = {}, is
   async function save(e) {
     e.preventDefault();
     const changes = copyChanges(current, form);
+    // Payout is set by admins only (the server works it out again when a vendor changes the conversion amount)
+    if (!isAdmin) {
+      delete changes.payout_percent;
+      delete changes.payout_amount;
+    } else if (percentError(form.payout_percent)) {
+      setError(percentError(form.payout_percent));
+      return;
+    }
     if (!Object.keys(changes).length) {
       setError("Nothing to save: no changes.");
       return;
@@ -133,6 +144,7 @@ export default function VendorCopyCard({ copy, source, leadKey, context = {}, is
               <input inputMode="numeric" value={form.conversion_amount} onChange={(e) => set("conversion_amount", e.target.value.replace(/[^\d,]/g, ""))} placeholder="e.g. 40000" className={`mt-1.5 ${fieldCls}`} />
             </label>
           </div>
+          <PayoutField conversion={form.conversion_amount} value={form.payout_percent} onChange={(v) => set("payout_percent", v)} fieldCls={fieldCls} readOnly={!isAdmin} />
           <label className="block">
             <span className="text-xs font-medium text-gray-600">Notes</span>
             <textarea rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Calls, follow-ups, anything useful…" className={`mt-1.5 resize-y ${fieldCls}`} />

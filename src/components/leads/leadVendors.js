@@ -5,7 +5,10 @@
 import { NAMED_VENDOR_SOURCES } from "./crmAccess.js";
 
 // The fields each vendor's copy has (saved with PUT …/crm, ?vendor=<id> for admins)
-export const COPY_FIELDS = ["update_status", "follow_up_date", "notes", "quoted_amount", "quoted_date", "conversion_amount"];
+import { payoutValues } from "./payout.js";
+
+// payout_percent / payout_amount: the commission (admins only; the card hides the box for vendors)
+export const COPY_FIELDS = ["update_status", "follow_up_date", "notes", "quoted_amount", "quoted_date", "conversion_amount", "payout_percent", "payout_amount"];
 
 // The copies this login may see: everyone's for admins and viewers (seesAll), else only the copy
 // of the login's own vendor (vendorId; the API sends only that one anyway)
@@ -44,6 +47,7 @@ export function copyForm(copy) {
     quoted_amount: copy?.quoted_amount != null ? String(copy.quoted_amount) : "",
     quoted_date: copy?.quoted_date ?? "",
     conversion_amount: copy?.conversion_amount != null ? String(copy.conversion_amount) : "",
+    payout_percent: copy?.payout_percent != null ? String(copy.payout_percent) : "",
   };
 }
 
@@ -59,6 +63,7 @@ function apiValues(form) {
     quoted_amount: amount(form.quoted_amount),
     quoted_date: form.quoted_date || null,
     conversion_amount: amount(form.conversion_amount),
+    ...payoutValues(form.conversion_amount, form.payout_percent),
   };
 }
 

@@ -523,6 +523,10 @@ export function LeadTable({
       .finally(() => setHotPending((current) => ({ ...current, [key]: false })));
   };
   const all = [...columns, ...trailing];
+  // Update and "Other wedding services" swap places (Spin), so Update is near the start of the row
+  const SWAP_WITH_UPDATE = "other_services";
+  const swapCol = columns.find((c) => c.id === SWAP_WITH_UPDATE);
+  const swapId = swapCol ? SWAP_WITH_UPDATE : null;
   const colSpan = 2 + all.length + 4 + (showHot ? 1 : 0);
   const th =
     "whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500";
@@ -700,10 +704,10 @@ export function LeadTable({
                 key={c.id}
                 className={`${th} ${c.align === "right" ? "text-right" : ""}`}
               >
-                {c.header}
+                {c.id === swapId ? "Update" : c.header}
               </th>
             ))}
-            <CrmHeaderCells className={th} />
+            <CrmHeaderCells className={th} swapHeader={swapCol?.header} />
             {trailing.map((c) => (
               <th
                 key={c.id}
@@ -755,20 +759,32 @@ export function LeadTable({
                       name={id.name}
                     />
                   </td>
-                  {columns.map((col) => (
-                    <td
-                      key={col.id}
-                      className={`whitespace-nowrap px-4 py-3 ${col.align === "right" ? "text-right" : ""}`}
-                    >
-                      {col.render(row) ?? (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </td>
-                  ))}
+                  {columns.map((col) =>
+                    col.id === swapId ? (
+                      // Update sits here (in place of Other wedding services), so it's seen without scrolling
+                      <td key={col.id} className="whitespace-nowrap px-4 py-3" onClick={(event) => event.stopPropagation()}>
+                        {crmOf(row) ? (
+                          <UpdateCell crm={crmOf(row)} save={saveFor(row)} readOnly={Boolean(seesAll) && isMultiVendor(crmOf(row))} />
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    ) : (
+                      <td
+                        key={col.id}
+                        className={`whitespace-nowrap px-4 py-3 ${col.align === "right" ? "text-right" : ""}`}
+                      >
+                        {col.render(row) ?? (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    ),
+                  )}
                   <InlineCrmCells
                     crm={crmOf(row)}
                     save={saveFor(row)}
                     className="px-4 py-3"
+                    {...(swapCol ? { swapCell: swapCol.render(row) } : {})}
                   />
                   {trailing.map((col) => (
                     <td

@@ -84,7 +84,7 @@ export function addKocLead(lead) {
   return apiRequest(`${BASE}/leads`, { method: "POST", body: lead });
 }
 
-// PATCH /leads/{id} (admin): any of update_status, additional_comments, follow_up_date
+// PATCH /leads/{id}: admins any of update_status, additional_comments, follow_up_date (vendor logins: only payout_percent on their own leads)
 export function updateKocLead(id, changes) {
   return apiRequest(`${BASE}/leads/${encodeURIComponent(id)}`, { method: "PATCH", body: changes });
 }

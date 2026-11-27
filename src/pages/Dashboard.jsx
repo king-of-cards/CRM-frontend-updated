@@ -25,6 +25,7 @@ import {
   Sparkles,
   Target,
   TrendingUp,
+  Coins,
 } from "lucide-react";
 import DashboardLayout from "../components/layout/DashboardLayout.jsx";
 import WelcomeIntro from "../components/layout/WelcomeIntro.jsx";
@@ -528,6 +529,15 @@ export default function Dashboard() {
                 to={single?.conversion}
                 value={o?.kpis?.conversion_count ? short(o.kpis.conversion_total) : "—"}
                 gradient="from-sky-500 to-brand-700"
+                loading={kpiLoading}
+              />
+              {/* Payout: commission on converted leads (KOC → Vendors: what KOC earns). kpis.payout_total /
+                  payout_count from the backend; "—" until a lead has one */}
+              <Kpi
+                icon={Coins}
+                label="Payout (KOC earns)"
+                value={o?.kpis?.payout_count ? short(o.kpis.payout_total) : "—"}
+                gradient="from-amber-400 to-amber-600"
                 loading={kpiLoading}
               />
               {/* AOV: conversion_amount_total ÷ conversion_amount_count; opens exactly those leads */}

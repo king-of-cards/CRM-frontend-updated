@@ -35,6 +35,8 @@ const initials = (name) =>
 // White rounded cards, the same as the Spin lead panel's "Lead status" card
 const CARD = "space-y-4 rounded-3xl bg-white/80 p-5 ring-1 ring-gray-100 shadow-sm backdrop-blur";
 const CHIP = "rounded-full bg-white/15 px-2.5 py-1 ring-1 ring-white/20";
+// The panel no longer shows Response (removed on request); the field itself is unchanged
+const PANEL_KOC_FIELDS = KOC_FIELDS.filter((f) => f.key !== "response");
 
 // Dhruva → KOC lead (docs section 13). Lead fields (name … venue): admins and Dhruva logins edit.
 // KOC fields (WhatsApp status … follow-up date): admins edit; read-only for everyone else.
@@ -132,7 +134,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
           .toLowerCase()}-${new Date().toISOString().slice(0, 10)}.pdf`,
         sections: [
           { title: "Lead details", rows: [...LEAD_FIELDS.map((f) => [f.label, dhruvaValueText(f, lead)]), ["Sent at", dateTimeText(lead.sent_at)], ["Received", dateTimeText(lead.created_at)]] },
-          { title: "KOC", rows: KOC_FIELDS.map((f) => [f.label, dhruvaValueText(f, lead)]) },
+          { title: "KOC", rows: PANEL_KOC_FIELDS.map((f) => [f.label, dhruvaValueText(f, lead)]) },
           { title: "Also in", rows: alsoInPlaces(lead.also_in).map((p) => [p.label, alsoInLine(p).slice(p.label.length + 2)]) },
         ],
       });
@@ -196,7 +198,7 @@ export default function DhruvaLeadPanel({ lead, isAdmin, onClose, onSaved, onArc
         {/* KOC details first: the lead's status, like "Lead status" in the Spin panel */}
         <section className={CARD} aria-label="KOC details">
           <h3 className="text-sm font-semibold text-gray-900">KOC details{!access.editAdmin && <span className="ml-2 text-xs font-normal text-gray-500">Read only</span>}</h3>
-          {access.editAdmin ? inputs(KOC_FIELDS) : <DhruvaFieldList fields={KOC_FIELDS} lead={lead} label="KOC details, read only" />}
+          {access.editAdmin ? inputs(PANEL_KOC_FIELDS) : <DhruvaFieldList fields={PANEL_KOC_FIELDS} lead={lead} label="KOC details, read only" />}
           {(lead.status_updated_by_name || lead.status_updated_at) && (
             <p className="text-right text-xs text-gray-500">
               Last updated by {lead.status_updated_by_name || "—"}{lead.status_updated_at ? ` · ${dateTimeText(lead.status_updated_at)}` : ""}

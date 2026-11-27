@@ -288,12 +288,14 @@ export function AmountCell({ crm, save, field, label, setQuotedDate = true, read
   );
 }
 
-export function CrmHeaderCells({ className }) {
+// swapHeader / swapCell: shown where the Update column normally is, when the page moves Update
+// further left (Spin: Update swaps places with "Other wedding services")
+export function CrmHeaderCells({ className, swapHeader }) {
   const { seesAll } = useAuth(); // vendor logins don't get the Assigned to column (admins and viewers do)
   return (
     <>
       {seesAll && <th className={className}>Assigned to</th>}
-      <th className={className}>Update</th>
+      <th className={className}>{swapHeader ?? "Update"}</th>
       <th className={`${className} text-right`}>Quoted amount</th>
       <th className={`${className} text-right`}>Conversion amount</th>
     </>
@@ -301,15 +303,19 @@ export function CrmHeaderCells({ className }) {
 }
 
 // The four cells for one row. save(changes) -> Promise
-export function InlineCrmCells({ crm, save, className = "px-4 py-3" }) {
+export function InlineCrmCells({ crm, save, className = "px-4 py-3", swapCell }) {
   const { seesAll } = useAuth(); // vendor logins don't get the Assigned to column (admins and viewers do)
   const several = Boolean(seesAll) && isMultiVendor(crm); // vendor logins only ever see their own copy
   if (!crm) {
-    return (seesAll ? [0, 1, 2, 3] : [1, 2, 3]).map((i) => (
-      <td key={i} className={`${className} text-gray-300`}>
-        —
-      </td>
-    ));
+    return (seesAll ? [0, 1, 2, 3] : [1, 2, 3]).map((i) =>
+      i === 1 && swapCell !== undefined ? (
+        <td key={i} className={`whitespace-nowrap ${className}`}>{swapCell ?? <span className="text-gray-300">—</span>}</td>
+      ) : (
+        <td key={i} className={`${className} text-gray-300`}>
+          —
+        </td>
+      ),
+    );
   }
   return (
     <>
@@ -319,7 +325,7 @@ export function InlineCrmCells({ crm, save, className = "px-4 py-3" }) {
         </td>
       )}
       <td className={`whitespace-nowrap ${className}`}>
-        <UpdateCell crm={crm} save={save} readOnly={several} />
+        {swapCell !== undefined ? swapCell ?? <span className="text-gray-300">—</span> : <UpdateCell crm={crm} save={save} readOnly={several} />}
       </td>
       <td className={`whitespace-nowrap text-right ${className}`}>
         <AmountCell crm={crm} save={save} field="quoted_amount" label="Quoted amount" readOnly={several} />

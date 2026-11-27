@@ -5,6 +5,8 @@ const FIELD_LABELS = {
   update_status: "Update",
   quoted_amount: "Quoted amount",
   conversion_amount: "Conversion amount",
+  payout_percent: "Payout %",
+  payout_amount: "Payout",
   quoted_date: "Quoted date",
   follow_up_date: "Follow-up date",
   additional_comments: "Additional comments",
@@ -53,7 +55,8 @@ function valueText(field, value, vendorName) {
   if (field === "update_status" && (value == null || value === "")) return "Pending";
   if (value == null || value === "") return "—";
   if (field === "update_status") return statusLabel(value === "pending" ? null : value);
-  if (field === "quoted_amount" || field === "conversion_amount") {
+  if (field === "payout_percent") return `${Number(value)}%`;
+  if (field === "quoted_amount" || field === "conversion_amount" || field === "payout_amount") {
     const amount = Number(value);
     return Number.isFinite(amount) ? inr.format(amount) : String(value);
   }

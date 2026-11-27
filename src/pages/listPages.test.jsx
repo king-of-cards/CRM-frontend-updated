@@ -335,19 +335,24 @@ describe("KOC → Dhruva: Bulk upload button (docs section 18: admins only)", ()
 });
 
 describe("Dhruva → KOC list (docs section 13)", () => {
-  test("the new columns; event dates; Sent at; no Additional comments, List or old Date column", () => {
+  test("the columns; event dates; Sent at; no WhatsApp status, Response or Needs intervention columns", () => {
     mode = "data";
     memory.clear();
     const html = render("dhruva", "admin");
-    for (const text of ["Event dates", "Sent at", "WhatsApp status", "Response", "Message sent", "Follow-up notes", "Comments", "Needs intervention", "Quoted amount", "Conversion amount", "Follow-up date"])
+    for (const text of ["Event dates", "Update", "Sent at", "Message sent", "Follow-up notes", "Comments", "Quoted amount", "Conversion amount", "Follow-up date"])
       expect(html).toContain(`>${text}</th>`);
+    // Removed on request: these three columns are gone from the list (the fields still exist)
+    for (const text of ["WhatsApp status", "Response", "Needs intervention"]) expect(html).not.toContain(`>${text}</th>`);
+    // Update comes right after Venue, so it's on screen without scrolling sideways
+    expect(html.indexOf(">Update</th>")).toBeLessThan(html.indexOf(">Sent at</th>"));
+    expect(html.indexOf(">Venue</th>")).toBeLessThan(html.indexOf(">Update</th>"));
     expect(html).toContain("20 Dec 2026, 21 Dec 2026");
     expect(html).toContain(">Phone numbers</th>");
     expect(html).toContain("+919845012345");
     expect(html).toContain("+919845012399"); // every number, not only the first
     expect(html).not.toContain("Alt:");
     expect(html).toContain("19 Nov 2026"); // sent_at
-    for (const text of ["Delivered", "Asked for samples", "Catalogue", "Call Friday"]) expect(html).toContain(text);
+    for (const text of ["Catalogue", "Call Friday"]) expect(html).toContain(text);
     expect(html).not.toContain("Additional comments");
     expect(html).not.toContain(">List</th>");
     expect(html).not.toContain(">Received</th>");
@@ -373,7 +378,7 @@ describe("Dhruva → KOC list (docs section 13)", () => {
     memory.clear();
     const admin = render("dhruva", "admin");
     expect(admin).toContain('aria-label="Comments"');
-    expect(admin).toContain('aria-label="Needs Dhruva intervention"');
+    expect(admin).toContain('aria-label="Update status"');
     const dhruva = render("dhruva", "dhruva");
     expect(dhruva).not.toContain('aria-label="Comments"');
     expect(dhruva).not.toContain('aria-label="Update status"');

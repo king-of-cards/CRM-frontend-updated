@@ -44,6 +44,13 @@ export default function DhruvaLeadsDashboard({ period, refreshKey }) {
   const statusBars = byStatus.map((x) => ({ ...x, label: x.label }));
   const byTypes = (data?.by_event_type ?? []).map((x) => ({ ...x, label: x.value, filters: { event_type: [x.value] } }));
   const venues = (data?.top_venues ?? []).map((x) => ({ ...x, label: x.value, filters: { venue: x.value } }));
+  // The small totals beside Top venues: every lead with a venue and every distinct venue. The backend's
+  // venue_leads_total / venue_count cover all venues; until it sends them, add up the listed ones.
+  const venueTotals = {
+    leads: data?.venue_leads_total ?? venues.reduce((sum, v) => sum + (Number(v.count) || 0), 0),
+    venues: data?.venue_count ?? venues.length,
+    partial: data?.venue_leads_total == null && venues.length > 0,
+  };
   const months = (data?.events_by_month ?? []).map((x) => ({ ...x, label: chartDate(x.month) }));
   const cards = dashboardKpiCards(data?.kpis, period);
   const kpiIcons = [Inbox, Clock3, ThumbsUp, ThumbsUp, IndianRupee, Send, BadgeCheck, IndianRupee, CalendarDays, Flame, Wallet];
@@ -65,7 +72,24 @@ export default function DhruvaLeadsDashboard({ period, refreshKey }) {
         <div className="h-72">{kpiLoading ? <ChartSkeleton /> : statusBars.some((x) => x.count) ? <LazyCharts>{({ Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis }) => (<ResponsiveContainer width="100%" height="100%"><BarChart data={statusBars} layout="vertical" margin={{ top: 8, right: 16, left: 18, bottom: 0 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} /><XAxis type="number" allowDecimals={false} /><YAxis type="category" dataKey="label" width={125} tick={{ fontSize: 11 }} /><Tooltip /><Bar dataKey="count" radius={[0, 5, 5, 0]}>{statusBars.map((x, i) => <Cell key={x.key} fill={COLORS[i % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer>)}</LazyCharts> : <p className="pt-10 text-center text-sm text-gray-500">No updates yet.</p>}</div>
       </Panel>
       <Panel title="Leads by event type"><LinkedBarList rows={byTypes} period={period} color="#8b5cf6" loading={kpiLoading} /></Panel>
-      <Panel title="Top venues"><LinkedBarList rows={venues} period={period} color="#0284c7" loading={kpiLoading} /></Panel>
+      <Panel
+        title="Top venues"
+        subtitle={venueTotals.partial ? "Totals are for the venues listed" : undefined}
+        right={
+          <div className="flex shrink-0 gap-2" aria-label="Venue totals">
+            <div className="rounded-xl bg-sky-50 px-3 py-1.5 text-right ring-1 ring-sky-100">
+              <p className="text-[11px] font-medium text-sky-700">Leads with a venue</p>
+              <p className="text-lg font-bold tabular-nums leading-tight text-sky-900">{kpiLoading ? "…" : num(venueTotals.leads)}</p>
+            </div>
+            <div className="rounded-xl bg-gray-50 px-3 py-1.5 text-right ring-1 ring-gray-100">
+              <p className="text-[11px] font-medium text-gray-600">Venues</p>
+              <p className="text-lg font-bold tabular-nums leading-tight text-gray-900">{kpiLoading ? "…" : num(venueTotals.venues)}</p>
+            </div>
+          </div>
+        }
+      >
+        <LinkedBarList rows={venues} period={period} color="#0284c7" loading={kpiLoading} />
+      </Panel>
       <Panel title="Events by month" subtitle={`${num(data?.no_event_date ?? data?.events_by_month?.no_event_date)} leads have no event date`}>
         <div className="h-64">{kpiLoading ? <ChartSkeleton /> : months.length ? <LazyCharts>{({ Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis }) => (<ResponsiveContainer width="100%" height="100%"><BarChart data={months} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={20} /><YAxis allowDecimals={false} tick={{ fontSize: 10 }} /><Tooltip /><Bar dataKey="count" fill="#f59e0b" radius={[5, 5, 0, 0]} /></BarChart></ResponsiveContainer>)}</LazyCharts> : <p className="pt-10 text-center text-sm text-gray-500">No events with a known date.</p>}</div>
       </Panel>
