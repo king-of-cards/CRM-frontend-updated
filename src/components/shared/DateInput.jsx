@@ -17,6 +17,9 @@ const DateInput = forwardRef(function DateInput({ onClick, picker = false, onCha
     <input
       {...props}
       ref={forwardedRef}
+      // onChange was taken out of props above (for the picker variant); pass it on here too, or the
+      // field ignores what's picked and every date stays empty
+      onChange={onChange}
       onClick={(event) => {
         const input = event.currentTarget;
         const clickedNativeIcon = event.nativeEvent.offsetX >= input.clientWidth - 36;
